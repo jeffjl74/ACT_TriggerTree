@@ -64,10 +64,13 @@ namespace ACT_Plugin
         //trigger macro file stuff
         string doFileName = "triggers.txt";         //macro file name
         //menu tooltips
-        string invalidTriggerText = "There are characters in the trigger or category that do not work in a macro";
-        string validTriggerText = "Make a triggers.txt macro to share trigger with the ";
-        string invalidCategoryText = "All triggers are disabled or contain characters that do not work in a macro";
-        string validCategoryText = "Make a triggers.txt macro to share all valid enabled triggers with the ";
+        string invalidTriggerText = "There are characters in the trigger or category that do not work in a macro file: ";
+        string validTriggerText = "Make a triggers.txt macro file to share trigger with the ";
+        string invalidCategoryText = "All triggers are disabled or contain characters that do not work in a macro file: ";
+        string validCategoryText = "Make a triggers.txt macro file to share all valid enabled triggers with the ";
+        //these are the characters that make a macro file fail to work
+        List<char> invalidMacroChars = new List<char> { '<', '>', '\'', '\"', ';' };
+        List<string> invalidMacroStrings = new List<string> { "\\#" };
 
         Label lblStatus;                            // The status label that appears in ACT's Plugin tab
 
@@ -1184,7 +1187,8 @@ namespace ACT_Plugin
                                 {
                                     invalid++;
                                     MessageBox.Show(this, "Trigger:\n\n" + trigger.Key
-                                        + "\n\ncannot be added to the macro since it contains quotes or backslashes.",
+                                        + "\n\ncannot be added to the macro since it contains disallowed character(s): "
+                                        + string.Join(" ", invalidMacroChars),
                                         "Incompatible characters");
                                 }
                                 else
@@ -1255,8 +1259,8 @@ namespace ACT_Plugin
                     {
                         groupShareCategoryMacroMenuItem.Enabled = false;
                         raidShareCategoryMacroMenuItem.Enabled = false;
-                        groupShareCategoryMacroMenuItem.ToolTipText = invalidCategoryText;
-                        raidShareCategoryMacroMenuItem.ToolTipText = invalidCategoryText;
+                        groupShareCategoryMacroMenuItem.ToolTipText = invalidCategoryText + string.Join(" ", invalidMacroChars) + string.Join(" ", invalidMacroStrings);
+                        raidShareCategoryMacroMenuItem.ToolTipText = invalidCategoryText + string.Join(" ", invalidMacroChars) + string.Join(" ", invalidMacroStrings);
                     }
                 }
             }
@@ -1407,9 +1411,15 @@ namespace ACT_Plugin
             if (this.Visible)
             {
                 //sync with outside changes if our tab becomes visible
-                if (string.IsNullOrEmpty(zoneName))
-                    zoneName = ActGlobals.oFormActMain.CurrentZone;
                 PopulateCatsTree();
+                if (string.IsNullOrEmpty(zoneName))
+                {
+                    //we've never seen a zone change
+                    // let's try to use wherever ACT thinks we are
+                    zoneName = ActGlobals.oFormActMain.CurrentZone;
+                    if(!string.IsNullOrEmpty(zoneName))
+                        UpdateCategoryColors(ActGlobals.oFormActMain, treeViewCats, true);
+                }
                 UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
                 if (initialVisible)
                 {
@@ -1745,7 +1755,7 @@ namespace ACT_Plugin
             if (trigger != null)
             {
                 StringBuilder sb = new StringBuilder();
-                sb.Append("<Trigger R='" + trigger.ShortRegexString + "'");
+                sb.Append("<Trigger R='" + trigger.ShortRegexString.Replace("\\\\","\\\\\\\\") + "'");
                 sb.Append(" SD='" + trigger.SoundData + "'");
                 sb.Append(" ST='" + trigger.SoundType.ToString() + "'");
                 sb.Append(" CR='" + (trigger.RestrictToCategoryZone ? "T" : "F") + "'");
@@ -1762,19 +1772,57 @@ namespace ACT_Plugin
 
         private bool IsInvalidMacroTrigger(CustomTrigger trigger)
         {
-            //these are the characters that make a macro file fail to work
-            return trigger.ShortRegexString.Contains("'")
-                || trigger.ShortRegexString.Contains("\"")
-                || trigger.ShortRegexString.Contains("\\")
-                || trigger.ShortRegexString.Contains("<")
-                || trigger.ShortRegexString.Contains(">")
-                || trigger.ShortRegexString.Contains(";")
-                || trigger.Category.Contains("'")
-                || trigger.Category.Contains("\"")
-                || trigger.SoundData.Contains("'")
-                || trigger.SoundData.Contains("\"")
-                || trigger.TimerName.Contains("\'")
-                || trigger.TimerName.Contains("\"");
+            bool result = false; //assume OK = not invalid
+            foreach(char c in invalidMacroChars)
+            {
+                if (trigger.ShortRegexString.Contains(c.ToString()))
+                {
+                    result = true;
+                    break;
+                }
+                if (trigger.Category.Contains(c.ToString()))
+                {
+                    result = true;
+                    break;
+                }
+                if (trigger.SoundData.Contains(c.ToString()))
+                {
+                    result = true;
+                    break;
+                }
+                if (trigger.SoundData.Contains(c.ToString()))
+                {
+                    result = true;
+                    break;
+                }
+            }
+            if(result == false)
+            {
+                foreach(string s in invalidMacroStrings)
+                {
+                    if (trigger.ShortRegexString.Contains(s))
+                    {
+                        result = true;
+                        break;
+                    }
+                    if (trigger.Category.Contains(s))
+                    {
+                        result = true;
+                        break;
+                    }
+                    if (trigger.SoundData.Contains(s))
+                    {
+                        result = true;
+                        break;
+                    }
+                    if (trigger.SoundData.Contains(s))
+                    {
+                        result = true;
+                        break;
+                    }
+                }
+            }
+            return result;
         }
 
         private string EncodeXml_ish(string text)
@@ -2073,9 +2121,9 @@ namespace ACT_Plugin
                     if (IsInvalidMacroTrigger(trigger))
                     {
                         raidsayShareMacroToolStripMenuItem.Enabled = false;
-                        raidsayShareMacroToolStripMenuItem.ToolTipText = invalidTriggerText;
+                        raidsayShareMacroToolStripMenuItem.ToolTipText = invalidTriggerText + string.Join(" ", invalidMacroChars) + string.Join(" ", invalidMacroStrings);
                         groupsayShareMacroToolStripMenuItem.Enabled = false;
-                        groupsayShareMacroToolStripMenuItem.ToolTipText = invalidTriggerText;
+                        groupsayShareMacroToolStripMenuItem.ToolTipText = invalidTriggerText + string.Join(" ", invalidMacroChars) + string.Join(" ", invalidMacroStrings);
                     }
                     else
                     {
