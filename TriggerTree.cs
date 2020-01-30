@@ -1084,7 +1084,18 @@ namespace ACT_Plugin
         private void copyZoneNameToClipboardToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (clickedCategoryNode != null)
-                Clipboard.SetText(clickedCategoryNode.Text);
+            {
+                try
+                {
+                    Clipboard.SetText(clickedCategoryNode.Text);
+                }
+                catch
+                {
+                    TraySlider traySlider = new TraySlider();
+                    traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
+                    traySlider.ShowTraySlider("Copy to clipboard failed", "Clipboard Failed");
+                }
+            }
         }
 
         private void textBoxCatScroll_TextChanged(object sender, EventArgs e)
@@ -1586,7 +1597,6 @@ namespace ACT_Plugin
                     formEditTrigger.Show(this);
                     PositionChildForm(formEditTrigger, e);
                 }
-
             }
         }
 
@@ -1729,12 +1739,24 @@ namespace ACT_Plugin
 
         private void copyAsShareableXMLToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            CustomTrigger trigger;
+            CustomTrigger trigger = null;
             if (selectedTriggerNode.Tag != null)
                 trigger = selectedTriggerNode.Tag as CustomTrigger;
             else
                 trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
-            Clipboard.SetText(EncodeTrigger(trigger));
+            if (trigger != null)
+            {
+                try
+                {
+                    Clipboard.SetText(EncodeTrigger(trigger));
+                }
+                catch
+                {
+                    TraySlider traySlider = new TraySlider();
+                    traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
+                    traySlider.ShowTraySlider("Copy to trigger to clipboard failed", "Clipboard Failed");
+                }
+            }
         }
 
         private string EncodeTrigger(CustomTrigger trigger)
@@ -1889,7 +1911,16 @@ namespace ACT_Plugin
                 trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
             string encoded = EncodeTrigger(trigger);
             string doubled = EncodeXml_ish(encoded);
-            Clipboard.SetText(doubled);
+            try
+            {
+                Clipboard.SetText(doubled);
+            }
+            catch
+            {
+                TraySlider traySlider = new TraySlider();
+                traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
+                traySlider.ShowTraySlider("Copy to clipboard failed", "Clipboard Failed");
+            }
         }
 
         private void expandAllToolStripMenuItem_Click(object sender, EventArgs e)
@@ -2429,14 +2460,17 @@ namespace ACT_Plugin
 
         private void buttonPaste_Click(object sender, EventArgs e)
         {
-            string text = Clipboard.GetText();
-            Match match = parsePaste.Match(text);
-            if (match.Success)
+            if (Clipboard.ContainsText())
             {
-                text = match.Groups["expr"].Value.Replace("\\", "\\\\");
+                string text = Clipboard.GetText();
+                Match match = parsePaste.Match(text);
+                if (match.Success)
+                {
+                    text = match.Groups["expr"].Value.Replace("\\", "\\\\");
+                }
+                textBoxRegex.Text = text;
+                textBoxRegex.SelectAll();
             }
-            textBoxRegex.Text = text;
-            textBoxRegex.SelectAll();
         }
 
         private void buttonFindTimer_Click(object sender, EventArgs e)
