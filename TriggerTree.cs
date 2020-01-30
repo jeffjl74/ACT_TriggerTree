@@ -1412,15 +1412,24 @@ namespace ACT_Plugin
             {
                 //sync with outside changes if our tab becomes visible
                 PopulateCatsTree();
+
                 if (string.IsNullOrEmpty(zoneName))
                 {
                     //we've never seen a zone change
                     // let's try to use wherever ACT thinks we are
                     zoneName = ActGlobals.oFormActMain.CurrentZone;
-                    if(!string.IsNullOrEmpty(zoneName))
-                        UpdateCategoryColors(ActGlobals.oFormActMain, treeViewCats, true);
+                    if (!string.IsNullOrEmpty(zoneName))
+                    {
+                        TreeNode[] nodes = treeViewCats.Nodes.Find(zoneName, false);
+                        if (nodes.Length > 0)
+                        {
+                            treeViewCats.SelectedNode = nodes[0];
+                            treeViewCats.SelectedNode.EnsureVisible();
+                        }
+                    }
                 }
                 UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
+
                 if (initialVisible)
                 {
                     //set the splitter only on the first time shown
