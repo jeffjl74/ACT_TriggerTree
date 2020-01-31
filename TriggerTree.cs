@@ -481,10 +481,10 @@ namespace ACT_Plugin
             this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label1.Location = new System.Drawing.Point(5, 3);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(510, 13);
+            this.label1.Size = new System.Drawing.Size(567, 13);
             this.label1.TabIndex = 0;
-            this.label1.Text = "Right-click a category or trigger for menu choices. Expand a trigger and right-cl" +
-    "ick to affect just those fields.";
+            this.label1.Text = "Right-click a category or trigger for menu choices. Expand a trigger to access ch" +
+    "eckboxes and other right-click options.";
             // 
             // panel1
             // 
