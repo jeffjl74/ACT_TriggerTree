@@ -54,6 +54,7 @@ namespace ACT_Plugin
 
         TreeNode selectedTriggerNode = null;        //node selected via mouse click
         TreeNode clickedCategoryNode = null;
+        Point trigMouseDown;                        //screen location for the trigger tree context menu
 
         string keyLastFound = string.Empty;         //for Find Next trigger
         string catLastFound = string.Empty;         //for find next cat
@@ -78,6 +79,8 @@ namespace ACT_Plugin
         SettingsSerializer xmlSettings;
         private ToolStripSeparator toolStripSeparator5;
         private ToolStripMenuItem deleteTriggerToolStripMenuItem;
+        private ToolStripMenuItem editTriggerToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator6;
 
         #region Designer Created Code (Avoid editing)
 
@@ -120,9 +123,12 @@ namespace ACT_Plugin
             this.buttonFindNext = new System.Windows.Forms.Button();
             this.textBoxTrigFind = new System.Windows.Forms.TextBox();
             this.textBoxSplitterLoc = new System.Windows.Forms.TextBox();
-            this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.contextMenuStripTrig = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.copyAsShareableXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.copyAsDoubleEncodedXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator5 = new System.Windows.Forms.ToolStripSeparator();
+            this.editTriggerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.deleteTriggerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.playAlertSoundToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
@@ -131,10 +137,9 @@ namespace ACT_Plugin
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.expandAllToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.collapseAllToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator5 = new System.Windows.Forms.ToolStripSeparator();
-            this.deleteTriggerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
-            this.contextMenuStrip2 = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.contextMenuStripCat = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.copyZoneNameToClipboardToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.deleteEntireCategoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
@@ -149,8 +154,8 @@ namespace ACT_Plugin
             this.splitContainer1.SuspendLayout();
             this.panel3.SuspendLayout();
             this.panel2.SuspendLayout();
-            this.contextMenuStrip1.SuspendLayout();
-            this.contextMenuStrip2.SuspendLayout();
+            this.contextMenuStripTrig.SuspendLayout();
+            this.contextMenuStripCat.SuspendLayout();
             this.panel1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -180,7 +185,7 @@ namespace ACT_Plugin
             this.treeViewCats.Location = new System.Drawing.Point(0, 30);
             this.treeViewCats.Name = "treeViewCats";
             this.treeViewCats.Size = new System.Drawing.Size(217, 530);
-            this.treeViewCats.TabIndex = 0;
+            this.treeViewCats.TabIndex = 1;
             this.treeViewCats.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.treeViewCats_AfterSelect);
             this.treeViewCats.MouseDown += new System.Windows.Forms.MouseEventHandler(this.treeViewCats_MouseDown);
             // 
@@ -194,7 +199,7 @@ namespace ACT_Plugin
             this.panel3.Location = new System.Drawing.Point(0, 0);
             this.panel3.Name = "panel3";
             this.panel3.Size = new System.Drawing.Size(217, 30);
-            this.panel3.TabIndex = 1;
+            this.panel3.TabIndex = 0;
             // 
             // label3
             // 
@@ -240,11 +245,10 @@ namespace ACT_Plugin
             this.treeViewTrigs.Name = "treeViewTrigs";
             this.treeViewTrigs.ShowNodeToolTips = true;
             this.treeViewTrigs.Size = new System.Drawing.Size(434, 530);
-            this.treeViewTrigs.TabIndex = 0;
+            this.treeViewTrigs.TabIndex = 1;
             this.treeViewTrigs.BeforeCheck += new System.Windows.Forms.TreeViewCancelEventHandler(this.treeViewTrigs_BeforeCheck);
             this.treeViewTrigs.AfterCheck += new System.Windows.Forms.TreeViewEventHandler(this.treeViewTrigs_AfterCheck);
             this.treeViewTrigs.KeyDown += new System.Windows.Forms.KeyEventHandler(this.treeViewTrigs_KeyDown);
-            this.treeViewTrigs.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.treeViewTrigs_MouseDoubleClick);
             this.treeViewTrigs.MouseDown += new System.Windows.Forms.MouseEventHandler(this.treeViewTrigs_MouseDown);
             // 
             // panel2
@@ -257,7 +261,7 @@ namespace ACT_Plugin
             this.panel2.Location = new System.Drawing.Point(0, 0);
             this.panel2.Name = "panel2";
             this.panel2.Size = new System.Drawing.Size(434, 30);
-            this.panel2.TabIndex = 3;
+            this.panel2.TabIndex = 0;
             // 
             // label4
             // 
@@ -265,7 +269,7 @@ namespace ACT_Plugin
             this.label4.Location = new System.Drawing.Point(4, 8);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(30, 13);
-            this.label4.TabIndex = 3;
+            this.label4.TabIndex = 2;
             this.label4.Text = "Find:";
             // 
             // buttonFindNext
@@ -276,7 +280,7 @@ namespace ACT_Plugin
             this.buttonFindNext.Location = new System.Drawing.Point(388, 2);
             this.buttonFindNext.Name = "buttonFindNext";
             this.buttonFindNext.Size = new System.Drawing.Size(38, 23);
-            this.buttonFindNext.TabIndex = 2;
+            this.buttonFindNext.TabIndex = 1;
             this.buttonFindNext.Text = "8";
             this.toolTip1.SetToolTip(this.buttonFindNext, "Find the next matching trigger");
             this.buttonFindNext.UseVisualStyleBackColor = true;
@@ -299,16 +303,19 @@ namespace ACT_Plugin
             this.textBoxSplitterLoc.Location = new System.Drawing.Point(605, 6);
             this.textBoxSplitterLoc.Name = "textBoxSplitterLoc";
             this.textBoxSplitterLoc.Size = new System.Drawing.Size(44, 20);
-            this.textBoxSplitterLoc.TabIndex = 1;
+            this.textBoxSplitterLoc.TabIndex = 2;
             this.textBoxSplitterLoc.TabStop = false;
             this.textBoxSplitterLoc.Text = "300";
             this.textBoxSplitterLoc.Visible = false;
             // 
-            // contextMenuStrip1
+            // contextMenuStripTrig
             // 
-            this.contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.contextMenuStripTrig.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.copyAsShareableXMLToolStripMenuItem,
             this.copyAsDoubleEncodedXMLToolStripMenuItem,
+            this.toolStripSeparator5,
+            this.editTriggerToolStripMenuItem,
+            this.deleteTriggerToolStripMenuItem,
             this.toolStripSeparator1,
             this.playAlertSoundToolStripMenuItem,
             this.toolStripSeparator3,
@@ -317,11 +324,10 @@ namespace ACT_Plugin
             this.toolStripSeparator2,
             this.expandAllToolStripMenuItem,
             this.collapseAllToolStripMenuItem,
-            this.toolStripSeparator5,
-            this.deleteTriggerToolStripMenuItem});
-            this.contextMenuStrip1.Name = "contextMenuStrip1";
-            this.contextMenuStrip1.Size = new System.Drawing.Size(290, 204);
-            this.contextMenuStrip1.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStrip1_Opening);
+            this.toolStripSeparator6});
+            this.contextMenuStripTrig.Name = "contextMenuStrip1";
+            this.contextMenuStripTrig.Size = new System.Drawing.Size(290, 232);
+            this.contextMenuStripTrig.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripTrg_Opening);
             // 
             // copyAsShareableXMLToolStripMenuItem
             // 
@@ -338,6 +344,26 @@ namespace ACT_Plugin
             this.copyAsDoubleEncodedXMLToolStripMenuItem.Text = "Copy as Double-Encoded Shareable XML";
             this.copyAsDoubleEncodedXMLToolStripMenuItem.ToolTipText = "For pasting in a web forum post";
             this.copyAsDoubleEncodedXMLToolStripMenuItem.Click += new System.EventHandler(this.copyAsDoubleEncodedXMLToolStripMenuItem_Click);
+            // 
+            // toolStripSeparator5
+            // 
+            this.toolStripSeparator5.Name = "toolStripSeparator5";
+            this.toolStripSeparator5.Size = new System.Drawing.Size(286, 6);
+            // 
+            // editTriggerToolStripMenuItem
+            // 
+            this.editTriggerToolStripMenuItem.Name = "editTriggerToolStripMenuItem";
+            this.editTriggerToolStripMenuItem.Size = new System.Drawing.Size(289, 22);
+            this.editTriggerToolStripMenuItem.Text = "Edit Trigger";
+            this.editTriggerToolStripMenuItem.Click += new System.EventHandler(this.editTriggerToolStripMenuItem_Click);
+            // 
+            // deleteTriggerToolStripMenuItem
+            // 
+            this.deleteTriggerToolStripMenuItem.Name = "deleteTriggerToolStripMenuItem";
+            this.deleteTriggerToolStripMenuItem.ShortcutKeys = System.Windows.Forms.Keys.Delete;
+            this.deleteTriggerToolStripMenuItem.Size = new System.Drawing.Size(289, 22);
+            this.deleteTriggerToolStripMenuItem.Text = "Delete trigger";
+            this.deleteTriggerToolStripMenuItem.Click += new System.EventHandler(this.deleteTriggerToolStripMenuItem_Click);
             // 
             // toolStripSeparator1
             // 
@@ -391,34 +417,26 @@ namespace ACT_Plugin
             this.collapseAllToolStripMenuItem.Text = "Collapse all triggers";
             this.collapseAllToolStripMenuItem.Click += new System.EventHandler(this.collapseAllToolStripMenuItem_Click);
             // 
-            // toolStripSeparator5
+            // toolStripSeparator6
             // 
-            this.toolStripSeparator5.Name = "toolStripSeparator5";
-            this.toolStripSeparator5.Size = new System.Drawing.Size(286, 6);
-            // 
-            // deleteTriggerToolStripMenuItem
-            // 
-            this.deleteTriggerToolStripMenuItem.Name = "deleteTriggerToolStripMenuItem";
-            this.deleteTriggerToolStripMenuItem.ShortcutKeys = System.Windows.Forms.Keys.Delete;
-            this.deleteTriggerToolStripMenuItem.Size = new System.Drawing.Size(289, 22);
-            this.deleteTriggerToolStripMenuItem.Text = "Delete trigger";
-            this.deleteTriggerToolStripMenuItem.Click += new System.EventHandler(this.deleteTriggerToolStripMenuItem_Click);
+            this.toolStripSeparator6.Name = "toolStripSeparator6";
+            this.toolStripSeparator6.Size = new System.Drawing.Size(286, 6);
             // 
             // toolTip1
             // 
             this.toolTip1.AutomaticDelay = 750;
             // 
-            // contextMenuStrip2
+            // contextMenuStripCat
             // 
-            this.contextMenuStrip2.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.contextMenuStripCat.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.copyZoneNameToClipboardToolStripMenuItem,
             this.deleteEntireCategoryToolStripMenuItem,
             this.toolStripSeparator4,
             this.raidShareCategoryMacroMenuItem,
             this.groupShareCategoryMacroMenuItem});
-            this.contextMenuStrip2.Name = "contextMenuStrip2";
-            this.contextMenuStrip2.Size = new System.Drawing.Size(252, 120);
-            this.contextMenuStrip2.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStrip2_Opening);
+            this.contextMenuStripCat.Name = "contextMenuStrip2";
+            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 98);
+            this.contextMenuStripCat.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStrip2_Opening);
             // 
             // copyZoneNameToClipboardToolStripMenuItem
             // 
@@ -463,10 +481,10 @@ namespace ACT_Plugin
             this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label1.Location = new System.Drawing.Point(5, 3);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(462, 13);
-            this.label1.TabIndex = 1;
-            this.label1.Text = "Double-click a trigger to edit, create, or replace a trigger. Expand a trigger to" +
-    " edit just those fields.";
+            this.label1.Size = new System.Drawing.Size(510, 13);
+            this.label1.TabIndex = 0;
+            this.label1.Text = "Right-click a category or trigger for menu choices. Expand a trigger and right-cl" +
+    "ick to affect just those fields.";
             // 
             // panel1
             // 
@@ -478,17 +496,16 @@ namespace ACT_Plugin
             this.panel1.Location = new System.Drawing.Point(0, 0);
             this.panel1.Name = "panel1";
             this.panel1.Size = new System.Drawing.Size(655, 38);
-            this.panel1.TabIndex = 2;
+            this.panel1.TabIndex = 0;
             // 
             // label2
             // 
             this.label2.AutoSize = true;
             this.label2.Location = new System.Drawing.Point(5, 20);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(556, 13);
-            this.label2.TabIndex = 2;
-            this.label2.Text = "Right-click a category or trigger for other options.  To create a new trigger, ri" +
-    "ght-click a blank line in the triggers pane.";
+            this.label2.Size = new System.Drawing.Size(321, 13);
+            this.label2.TabIndex = 1;
+            this.label2.Text = "To create a new trigger, right-click a blank line in the triggers pane.";
             // 
             // TriggerTree
             // 
@@ -507,8 +524,8 @@ namespace ACT_Plugin
             this.panel3.PerformLayout();
             this.panel2.ResumeLayout(false);
             this.panel2.PerformLayout();
-            this.contextMenuStrip1.ResumeLayout(false);
-            this.contextMenuStrip2.ResumeLayout(false);
+            this.contextMenuStripTrig.ResumeLayout(false);
+            this.contextMenuStripCat.ResumeLayout(false);
             this.panel1.ResumeLayout(false);
             this.panel1.PerformLayout();
             this.ResumeLayout(false);
@@ -522,12 +539,12 @@ namespace ACT_Plugin
         private SplitContainer splitContainer1;
         private TreeView treeViewCats;
         private TreeView treeViewTrigs;
-        private ContextMenuStrip contextMenuStrip1;
+        private ContextMenuStrip contextMenuStripTrig;
         private ToolStripMenuItem copyAsShareableXMLToolStripMenuItem;
         private ToolStripMenuItem copyAsDoubleEncodedXMLToolStripMenuItem;
         private ToolTip toolTip1;
         private TextBox textBoxSplitterLoc;
-        private ContextMenuStrip contextMenuStrip2;
+        private ContextMenuStrip contextMenuStripCat;
         private ToolStripMenuItem copyZoneNameToClipboardToolStripMenuItem;
         private ToolStripMenuItem deleteEntireCategoryToolStripMenuItem;
         private Label label1;
@@ -1162,7 +1179,7 @@ namespace ACT_Plugin
                 if (clickedCategoryNode != null)
                 {
                     Point screen = treeViewCats.PointToScreen(pt);
-                    contextMenuStrip2.Show(screen);
+                    contextMenuStripCat.Show(screen);
                 }
             }
         }
@@ -1199,7 +1216,8 @@ namespace ACT_Plugin
                                     invalid++;
                                     MessageBox.Show(this, "Trigger:\n\n" + trigger.Key
                                         + "\n\ncannot be added to the macro since it contains disallowed character(s): "
-                                        + string.Join(" ", invalidMacroChars),
+                                        + string.Join(" ", invalidMacroChars)
+                                        + string.Join(" ", invalidMacroStrings),
                                         "Incompatible characters");
                                 }
                                 else
@@ -1386,7 +1404,7 @@ namespace ACT_Plugin
                     TreeNode timerNode = parent.Nodes.Add(timerLable);
                     timerNode.Checked = trigger.Timer;
                     if (!string.IsNullOrEmpty(trigger.TimerName))
-                        timerNode.ToolTipText = "Double-click to search for the timer\n(Use [Clear] btn in timer window to reset search)";
+                        timerNode.ToolTipText = "Right-click to search for the timer\n(Use [Clear] btn in timer window to reset search)";
                     indexTimer = 2;
 
                     //add tab child
@@ -1520,11 +1538,11 @@ namespace ACT_Plugin
             {
                 Point pt = new Point(e.X, e.Y);
                 selectedTriggerNode = treeViewTrigs.GetNodeAt(pt);
+                trigMouseDown = treeViewTrigs.PointToScreen(pt);
                 if (selectedTriggerNode != null)
                 {
                     treeViewTrigs.SelectedNode = selectedTriggerNode;
-                    Point screen = treeViewTrigs.PointToScreen(pt);
-                    contextMenuStrip1.Show(screen);
+                    contextMenuStripTrig.Show(trigMouseDown);
                 }
                 else
                 {
@@ -1538,66 +1556,18 @@ namespace ACT_Plugin
                     formEditTrigger.EditDoneEvent += Edit_EditDoneEvent; //callback for when the edit is done
                     formEditTrigger.haveOriginal = false; //disable the replace button since there is nothing to replace
                     formEditTrigger.Show(this);
-                    PositionChildForm(formEditTrigger, e);
+                    PositionChildForm(formEditTrigger, trigMouseDown);
                 }
             }
         }
 
-        private void PositionChildForm(Form form, MouseEventArgs e)
+        private void PositionChildForm(Form form, Point loc)
         {
-            Point loc = treeViewTrigs.PointToScreen(new Point(e.X, e.Y));
             if (loc.X + form.Width > SystemInformation.VirtualScreen.Right)
                 loc.X = SystemInformation.VirtualScreen.Right - form.Width;
             if (loc.Y + form.Height > SystemInformation.WorkingArea.Bottom)
                 loc.Y = SystemInformation.WorkingArea.Bottom - form.Height;
             form.Location = loc;
-        }
-
-        private void treeViewTrigs_MouseDoubleClick(object sender, MouseEventArgs e)
-        {
-            selectedTriggerNode = treeViewTrigs.GetNodeAt(e.X, e.Y);
-            if (selectedTriggerNode != null)
-            {
-                if (selectedTriggerNode.Parent != null)
-                {
-                    if (selectedTriggerNode.Index == indexAlertType)
-                    {
-                        FormEditSound formEditSound = new FormEditSound(selectedTriggerNode.Parent.Tag as CustomTrigger, Sound_EditDoneEvent);
-                        formEditSound.Show(this);
-                        PositionChildForm(formEditSound, e);
-                    }
-                    else if (selectedTriggerNode.Index == indexTimerName)
-                    {
-                        FormEditTimer formEditTimer = new FormEditTimer(selectedTriggerNode.Parent.Tag as CustomTrigger, Timer_EditDoneEvent);
-                        formEditTimer.Show(this);
-                        PositionChildForm(formEditTimer, e);
-
-                    }
-                    else if(selectedTriggerNode.Index == indexTimer)
-                    {
-                        //double click on the timer enable starts a search for the timer
-                        // if there is a timer name
-                        CustomTrigger trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
-                        if(trigger != null)
-                        {
-                            string timerName = trigger.TimerName.ToLower();
-                            if(!string.IsNullOrEmpty(timerName))
-                            {
-                                ActGlobals.oFormSpellTimers.SearchSpellTreeView(timerName);
-                                ActGlobals.oFormSpellTimers.Visible = true;
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    //it's the parent node
-                    FormEditTrigger formEditTrigger = new FormEditTrigger(selectedTriggerNode.Tag as CustomTrigger, zoneName);
-                    formEditTrigger.EditDoneEvent += Edit_EditDoneEvent; //callback for when the edit is done
-                    formEditTrigger.Show(this);
-                    PositionChildForm(formEditTrigger, e);
-                }
-            }
         }
 
         private void Sound_EditDoneEvent(object sender, EventArgs e)
@@ -2147,7 +2117,7 @@ namespace ACT_Plugin
             }
         }
 
-        private void contextMenuStrip1_Opening(object sender, CancelEventArgs e)
+        private void contextMenuStripTrg_Opening(object sender, CancelEventArgs e)
         {
             if (selectedTriggerNode != null)
             {
@@ -2175,6 +2145,30 @@ namespace ACT_Plugin
 
                     playAlertSoundToolStripMenuItem.Enabled = trigger.SoundType != (int)CustomTriggerSoundTypeEnum.None;
 
+                    //set the Edit menu item depending on which item was clicked
+                    if (selectedTriggerNode.Index == indexTimer)
+                    {
+                        editTriggerToolStripMenuItem.Text = "Find Spell Timer";
+                        if (string.IsNullOrEmpty(trigger.TimerName))
+                            editTriggerToolStripMenuItem.Enabled = false;
+                        else
+                            editTriggerToolStripMenuItem.Enabled = true;
+                    }
+                    else if(selectedTriggerNode.Index == indexAlertType)
+                    {
+                        editTriggerToolStripMenuItem.Text = "Edit Alert Sound";
+                        editTriggerToolStripMenuItem.Enabled = true;
+                    }
+                    else if(selectedTriggerNode.Index == indexTimerName)
+                    {
+                        editTriggerToolStripMenuItem.Text = "Edit Timer Name";
+                        editTriggerToolStripMenuItem.Enabled = true;
+                    }
+                    else
+                    {
+                        editTriggerToolStripMenuItem.Text = "Edit Trigger";
+                        editTriggerToolStripMenuItem.Enabled = true;
+                    }
                 }
             }
         }
@@ -2191,6 +2185,60 @@ namespace ACT_Plugin
                 if (trigger != null)
                 {
                     DeleteTrigger(trigger, false);
+                }
+            }
+        }
+
+        private void editTriggerToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (selectedTriggerNode != null)
+            {
+                if (selectedTriggerNode.Parent != null)
+                {
+                    //it's a child item
+                    if (selectedTriggerNode.Index == indexAlertType)
+                    {
+                        FormEditSound formEditSound = new FormEditSound(selectedTriggerNode.Parent.Tag as CustomTrigger, Sound_EditDoneEvent);
+                        formEditSound.Show(this);
+                        PositionChildForm(formEditSound, trigMouseDown);
+                    }
+                    else if (selectedTriggerNode.Index == indexTimerName)
+                    {
+                        FormEditTimer formEditTimer = new FormEditTimer(selectedTriggerNode.Parent.Tag as CustomTrigger, Timer_EditDoneEvent);
+                        formEditTimer.Show(this);
+                        PositionChildForm(formEditTimer, trigMouseDown);
+
+                    }
+                    else if (selectedTriggerNode.Index == indexTimer)
+                    {
+                        // search for the timer if there is a timer name
+                        CustomTrigger trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
+                        if (trigger != null)
+                        {
+                            string timerName = trigger.TimerName.ToLower();
+                            if (!string.IsNullOrEmpty(timerName))
+                            {
+                                ActGlobals.oFormSpellTimers.SearchSpellTreeView(timerName);
+                                ActGlobals.oFormSpellTimers.Visible = true;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        //edit the whole trigger for any other child
+                        FormEditTrigger formEditTrigger = new FormEditTrigger(selectedTriggerNode.Parent.Tag as CustomTrigger, zoneName);
+                        formEditTrigger.EditDoneEvent += Edit_EditDoneEvent; //callback for when the edit is done
+                        formEditTrigger.Show(this);
+                        PositionChildForm(formEditTrigger, trigMouseDown);
+                    }
+                }
+                else
+                {
+                    //clicked a a parent node
+                    FormEditTrigger formEditTrigger = new FormEditTrigger(selectedTriggerNode.Tag as CustomTrigger, zoneName);
+                    formEditTrigger.EditDoneEvent += Edit_EditDoneEvent; //callback for when the edit is done
+                    formEditTrigger.Show(this);
+                    PositionChildForm(formEditTrigger, trigMouseDown);
                 }
             }
         }
