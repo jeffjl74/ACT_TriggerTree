@@ -696,9 +696,9 @@
             this.label5.AutoSize = true;
             this.label5.Location = new System.Drawing.Point(4, 4);
             this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(30, 13);
+            this.label5.Size = new System.Drawing.Size(32, 13);
             this.label5.TabIndex = 2;
-            this.label5.Text = "Find:";
+            this.label5.Text = "Filter:";
             // 
             // dataGridViewLines
             // 
@@ -711,7 +711,6 @@
             this.dataGridViewLines.ReadOnly = true;
             this.dataGridViewLines.Size = new System.Drawing.Size(487, 144);
             this.dataGridViewLines.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.dataGridViewLines, "Log lines for the selected encounter");
             // 
             // FormEditTrigger
             // 

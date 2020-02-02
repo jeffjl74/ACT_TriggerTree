@@ -2279,7 +2279,7 @@ namespace ACT_Plugin
         string zoneCategory;
         bool regexChanged = false;          //track for replace / create new
         bool initializing = true;           //oncheck() methods do not need to do anything during shown()
-        int lastFound = -1;                 //find next tracking
+        //int lastFound = -1;                 //find next tracking
 
         //set by owner
         public bool haveOriginal = true;    //set false by parent when creating a brand new trigger
@@ -2839,19 +2839,19 @@ namespace ACT_Plugin
 
         #endregion Regex Context Menu
 
-        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
-        {
-            //if we are "finding", use the <Enter> key to proceed
-            if (keyData == Keys.Enter)
-            {
-                if (textBoxFindLine.Focused)
-                {
-                    FindAll();
-                    return true;
-                }
-            }
-            return base.ProcessCmdKey(ref msg, keyData);
-        }
+        //protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        //{
+        //    //if we are "finding", use the <Enter> key to proceed
+        //    if (keyData == Keys.Enter)
+        //    {
+        //        if (textBoxFindLine.Focused)
+        //        {
+        //            FindAll();
+        //            return true;
+        //        }
+        //    }
+        //    return base.ProcessCmdKey(ref msg, keyData);
+        //}
 
         private void buttonTest_Click(object sender, EventArgs e)
         {
@@ -2880,23 +2880,19 @@ namespace ACT_Plugin
 
         private void listBoxEncounters_SelectedIndexChanged(object sender, EventArgs e)
         {
-            lastFound = -1;
+            //lastFound = -1;
             int index = listBoxEncounters.SelectedIndex;
             CombatToggleEventArgs arg;
             if (encounters.TryGetValue(index, out arg))
             {
-                dataGridViewLines.DataSource = arg.encounter.LogLines;
-                dataGridViewLines.Columns["GlobalTimeSorter"].Visible = false;
-                dataGridViewLines.Columns["SearchSelected"].Visible = false;
-                dataGridViewLines.Columns["Time"].Visible = false;
-                dataGridViewLines.Columns["Type"].Visible = false;
+                dataGridViewLines.DataSource = ToLineTable(arg.encounter.LogLines);
                 dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
             }
         }
 
         private void textBoxFindLine_TextChanged(object sender, EventArgs e)
         {
-            lastFound = -1;
+            //lastFound = -1;
             FindNext();
         }
 
@@ -2904,22 +2900,11 @@ namespace ACT_Plugin
         {
             try
             {
-                bool found = false;
-                for (int i = lastFound + 1; i < dataGridViewLines.Rows.Count; i++)
+                DataTable dt = dataGridViewLines.DataSource as DataTable;
+                if (dt != null)
                 {
-                    DataGridViewRow row = dataGridViewLines.Rows[i];
-                    if (row.Cells["LogLine"].Value.ToString().Contains(textBoxFindLine.Text))
-                    {
-                        int rowIndex = row.Index;
-                        dataGridViewLines.CurrentCell = dataGridViewLines.Rows[rowIndex].Cells["LogLine"];
-                        dataGridViewLines.Rows[dataGridViewLines.CurrentCell.RowIndex].Selected = true;
-                        lastFound = i;
-                        found = true;
-                        break;
-                    }
+                    dt.DefaultView.RowFilter = "LogLine LIKE '%" + textBoxFindLine.Text + "%'";
                 }
-                if (!found)
-                    MessageBox.Show(this, "Not Found");
             }
             catch (Exception exc)
             {
@@ -2927,50 +2912,60 @@ namespace ACT_Plugin
             }
         }
 
-        public void FindAll()
+        //public void FindAll()
+        //{
+        //    int index = listBoxEncounters.SelectedIndex;
+        //    CombatToggleEventArgs arg;
+        //    if (encounters.TryGetValue(index, out arg))
+        //    {
+        //        DataTable dt = ToDataTable(arg.encounter.LogLines);
+        //        dataGridViewLines.DataSource = dt;
+        //        dataGridViewLines.Columns["gts"].Visible = false;
+        //        dataGridViewLines.Columns["SearchSelected"].Visible = false;
+        //        dataGridViewLines.Columns["Time"].Visible = false;
+        //        dataGridViewLines.Columns["ParsedType"].Visible = false;
+        //        dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+        //        dt.DefaultView.RowFilter = "LogLine LIKE '%" + textBoxFindLine.Text + "%'";
+        //    }
+
+        //}
+
+        private static DataTable ToLineTable(List<LogLineEntry> list)
         {
-            int index = listBoxEncounters.SelectedIndex;
-            CombatToggleEventArgs arg;
-            if (encounters.TryGetValue(index, out arg))
-            {
-                //dataGridViewLines.DataSource = arg.encounter.LogLines;
-                DataTable dt = ToDataTable(arg.encounter.LogLines);
-                dataGridViewLines.DataSource = dt;
-                dataGridViewLines.Columns["gts"].Visible = false;
-                dataGridViewLines.Columns["SearchSelected"].Visible = false;
-                dataGridViewLines.Columns["Time"].Visible = false;
-                dataGridViewLines.Columns["ParsedType"].Visible = false;
-                dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
-                dt.DefaultView.RowFilter = "LogLine LIKE '%" + textBoxFindLine.Text + "%'";
-            }
-
-        }
-
-        public static DataTable ToDataTable<T>(IList<T> data)
-        {
-            FieldInfo[] myFieldInfo;
-            Type myType = typeof(T);
-            // Get the type and fields of FieldInfoClass.
-            myFieldInfo = myType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance
-                | BindingFlags.Public);
-
             DataTable dt = new DataTable();
-            for (int i = 0; i < myFieldInfo.Length; i++)
+            dt.Columns.Add("LogLine");
+            foreach (LogLineEntry line in list)
             {
-                FieldInfo property = myFieldInfo[i];
-                dt.Columns.Add(property.Name, property.FieldType);
-            }
-            object[] values = new object[myFieldInfo.Length];
-            foreach (T item in data)
-            {
-                for (int i = 0; i < values.Length; i++)
-                {
-                    values[i] = myFieldInfo[i].GetValue(item);
-                }
-                dt.Rows.Add(values);
+                dt.Rows.Add(line.LogLine);
             }
             return dt;
         }
+
+        //public static DataTable ToDataTable<T>(IList<T> data)
+        //{
+        //    FieldInfo[] myFieldInfo;
+        //    Type myType = typeof(T);
+        //    // Get the type and fields of FieldInfoClass.
+        //    myFieldInfo = myType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance
+        //        | BindingFlags.Public);
+
+        //    DataTable dt = new DataTable();
+        //    for (int i = 0; i < myFieldInfo.Length; i++)
+        //    {
+        //        FieldInfo property = myFieldInfo[i];
+        //        dt.Columns.Add(property.Name, property.FieldType);
+        //    }
+        //    object[] values = new object[myFieldInfo.Length];
+        //    foreach (T item in data)
+        //    {
+        //        for (int i = 0; i < values.Length; i++)
+        //        {
+        //            values[i] = myFieldInfo[i].GetValue(item);
+        //        }
+        //        dt.Rows.Add(values);
+        //    }
+        //    return dt;
+        //}
     }
 
     //designer
@@ -3670,9 +3665,9 @@ namespace ACT_Plugin
             this.label5.AutoSize = true;
             this.label5.Location = new System.Drawing.Point(4, 4);
             this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(30, 13);
+            this.label5.Size = new System.Drawing.Size(32, 13);
             this.label5.TabIndex = 2;
-            this.label5.Text = "Find:";
+            this.label5.Text = "Filter:";
             // 
             // dataGridViewLines
             // 
@@ -3685,7 +3680,6 @@ namespace ACT_Plugin
             this.dataGridViewLines.ReadOnly = true;
             this.dataGridViewLines.Size = new System.Drawing.Size(487, 144);
             this.dataGridViewLines.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.dataGridViewLines, "Log lines for the selected encounter");
             // 
             // FormEditTrigger
             // 

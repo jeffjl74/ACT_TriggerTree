@@ -25,7 +25,7 @@ namespace TriggerTreeEditor
         string zoneCategory;
         bool regexChanged = false;          //track for replace / create new
         bool initializing = true;           //oncheck() methods do not need to do anything during shown()
-        int lastFound = -1;                 //find next tracking
+        //int lastFound = -1;                 //find next tracking
 
         //set by owner
         public bool haveOriginal = true;    //set false by parent when creating a brand new trigger
@@ -585,19 +585,19 @@ namespace TriggerTreeEditor
 
         #endregion Regex Context Menu
 
-        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
-        {
-            //if we are "finding", use the <Enter> key to proceed
-            if (keyData == Keys.Enter)
-            {
-                if (textBoxFindLine.Focused)
-                {
-                    FindAll();
-                    return true;
-                }
-            }
-            return base.ProcessCmdKey(ref msg, keyData);
-        }
+        //protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        //{
+        //    //if we are "finding", use the <Enter> key to proceed
+        //    if (keyData == Keys.Enter)
+        //    {
+        //        if (textBoxFindLine.Focused)
+        //        {
+        //            FindAll();
+        //            return true;
+        //        }
+        //    }
+        //    return base.ProcessCmdKey(ref msg, keyData);
+        //}
 
         private void buttonTest_Click(object sender, EventArgs e)
         {
@@ -626,23 +626,19 @@ namespace TriggerTreeEditor
 
         private void listBoxEncounters_SelectedIndexChanged(object sender, EventArgs e)
         {
-            lastFound = -1;
+            //lastFound = -1;
             int index = listBoxEncounters.SelectedIndex;
             CombatToggleEventArgs arg;
             if(encounters.TryGetValue(index, out arg))
             {
-                dataGridViewLines.DataSource = arg.encounter.LogLines;
-                dataGridViewLines.Columns["GlobalTimeSorter"].Visible = false;
-                dataGridViewLines.Columns["SearchSelected"].Visible = false;
-                dataGridViewLines.Columns["Time"].Visible = false;
-                dataGridViewLines.Columns["Type"].Visible = false;
+                dataGridViewLines.DataSource = ToLineTable(arg.encounter.LogLines);
                 dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
             }
         }
 
         private void textBoxFindLine_TextChanged(object sender, EventArgs e)
         {
-            lastFound = -1;
+            //lastFound = -1;
             FindNext();
         }
 
@@ -650,22 +646,11 @@ namespace TriggerTreeEditor
         {
             try
             {
-                bool found = false;
-                for(int i = lastFound + 1; i< dataGridViewLines.Rows.Count; i++)
+                DataTable dt = dataGridViewLines.DataSource as DataTable;
+                if (dt != null)
                 {
-                    DataGridViewRow row = dataGridViewLines.Rows[i];
-                    if (row.Cells["LogLine"].Value.ToString().Contains(textBoxFindLine.Text))
-                    {
-                        int rowIndex = row.Index;
-                        dataGridViewLines.CurrentCell = dataGridViewLines.Rows[rowIndex].Cells["LogLine"];
-                        dataGridViewLines.Rows[dataGridViewLines.CurrentCell.RowIndex].Selected = true;
-                        lastFound = i;
-                        found = true;
-                        break;
-                    }
+                    dt.DefaultView.RowFilter = "LogLine LIKE '%" + textBoxFindLine.Text + "%'";
                 }
-                if (!found)
-                    MessageBox.Show(this, "Not Found");
             }
             catch (Exception exc)
             {
@@ -673,23 +658,23 @@ namespace TriggerTreeEditor
             }
         }
 
-        public void FindAll()
-        {
-            int index = listBoxEncounters.SelectedIndex;
-            CombatToggleEventArgs arg;
-            if (encounters.TryGetValue(index, out arg))
-            {
-                DataTable dt = ToDataTable(arg.encounter.LogLines);
-                dataGridViewLines.DataSource = dt;
-                dataGridViewLines.Columns["gts"].Visible = false;
-                dataGridViewLines.Columns["SearchSelected"].Visible = false;
-                dataGridViewLines.Columns["Time"].Visible = false;
-                dataGridViewLines.Columns["ParsedType"].Visible = false;
-                dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
-                dt.DefaultView.RowFilter = "LogLine LIKE '%" + textBoxFindLine.Text + "%'";
-            }
+        //public void FindAll()
+        //{
+        //    int index = listBoxEncounters.SelectedIndex;
+        //    CombatToggleEventArgs arg;
+        //    if (encounters.TryGetValue(index, out arg))
+        //    {
+        //        DataTable dt = ToDataTable(arg.encounter.LogLines);
+        //        dataGridViewLines.DataSource = dt;
+        //        dataGridViewLines.Columns["gts"].Visible = false;
+        //        dataGridViewLines.Columns["SearchSelected"].Visible = false;
+        //        dataGridViewLines.Columns["Time"].Visible = false;
+        //        dataGridViewLines.Columns["ParsedType"].Visible = false;
+        //        dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+        //        dt.DefaultView.RowFilter = "LogLine LIKE '%" + textBoxFindLine.Text + "%'";
+        //    }
 
-        }
+        //}
 
         private static DataTable ToLineTable(List<LogLineEntry> list)
         {
@@ -702,30 +687,30 @@ namespace TriggerTreeEditor
             return dt;
         }
 
-        public static DataTable ToDataTable<T>(IList<T> data)
-        {
-            FieldInfo[] myFieldInfo;
-            Type myType = typeof(T);
-            // Get the type and fields of FieldInfoClass.
-            myFieldInfo = myType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance
-                | BindingFlags.Public);
+        //public static DataTable ToDataTable<T>(IList<T> data)
+        //{
+        //    FieldInfo[] myFieldInfo;
+        //    Type myType = typeof(T);
+        //    // Get the type and fields of FieldInfoClass.
+        //    myFieldInfo = myType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance
+        //        | BindingFlags.Public);
 
-            DataTable dt = new DataTable();
-            for (int i = 0; i < myFieldInfo.Length; i++)
-            {
-                FieldInfo property = myFieldInfo[i];
-                dt.Columns.Add(property.Name, property.FieldType);
-            }
-            object[] values = new object[myFieldInfo.Length];
-            foreach (T item in data)
-            {
-                for (int i = 0; i < values.Length; i++)
-                {
-                    values[i] = myFieldInfo[i].GetValue(item);
-                }
-                dt.Rows.Add(values);
-            }
-            return dt;
-        }
+        //    DataTable dt = new DataTable();
+        //    for (int i = 0; i < myFieldInfo.Length; i++)
+        //    {
+        //        FieldInfo property = myFieldInfo[i];
+        //        dt.Columns.Add(property.Name, property.FieldType);
+        //    }
+        //    object[] values = new object[myFieldInfo.Length];
+        //    foreach (T item in data)
+        //    {
+        //        for (int i = 0; i < values.Length; i++)
+        //        {
+        //            values[i] = myFieldInfo[i].GetValue(item);
+        //        }
+        //        dt.Rows.Add(values);
+        //    }
+        //    return dt;
+        //}
     }
 }
