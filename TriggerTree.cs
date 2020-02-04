@@ -2133,10 +2133,14 @@ namespace ACT_Plugin
             if (selectedTriggerNode != null)
             {
                 CustomTrigger trigger;
+                bool isParent = true; //default
                 if (selectedTriggerNode.Tag != null)
                     trigger = selectedTriggerNode.Tag as CustomTrigger;
                 else
+                {
+                    isParent = false;
                     trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
+                }
                 if (trigger != null)
                 {
                     if (IsInvalidMacroTrigger(trigger))
@@ -2157,7 +2161,12 @@ namespace ACT_Plugin
                     playAlertSoundToolStripMenuItem.Enabled = trigger.SoundType != (int)CustomTriggerSoundTypeEnum.None;
 
                     //set the Edit menu item depending on which item was clicked
-                    if (selectedTriggerNode.Index == indexTimer)
+                    if(isParent)
+                    {
+                        editTriggerToolStripMenuItem.Text = "Edit Trigger";
+                        editTriggerToolStripMenuItem.Enabled = true;
+                    }
+                    else if (selectedTriggerNode.Index == indexTimer)
                     {
                         editTriggerToolStripMenuItem.Text = "Find Spell Timer";
                         if (string.IsNullOrEmpty(trigger.TimerName))
@@ -2177,6 +2186,7 @@ namespace ACT_Plugin
                     }
                     else
                     {
+                        //any other child
                         editTriggerToolStripMenuItem.Text = "Edit Trigger";
                         editTriggerToolStripMenuItem.Enabled = true;
                     }
@@ -2284,7 +2294,7 @@ namespace ACT_Plugin
         //set by owner
         public bool haveOriginal = true;    //set false by parent when creating a brand new trigger
         public ConcurrentDictionary<int, CombatToggleEventArgs> encounters;
-
+        int logMenuRow = -1;                //context menu location in the log line grid view
 
         public FormEditTrigger()
         {
@@ -2528,6 +2538,18 @@ namespace ACT_Plugin
         private void buttonPaste_Click(object sender, EventArgs e)
         {
             string text = Clipboard.GetText();
+            PasteRegEx(text);
+            //Match match = parsePaste.Match(text);
+            //if (match.Success)
+            //{
+            //    text = match.Groups["expr"].Value.Replace("\\","\\\\");
+            //}
+            //textBoxRegex.Text = text;
+            //textBoxRegex.SelectAll();
+        }
+
+        private void PasteRegEx(string text)
+        {
             Match match = parsePaste.Match(text);
             if (match.Success)
             {
@@ -2649,6 +2671,10 @@ namespace ACT_Plugin
                 editingTrigger.RestrictToCategoryZone = checkBoxRestrict.Checked;
                 buttonUpdateCreate.Enabled = true;
             }
+            if (editingTrigger.RestrictToCategoryZone)
+                textBoxCategory.ForeColor = Color.Green;
+            else
+                textBoxCategory.ForeColor = Color.Black;
         }
 
         private void checkBoxTimer_CheckedChanged(object sender, EventArgs e)
@@ -2725,39 +2751,39 @@ namespace ACT_Plugin
         private void contextMenuStrip1_Opening(object sender, CancelEventArgs e)
         {
             if (textBoxRegex.CanUndo)
-                contextMenuStrip1.Items["Undo"].Enabled = true;
+                contextMenuRegex.Items["Undo"].Enabled = true;
             else
-                contextMenuStrip1.Items["Undo"].Enabled = false;
+                contextMenuRegex.Items["Undo"].Enabled = false;
 
             //can't cut, copy, paste, delete, make capture if nothing slected
             if (textBoxRegex.SelectedText.Length == 0)
             {
-                contextMenuStrip1.Items["Cut"].Enabled = false;
-                contextMenuStrip1.Items["Copy"].Enabled = false;
-                contextMenuStrip1.Items["Delete"].Enabled = false;
-                contextMenuStrip1.Items["MakePlayer"].Enabled = false;
-                contextMenuStrip1.Items["MakeAttacker"].Enabled = false;
+                contextMenuRegex.Items["Cut"].Enabled = false;
+                contextMenuRegex.Items["Copy"].Enabled = false;
+                contextMenuRegex.Items["Delete"].Enabled = false;
+                contextMenuRegex.Items["MakePlayer"].Enabled = false;
+                contextMenuRegex.Items["MakeAttacker"].Enabled = false;
             }
             else
             {
-                contextMenuStrip1.Items["Cut"].Enabled = true;
-                contextMenuStrip1.Items["Copy"].Enabled = true;
-                contextMenuStrip1.Items["Delete"].Enabled = true;
-                contextMenuStrip1.Items["MakePlayer"].Enabled = true;
-                contextMenuStrip1.Items["MakeAttacker"].Enabled = true;
+                contextMenuRegex.Items["Cut"].Enabled = true;
+                contextMenuRegex.Items["Copy"].Enabled = true;
+                contextMenuRegex.Items["Delete"].Enabled = true;
+                contextMenuRegex.Items["MakePlayer"].Enabled = true;
+                contextMenuRegex.Items["MakeAttacker"].Enabled = true;
             }
 
             //can't paste if there is nothing in the clipboard
             if (Clipboard.ContainsText())
-                contextMenuStrip1.Items["Paste"].Enabled = true;
+                contextMenuRegex.Items["Paste"].Enabled = true;
             else
-                contextMenuStrip1.Items["Paste"].Enabled = false;
+                contextMenuRegex.Items["Paste"].Enabled = false;
 
             //can't select all if there is no text
             if (textBoxRegex.Text.Length == 0)
-                contextMenuStrip1.Items["SelectAll"].Enabled = false;
+                contextMenuRegex.Items["SelectAll"].Enabled = false;
             else
-                contextMenuStrip1.Items["SelectAll"].Enabled = true;
+                contextMenuRegex.Items["SelectAll"].Enabled = true;
 
         }
 
@@ -2841,94 +2867,139 @@ namespace ACT_Plugin
 
         //protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         //{
-        //    //if we are "finding", use the <Enter> key to proceed
-        //    if (keyData == Keys.Enter)
+        //    //if we are using SQL queries, use the <Enter> key to proceed
+        //    if (checkBoxSql.Checked)
         //    {
-        //        if (textBoxFindLine.Focused)
+        //        if (keyData == Keys.Enter)
         //        {
-        //            FindAll();
-        //            return true;
+        //            if (textBoxFindLine.Focused)
+        //            {
+        //                ApplyFilter();
+        //                return true;
+        //            }
         //        }
         //    }
         //    return base.ProcessCmdKey(ref msg, keyData);
         //}
 
-        private void buttonTest_Click(object sender, EventArgs e)
+        private async void listBoxEncounters_SelectedIndexChanged(object sender, EventArgs e)
         {
-            panelTest.Visible = !panelTest.Visible;
-            if (panelTest.Visible)
-            {
-                this.Height = this.MinimumSize.Height + panelTest.MinimumSize.Height;
-                if (encounters != null)
-                {
-                    listBoxEncounters.Items.Clear();
-                    for (int i = 0; i < encounters.Count; i++)
-                    {
-                        CombatToggleEventArgs arg;
-                        if (encounters.TryGetValue(i, out arg))
-                        {
-                            listBoxEncounters.Items.Add(arg.encounter.ToString());
-                        }
-                    }
-                }
-            }
-            else
-            {
-                this.Height = this.MinimumSize.Height;
-            }
-        }
-
-        private void listBoxEncounters_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            //lastFound = -1;
             int index = listBoxEncounters.SelectedIndex;
             CombatToggleEventArgs arg;
             if (encounters.TryGetValue(index, out arg))
             {
-                dataGridViewLines.DataSource = ToLineTable(arg.encounter.LogLines);
-                dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+                textBoxFindLine.Text = string.Empty;
+                DataTable dt = null;
+                dataGridViewLines.DataSource = new DataTable();
+                try
+                {
+                    //don't tie up the UI thread
+                    await Task.Run(() =>
+                    {
+                        UseWaitCursor = true;
+                        dt = ToLineTable(arg.encounter.LogLines);
+                        UseWaitCursor = false;
+                    });
+                    if (dt != null)
+                    {
+                        dataGridViewLines.DataSource = dt;
+                        dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+                        //dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
+                        //dataGridViewLines.AutoResizeColumns();
+                    }
+                }
+                catch (Exception dtx)
+                {
+                    MessageBox.Show(this, "Problem collecting the log lines:\n" + dtx.Message);
+                }
             }
         }
 
-        private void textBoxFindLine_TextChanged(object sender, EventArgs e)
+        private async void textBoxFindLine_TextChanged(object sender, EventArgs e)
         {
-            //lastFound = -1;
-            FindNext();
+            await ApplyFilter();
         }
 
-        private void FindNext()
+        private async Task ApplyFilter()
         {
             try
             {
                 DataTable dt = dataGridViewLines.DataSource as DataTable;
                 if (dt != null)
                 {
-                    dt.DefaultView.RowFilter = "LogLine LIKE '%" + textBoxFindLine.Text + "%'";
+                    if (dt.Rows.Count > 0)
+                    {
+                        string filter = textBoxFindLine.Text;
+                        if (!string.IsNullOrEmpty(filter))
+                        {
+                            //for a simple search, fix special chars and add LIKE syntax
+                            filter = "LogLine LIKE '%" + EscapeLikeValue(filter) + "%'";
+                        }
+                        //this can take a while on a large encounter
+                        //don't tie up the UI thread
+                        await Task.Run(() =>
+                        {
+                            //UseWaitCursor = true;
+                            UpdateRowFilter(this, dataGridViewLines, filter);
+                            //UseWaitCursor = false;
+                        });
+                    }
                 }
             }
             catch (Exception exc)
             {
+                UseWaitCursor = false;
                 MessageBox.Show(this, exc.Message);
             }
         }
 
-        //public void FindAll()
-        //{
-        //    int index = listBoxEncounters.SelectedIndex;
-        //    CombatToggleEventArgs arg;
-        //    if (encounters.TryGetValue(index, out arg))
-        //    {
-        //        DataTable dt = ToDataTable(arg.encounter.LogLines);
-        //        dataGridViewLines.DataSource = dt;
-        //        dataGridViewLines.Columns["gts"].Visible = false;
-        //        dataGridViewLines.Columns["SearchSelected"].Visible = false;
-        //        dataGridViewLines.Columns["Time"].Visible = false;
-        //        dataGridViewLines.Columns["ParsedType"].Visible = false;
-        //        dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
-        //        dt.DefaultView.RowFilter = "LogLine LIKE '%" + textBoxFindLine.Text + "%'";
-        //    }
+        delegate void UpdateRowFilterCallback(Form parent, DataGridView target, string filter);
+        private void UpdateRowFilter(Form parent, DataGridView target, string filter)
+        {
+            if (target.InvokeRequired)
+            {
+                UpdateRowFilterCallback cb = new UpdateRowFilterCallback(UpdateRowFilter);
+                parent.Invoke(cb, new object[] { parent, target, filter });
+            }
+            else
+            {
+                DataTable dt = dataGridViewLines.DataSource as DataTable;
+                if (dt != null)
+                {
+                    if (dt.Rows.Count > 0)
+                    {
+                        {
+                            UseWaitCursor = true;
+                            DataView view = dt.DefaultView;
+                            if (view != null)
+                            {
+                                if (string.IsNullOrEmpty(filter))
+                                    view.RowFilter = string.Empty;
+                                else
+                                    view.RowFilter = filter;
+                            }
+                            UseWaitCursor = false;
+                        }
+                    }
+                }
+            }
+        }
 
-        //}
+        private static string EscapeLikeValue(string valueWithoutWildcards)
+        {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < valueWithoutWildcards.Length; i++)
+            {
+                char c = valueWithoutWildcards[i];
+                if (c == '*' || c == '%' || c == '[' || c == ']')
+                    sb.Append("[").Append(c).Append("]");
+                else if (c == '\'')
+                    sb.Append("''");
+                else
+                    sb.Append(c);
+            }
+            return sb.ToString();
+        }
 
         private static DataTable ToLineTable(List<LogLineEntry> list)
         {
@@ -2941,31 +3012,143 @@ namespace ACT_Plugin
             return dt;
         }
 
-        //public static DataTable ToDataTable<T>(IList<T> data)
-        //{
-        //    FieldInfo[] myFieldInfo;
-        //    Type myType = typeof(T);
-        //    // Get the type and fields of FieldInfoClass.
-        //    myFieldInfo = myType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance
-        //        | BindingFlags.Public);
+        private async void checkBoxLogLines_CheckedChanged(object sender, EventArgs e)
+        {
+            //Use the minimum Sizes of the form and the panel (set in the designer)
+            // to show/hide the encounters list.
+            //If shown, populate it
+            panelTest.Visible = checkBoxLogLines.Checked;
+            if (panelTest.Visible)
+            {
+                this.Height = this.MinimumSize.Height + panelTest.MinimumSize.Height;
+                labelGridHelp.Visible = true;
+                if (encounters != null)
+                {
+                    await Task.Run(() =>
+                    {
+                        //UseWaitCursor = true;
+                        ShowEncounters(this, listBoxEncounters);
+                        //UseWaitCursor = false;
+                    });
+                }
+            }
+            else
+            {
+                //hide the panel
+                this.Height = this.MinimumSize.Height;
+                labelGridHelp.Visible = false;
+            }
 
-        //    DataTable dt = new DataTable();
-        //    for (int i = 0; i < myFieldInfo.Length; i++)
-        //    {
-        //        FieldInfo property = myFieldInfo[i];
-        //        dt.Columns.Add(property.Name, property.FieldType);
-        //    }
-        //    object[] values = new object[myFieldInfo.Length];
-        //    foreach (T item in data)
-        //    {
-        //        for (int i = 0; i < values.Length; i++)
-        //        {
-        //            values[i] = myFieldInfo[i].GetValue(item);
-        //        }
-        //        dt.Rows.Add(values);
-        //    }
-        //    return dt;
-        //}
+        }
+
+        delegate void ShowEncountersCallback(Form parent, ListBox target);
+        private void ShowEncounters(Form parent, ListBox target)
+        {
+            if (target.InvokeRequired)
+            {
+                ShowEncountersCallback cb = new ShowEncountersCallback(ShowEncounters);
+                parent.Invoke(cb, new object[] { parent, target });
+            }
+            else
+            {
+                UseWaitCursor = true;
+                target.Items.Clear();
+                dataGridViewLines.DataSource = new DataTable();
+                for (int i = 0; i < encounters.Count; i++)
+                {
+                    CombatToggleEventArgs arg;
+                    if (encounters.TryGetValue(i, out arg))
+                    {
+                        target.Items.Add(arg.encounter.ToString());
+                    }
+                }
+                //scroll to the bottom (most recent)
+                target.TopIndex = listBoxEncounters.Items.Count - 1;
+                UseWaitCursor = false;
+            }
+        }
+
+        private void pasteInRegularExpressionToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            //copy the log line to the regex with reformatting
+            string line = dataGridViewLines.Rows[logMenuRow].Cells["LogLine"].Value.ToString();
+            if (!string.IsNullOrEmpty(line))
+                PasteRegEx(line);
+
+            //copy the zone to the Category / Zone
+            int index = listBoxEncounters.SelectedIndex;
+            CombatToggleEventArgs arg;
+            if (encounters.TryGetValue(index, out arg))
+            {
+                string zone = arg.encounter.ZoneName;
+                if (!zone.Equals(textBoxCategory.Text))
+                {
+                    textBoxCategory.Text = zone;
+                    checkBoxRestrict.Checked = zoneCategory.Contains("[");
+                }
+            }
+        }
+
+        private void testWithRegularExpressionToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                string line = dataGridViewLines.Rows[logMenuRow].Cells["LogLine"].Value.ToString();
+                Regex re = new Regex(textBoxRegex.Text);
+                Match match = re.Match(line);
+                if (match.Success)
+                {
+                    if (radioButtonTts.Checked)
+                    {
+                        string alert = textBoxSound.Text;
+                        string[] groups = re.GetGroupNames();
+                        //group 0 is always the whole line
+                        if (groups.Length > 1)
+                        {
+                            for (int i = 1; i < groups.Length; i++)
+                            {
+                                alert = alert.Replace("${" + groups[i] + "}", match.Groups[i].Value);
+                            }
+                        }
+                        ActGlobals.oFormActMain.TTS(alert);
+                    }
+                    else if (radioButtonWav.Checked)
+                    {
+                        if (File.Exists(textBoxSound.Text))
+                            ActGlobals.oFormActMain.PlaySoundWinApi(textBoxSound.Text, 100);
+                    }
+                    else if (radioButtonBeep.Checked)
+                        System.Media.SystemSounds.Beep.Play();
+                }
+                else
+                {
+                    MessageBox.Show(this, "Regular Expression does not match the log line");
+                }
+            }
+            catch (Exception rex)
+            {
+                MessageBox.Show(this, "Invalid regular expression:\n" + rex.Message);
+            }
+        }
+
+        private void checkBoxSql_CheckedChanged(object sender, EventArgs e)
+        {
+            textBoxFindLine.Clear();
+        }
+
+        private void dataGridViewLines_CellContextMenuStripNeeded(object sender, DataGridViewCellContextMenuStripNeededEventArgs e)
+        {
+            if (e.RowIndex >= 0)
+            {
+                e.ContextMenuStrip = contextMenuLog;
+                logMenuRow = e.RowIndex;
+            }
+        }
+
+        private void buttonX_Click(object sender, EventArgs e)
+        {
+            textBoxFindLine.Text = string.Empty;
+        }
     }
 
     //designer
@@ -2999,7 +3182,7 @@ namespace ACT_Plugin
         {
             this.components = new System.ComponentModel.Container();
             this.textBoxRegex = new System.Windows.Forms.TextBox();
-            this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.contextMenuRegex = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.Undo = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.Cut = new System.Windows.Forms.ToolStripMenuItem();
@@ -3041,35 +3224,41 @@ namespace ACT_Plugin
             this.label1 = new System.Windows.Forms.Label();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
             this.panelTest = new System.Windows.Forms.Panel();
-            this.buttonTest = new System.Windows.Forms.Button();
+            this.splitContainerLog = new System.Windows.Forms.SplitContainer();
+            this.listBoxEncounters = new System.Windows.Forms.ListBox();
+            this.panelLogLines = new System.Windows.Forms.Panel();
+            this.dataGridViewLines = new System.Windows.Forms.DataGridView();
+            this.panelLogFind = new System.Windows.Forms.Panel();
+            this.label5 = new System.Windows.Forms.Label();
+            this.textBoxFindLine = new System.Windows.Forms.TextBox();
             this.panelRegex = new System.Windows.Forms.Panel();
             this.panel2 = new System.Windows.Forms.Panel();
-            this.listBoxEncounters = new System.Windows.Forms.ListBox();
-            this.textBoxFindLine = new System.Windows.Forms.TextBox();
-            this.splitContainerLog = new System.Windows.Forms.SplitContainer();
-            this.panelLogFind = new System.Windows.Forms.Panel();
-            this.panelLogLines = new System.Windows.Forms.Panel();
-            this.label5 = new System.Windows.Forms.Label();
-            this.dataGridViewLines = new System.Windows.Forms.DataGridView();
-            this.contextMenuStrip1.SuspendLayout();
+            this.checkBoxLogLines = new System.Windows.Forms.CheckBox();
+            this.contextMenuLog = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.pasteInRegularExpressionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.testWithRegularExpressionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.labelGridHelp = new System.Windows.Forms.Label();
+            this.buttonX = new System.Windows.Forms.Button();
+            this.contextMenuRegex.SuspendLayout();
             this.groupBox1.SuspendLayout();
             this.panelTest.SuspendLayout();
-            this.panelRegex.SuspendLayout();
-            this.panel2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainerLog)).BeginInit();
             this.splitContainerLog.Panel1.SuspendLayout();
             this.splitContainerLog.Panel2.SuspendLayout();
             this.splitContainerLog.SuspendLayout();
-            this.panelLogFind.SuspendLayout();
             this.panelLogLines.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridViewLines)).BeginInit();
+            this.panelLogFind.SuspendLayout();
+            this.panelRegex.SuspendLayout();
+            this.panel2.SuspendLayout();
+            this.contextMenuLog.SuspendLayout();
             this.SuspendLayout();
             // 
             // textBoxRegex
             // 
             this.textBoxRegex.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxRegex.ContextMenuStrip = this.contextMenuStrip1;
+            this.textBoxRegex.ContextMenuStrip = this.contextMenuRegex;
             this.helpProvider1.SetHelpString(this.textBoxRegex, "The expression to match in the EQII log file");
             this.textBoxRegex.Location = new System.Drawing.Point(127, 44);
             this.textBoxRegex.Name = "textBoxRegex";
@@ -3079,9 +3268,9 @@ namespace ACT_Plugin
             this.textBoxRegex.TextChanged += new System.EventHandler(this.textBoxRegex_TextChanged);
             this.textBoxRegex.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.textBoxRegex_MouseDoubleClick);
             // 
-            // contextMenuStrip1
+            // contextMenuRegex
             // 
-            this.contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.contextMenuRegex.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.Undo,
             this.toolStripSeparator1,
             this.Cut,
@@ -3093,9 +3282,9 @@ namespace ACT_Plugin
             this.toolStripSeparator3,
             this.MakePlayer,
             this.MakeAttacker});
-            this.contextMenuStrip1.Name = "contextMenuStrip1";
-            this.contextMenuStrip1.Size = new System.Drawing.Size(278, 198);
-            this.contextMenuStrip1.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStrip1_Opening);
+            this.contextMenuRegex.Name = "contextMenuStrip1";
+            this.contextMenuRegex.Size = new System.Drawing.Size(278, 198);
+            this.contextMenuRegex.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStrip1_Opening);
             // 
             // Undo
             // 
@@ -3185,7 +3374,7 @@ namespace ACT_Plugin
             this.buttonUpdateCreate.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
             this.helpProvider1.SetHelpString(this.buttonUpdateCreate, "Update current trigger. Or if the Regular Expression or Category / Zone has chang" +
         "ed, create New trigger.");
-            this.buttonUpdateCreate.Location = new System.Drawing.Point(172, 3);
+            this.buttonUpdateCreate.Location = new System.Drawing.Point(191, 11);
             this.buttonUpdateCreate.Name = "buttonUpdateCreate";
             this.helpProvider1.SetShowHelp(this.buttonUpdateCreate, true);
             this.buttonUpdateCreate.Size = new System.Drawing.Size(75, 23);
@@ -3201,7 +3390,7 @@ namespace ACT_Plugin
             this.buttonReplace.Enabled = false;
             this.helpProvider1.SetHelpString(this.buttonReplace, "If the Regular Expression or Category / Zone has changed, replace the original tr" +
         "igger with this trigger.");
-            this.buttonReplace.Location = new System.Drawing.Point(253, 3);
+            this.buttonReplace.Location = new System.Drawing.Point(280, 11);
             this.buttonReplace.Name = "buttonReplace";
             this.helpProvider1.SetShowHelp(this.buttonReplace, true);
             this.buttonReplace.Size = new System.Drawing.Size(75, 23);
@@ -3214,7 +3403,7 @@ namespace ACT_Plugin
             // buttonCancel
             // 
             this.buttonCancel.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.buttonCancel.Location = new System.Drawing.Point(334, 3);
+            this.buttonCancel.Location = new System.Drawing.Point(369, 11);
             this.buttonCancel.Name = "buttonCancel";
             this.buttonCancel.Size = new System.Drawing.Size(75, 23);
             this.buttonCancel.TabIndex = 21;
@@ -3240,7 +3429,7 @@ namespace ACT_Plugin
             // 
             this.radioButtonBeep.AutoSize = true;
             this.helpProvider1.SetHelpString(this.radioButtonBeep, "Select for a system beep alert sound");
-            this.radioButtonBeep.Location = new System.Drawing.Point(6, 45);
+            this.radioButtonBeep.Location = new System.Drawing.Point(6, 46);
             this.radioButtonBeep.Name = "radioButtonBeep";
             this.helpProvider1.SetShowHelp(this.radioButtonBeep, true);
             this.radioButtonBeep.Size = new System.Drawing.Size(50, 17);
@@ -3268,7 +3457,7 @@ namespace ACT_Plugin
             // 
             this.radioButtonTts.AutoSize = true;
             this.helpProvider1.SetHelpString(this.radioButtonTts, "Select and enter text for speech alert");
-            this.radioButtonTts.Location = new System.Drawing.Point(61, 48);
+            this.radioButtonTts.Location = new System.Drawing.Point(60, 46);
             this.radioButtonTts.Name = "radioButtonTts";
             this.helpProvider1.SetShowHelp(this.radioButtonTts, true);
             this.radioButtonTts.Size = new System.Drawing.Size(49, 17);
@@ -3336,7 +3525,7 @@ namespace ACT_Plugin
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(17, 191);
+            this.label3.Location = new System.Drawing.Point(17, 183);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(97, 13);
             this.label3.TabIndex = 15;
@@ -3348,7 +3537,7 @@ namespace ACT_Plugin
             | System.Windows.Forms.AnchorStyles.Right)));
             this.helpProvider1.SetHelpString(this.textBoxTimer, "If Trigger Timer and/or Add Results tab is checked, the name of the timer and/or " +
         "tab");
-            this.textBoxTimer.Location = new System.Drawing.Point(126, 187);
+            this.textBoxTimer.Location = new System.Drawing.Point(126, 179);
             this.textBoxTimer.Name = "textBoxTimer";
             this.helpProvider1.SetShowHelp(this.textBoxTimer, true);
             this.textBoxTimer.Size = new System.Drawing.Size(149, 20);
@@ -3375,7 +3564,7 @@ namespace ACT_Plugin
             this.checkBoxTimer.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.checkBoxTimer.AutoSize = true;
             this.helpProvider1.SetHelpString(this.checkBoxTimer, "Check to trigger a spell timer");
-            this.checkBoxTimer.Location = new System.Drawing.Point(388, 189);
+            this.checkBoxTimer.Location = new System.Drawing.Point(388, 181);
             this.checkBoxTimer.Name = "checkBoxTimer";
             this.helpProvider1.SetShowHelp(this.checkBoxTimer, true);
             this.checkBoxTimer.Size = new System.Drawing.Size(88, 17);
@@ -3389,7 +3578,7 @@ namespace ACT_Plugin
             this.checkBoxResultsTab.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.checkBoxResultsTab.AutoSize = true;
             this.helpProvider1.SetHelpString(this.checkBoxResultsTab, "Check to add a Results Tab");
-            this.checkBoxResultsTab.Location = new System.Drawing.Point(281, 189);
+            this.checkBoxResultsTab.Location = new System.Drawing.Point(281, 181);
             this.checkBoxResultsTab.Name = "checkBoxResultsTab";
             this.helpProvider1.SetShowHelp(this.checkBoxResultsTab, true);
             this.checkBoxResultsTab.Size = new System.Drawing.Size(101, 17);
@@ -3493,7 +3682,7 @@ namespace ACT_Plugin
             this.buttonFindTimer.Font = new System.Drawing.Font("Segoe UI Symbol", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.helpProvider1.SetHelpString(this.buttonFindTimer, "Search for Timer Name in Spell Timers. Use the [Clear] button in the Spell Timers" +
         " window to reset the search.");
-            this.buttonFindTimer.Location = new System.Drawing.Point(482, 185);
+            this.buttonFindTimer.Location = new System.Drawing.Point(482, 177);
             this.buttonFindTimer.Name = "buttonFindTimer";
             this.helpProvider1.SetShowHelp(this.buttonFindTimer, true);
             this.buttonFindTimer.Size = new System.Drawing.Size(25, 23);
@@ -3508,7 +3697,6 @@ namespace ACT_Plugin
             // 
             this.groupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.groupBox1.Controls.Add(this.buttonTest);
             this.groupBox1.Controls.Add(this.label4);
             this.groupBox1.Controls.Add(this.radioButtonNone);
             this.groupBox1.Controls.Add(this.radioButtonWav);
@@ -3521,7 +3709,7 @@ namespace ACT_Plugin
             this.groupBox1.Controls.Add(this.buttonPlay);
             this.groupBox1.Location = new System.Drawing.Point(5, 96);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(627, 86);
+            this.groupBox1.Size = new System.Drawing.Size(627, 74);
             this.groupBox1.TabIndex = 5;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Audio Alert";
@@ -3532,9 +3720,9 @@ namespace ACT_Plugin
             this.label4.AutoSize = true;
             this.label4.Location = new System.Drawing.Point(309, 49);
             this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(281, 13);
+            this.label4.Size = new System.Drawing.Size(274, 13);
             this.label4.TabIndex = 0;
-            this.label4.Text = "To Define: Select Reg. Expr. text and right-click to name it";
+            this.label4.Text = "Shortcut: Select Reg. Expr. text and right-click to name it";
             // 
             // label1
             // 
@@ -3554,23 +3742,105 @@ namespace ACT_Plugin
             this.panelTest.Location = new System.Drawing.Point(0, 228);
             this.panelTest.MinimumSize = new System.Drawing.Size(630, 170);
             this.panelTest.Name = "panelTest";
-            this.panelTest.Size = new System.Drawing.Size(635, 171);
+            this.panelTest.Size = new System.Drawing.Size(635, 172);
             this.panelTest.TabIndex = 26;
             this.panelTest.Visible = false;
             // 
-            // buttonTest
+            // splitContainerLog
             // 
-            this.buttonTest.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonTest.Location = new System.Drawing.Point(536, 15);
-            this.buttonTest.Name = "buttonTest";
-            this.buttonTest.Size = new System.Drawing.Size(75, 23);
-            this.buttonTest.TabIndex = 1;
-            this.buttonTest.Text = "Test";
-            this.buttonTest.UseVisualStyleBackColor = true;
-            this.buttonTest.Click += new System.EventHandler(this.buttonTest_Click);
+            this.splitContainerLog.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainerLog.Location = new System.Drawing.Point(0, 0);
+            this.splitContainerLog.Name = "splitContainerLog";
+            // 
+            // splitContainerLog.Panel1
+            // 
+            this.splitContainerLog.Panel1.Controls.Add(this.listBoxEncounters);
+            // 
+            // splitContainerLog.Panel2
+            // 
+            this.splitContainerLog.Panel2.Controls.Add(this.panelLogLines);
+            this.splitContainerLog.Panel2.Controls.Add(this.panelLogFind);
+            this.splitContainerLog.Size = new System.Drawing.Size(635, 172);
+            this.splitContainerLog.SplitterDistance = 144;
+            this.splitContainerLog.TabIndex = 1;
+            // 
+            // listBoxEncounters
+            // 
+            this.listBoxEncounters.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.listBoxEncounters.FormattingEnabled = true;
+            this.listBoxEncounters.Location = new System.Drawing.Point(0, 0);
+            this.listBoxEncounters.Name = "listBoxEncounters";
+            this.listBoxEncounters.Size = new System.Drawing.Size(144, 172);
+            this.listBoxEncounters.TabIndex = 0;
+            this.listBoxEncounters.SelectedIndexChanged += new System.EventHandler(this.listBoxEncounters_SelectedIndexChanged);
+            // 
+            // panelLogLines
+            // 
+            this.panelLogLines.Controls.Add(this.dataGridViewLines);
+            this.panelLogLines.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.panelLogLines.Location = new System.Drawing.Point(0, 27);
+            this.panelLogLines.Name = "panelLogLines";
+            this.panelLogLines.Size = new System.Drawing.Size(487, 145);
+            this.panelLogLines.TabIndex = 4;
+            // 
+            // dataGridViewLines
+            // 
+            this.dataGridViewLines.AllowUserToAddRows = false;
+            this.dataGridViewLines.AllowUserToDeleteRows = false;
+            this.dataGridViewLines.AllowUserToResizeColumns = false;
+            this.dataGridViewLines.CellBorderStyle = System.Windows.Forms.DataGridViewCellBorderStyle.None;
+            this.dataGridViewLines.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.dataGridViewLines.ColumnHeadersVisible = false;
+            this.dataGridViewLines.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.helpProvider1.SetHelpString(this.dataGridViewLines, "Right click a log line for an option menu");
+            this.dataGridViewLines.Location = new System.Drawing.Point(0, 0);
+            this.dataGridViewLines.Name = "dataGridViewLines";
+            this.dataGridViewLines.ReadOnly = true;
+            this.dataGridViewLines.RowHeadersVisible = false;
+            this.dataGridViewLines.RowTemplate.Height = 18;
+            this.helpProvider1.SetShowHelp(this.dataGridViewLines, true);
+            this.dataGridViewLines.Size = new System.Drawing.Size(487, 145);
+            this.dataGridViewLines.TabIndex = 0;
+            this.dataGridViewLines.CellContextMenuStripNeeded += new System.Windows.Forms.DataGridViewCellContextMenuStripNeededEventHandler(this.dataGridViewLines_CellContextMenuStripNeeded);
+            // 
+            // panelLogFind
+            // 
+            this.panelLogFind.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.panelLogFind.Controls.Add(this.buttonX);
+            this.panelLogFind.Controls.Add(this.label5);
+            this.panelLogFind.Controls.Add(this.textBoxFindLine);
+            this.panelLogFind.Dock = System.Windows.Forms.DockStyle.Top;
+            this.panelLogFind.Location = new System.Drawing.Point(0, 0);
+            this.panelLogFind.Name = "panelLogFind";
+            this.panelLogFind.Size = new System.Drawing.Size(487, 27);
+            this.panelLogFind.TabIndex = 3;
+            // 
+            // label5
+            // 
+            this.label5.AutoSize = true;
+            this.label5.Location = new System.Drawing.Point(4, 5);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(32, 13);
+            this.label5.TabIndex = 2;
+            this.label5.Text = "Filter:";
+            // 
+            // textBoxFindLine
+            // 
+            this.textBoxFindLine.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.helpProvider1.SetHelpString(this.textBoxFindLine, "Filter log lines to show only those containing this text (no wildcards).");
+            this.textBoxFindLine.Location = new System.Drawing.Point(40, 2);
+            this.textBoxFindLine.Name = "textBoxFindLine";
+            this.helpProvider1.SetShowHelp(this.textBoxFindLine, true);
+            this.textBoxFindLine.Size = new System.Drawing.Size(433, 20);
+            this.textBoxFindLine.TabIndex = 1;
+            this.toolTip1.SetToolTip(this.textBoxFindLine, "Show lines containing text");
+            this.textBoxFindLine.TextChanged += new System.EventHandler(this.textBoxFindLine_TextChanged);
             // 
             // panelRegex
             // 
+            this.panelRegex.Controls.Add(this.labelGridHelp);
+            this.panelRegex.Controls.Add(this.checkBoxLogLines);
             this.panelRegex.Controls.Add(this.groupBox1);
             this.panelRegex.Controls.Add(this.label3);
             this.panelRegex.Controls.Add(this.checkBoxRestrict);
@@ -3597,96 +3867,80 @@ namespace ACT_Plugin
             this.panel2.Controls.Add(this.buttonReplace);
             this.panel2.Controls.Add(this.buttonCancel);
             this.panel2.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.panel2.Location = new System.Drawing.Point(0, 399);
+            this.panel2.Location = new System.Drawing.Point(0, 400);
             this.panel2.Name = "panel2";
             this.panel2.Size = new System.Drawing.Size(635, 37);
             this.panel2.TabIndex = 28;
             // 
-            // listBoxEncounters
+            // checkBoxLogLines
             // 
-            this.listBoxEncounters.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.listBoxEncounters.FormattingEnabled = true;
-            this.listBoxEncounters.Location = new System.Drawing.Point(0, 0);
-            this.listBoxEncounters.Name = "listBoxEncounters";
-            this.listBoxEncounters.Size = new System.Drawing.Size(144, 171);
-            this.listBoxEncounters.TabIndex = 0;
-            this.listBoxEncounters.SelectedIndexChanged += new System.EventHandler(this.listBoxEncounters_SelectedIndexChanged);
+            this.checkBoxLogLines.AutoSize = true;
+            this.helpProvider1.SetHelpString(this.checkBoxLogLines, "Check to show the list of encounters and log lines. Useful for creating and testi" +
+        "ng new triggers.");
+            this.checkBoxLogLines.Location = new System.Drawing.Point(12, 208);
+            this.checkBoxLogLines.Name = "checkBoxLogLines";
+            this.helpProvider1.SetShowHelp(this.checkBoxLogLines, true);
+            this.checkBoxLogLines.Size = new System.Drawing.Size(110, 17);
+            this.checkBoxLogLines.TabIndex = 26;
+            this.checkBoxLogLines.Text = "Show Encounters";
+            this.toolTip1.SetToolTip(this.checkBoxLogLines, "Show / Hide encounter list");
+            this.checkBoxLogLines.UseVisualStyleBackColor = true;
+            this.checkBoxLogLines.CheckedChanged += new System.EventHandler(this.checkBoxLogLines_CheckedChanged);
             // 
-            // textBoxFindLine
+            // contextMenuLog
             // 
-            this.textBoxFindLine.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxFindLine.Location = new System.Drawing.Point(40, 1);
-            this.textBoxFindLine.Name = "textBoxFindLine";
-            this.textBoxFindLine.Size = new System.Drawing.Size(433, 20);
-            this.textBoxFindLine.TabIndex = 1;
-            this.textBoxFindLine.TextChanged += new System.EventHandler(this.textBoxFindLine_TextChanged);
+            this.contextMenuLog.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.pasteInRegularExpressionToolStripMenuItem,
+            this.testWithRegularExpressionToolStripMenuItem});
+            this.contextMenuLog.Name = "contextMenuLog";
+            this.contextMenuLog.Size = new System.Drawing.Size(223, 48);
             // 
-            // splitContainerLog
+            // pasteInRegularExpressionToolStripMenuItem
             // 
-            this.splitContainerLog.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.splitContainerLog.Location = new System.Drawing.Point(0, 0);
-            this.splitContainerLog.Name = "splitContainerLog";
+            this.pasteInRegularExpressionToolStripMenuItem.Name = "pasteInRegularExpressionToolStripMenuItem";
+            this.pasteInRegularExpressionToolStripMenuItem.Size = new System.Drawing.Size(222, 22);
+            this.pasteInRegularExpressionToolStripMenuItem.Text = "Paste in Regular Expression";
+            this.pasteInRegularExpressionToolStripMenuItem.ToolTipText = "Paste this log line into the Regular Expression";
+            this.pasteInRegularExpressionToolStripMenuItem.Click += new System.EventHandler(this.pasteInRegularExpressionToolStripMenuItem_Click);
             // 
-            // splitContainerLog.Panel1
+            // testWithRegularExpressionToolStripMenuItem
             // 
-            this.splitContainerLog.Panel1.Controls.Add(this.listBoxEncounters);
+            this.testWithRegularExpressionToolStripMenuItem.Name = "testWithRegularExpressionToolStripMenuItem";
+            this.testWithRegularExpressionToolStripMenuItem.Size = new System.Drawing.Size(222, 22);
+            this.testWithRegularExpressionToolStripMenuItem.Text = "Test with Regular Expression";
+            this.testWithRegularExpressionToolStripMenuItem.ToolTipText = "Run the Regular Expression against this log line";
+            this.testWithRegularExpressionToolStripMenuItem.Click += new System.EventHandler(this.testWithRegularExpressionToolStripMenuItem_Click);
             // 
-            // splitContainerLog.Panel2
+            // labelGridHelp
             // 
-            this.splitContainerLog.Panel2.Controls.Add(this.panelLogLines);
-            this.splitContainerLog.Panel2.Controls.Add(this.panelLogFind);
-            this.splitContainerLog.Size = new System.Drawing.Size(635, 171);
-            this.splitContainerLog.SplitterDistance = 144;
-            this.splitContainerLog.TabIndex = 1;
+            this.labelGridHelp.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.labelGridHelp.AutoSize = true;
+            this.labelGridHelp.Location = new System.Drawing.Point(157, 209);
+            this.labelGridHelp.Name = "labelGridHelp";
+            this.labelGridHelp.Size = new System.Drawing.Size(196, 13);
+            this.labelGridHelp.TabIndex = 27;
+            this.labelGridHelp.Text = "Right-click a log line for the option menu";
+            this.labelGridHelp.Visible = false;
             // 
-            // panelLogFind
+            // buttonX
             // 
-            this.panelLogFind.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.panelLogFind.Controls.Add(this.label5);
-            this.panelLogFind.Controls.Add(this.textBoxFindLine);
-            this.panelLogFind.Dock = System.Windows.Forms.DockStyle.Top;
-            this.panelLogFind.Location = new System.Drawing.Point(0, 0);
-            this.panelLogFind.Name = "panelLogFind";
-            this.panelLogFind.Size = new System.Drawing.Size(487, 27);
-            this.panelLogFind.TabIndex = 3;
-            // 
-            // panelLogLines
-            // 
-            this.panelLogLines.Controls.Add(this.dataGridViewLines);
-            this.panelLogLines.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panelLogLines.Location = new System.Drawing.Point(0, 27);
-            this.panelLogLines.Name = "panelLogLines";
-            this.panelLogLines.Size = new System.Drawing.Size(487, 144);
-            this.panelLogLines.TabIndex = 4;
-            // 
-            // label5
-            // 
-            this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(4, 4);
-            this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(32, 13);
-            this.label5.TabIndex = 2;
-            this.label5.Text = "Filter:";
-            // 
-            // dataGridViewLines
-            // 
-            this.dataGridViewLines.AllowUserToAddRows = false;
-            this.dataGridViewLines.AllowUserToDeleteRows = false;
-            this.dataGridViewLines.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dataGridViewLines.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dataGridViewLines.Location = new System.Drawing.Point(0, 0);
-            this.dataGridViewLines.Name = "dataGridViewLines";
-            this.dataGridViewLines.ReadOnly = true;
-            this.dataGridViewLines.Size = new System.Drawing.Size(487, 144);
-            this.dataGridViewLines.TabIndex = 0;
+            this.buttonX.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.buttonX.Location = new System.Drawing.Point(457, 2);
+            this.buttonX.Name = "buttonX";
+            this.buttonX.Size = new System.Drawing.Size(16, 20);
+            this.buttonX.TabIndex = 28;
+            this.buttonX.Text = "x";
+            this.buttonX.TextAlign = System.Drawing.ContentAlignment.TopCenter;
+            this.toolTip1.SetToolTip(this.buttonX, "Clear Filter:");
+            this.buttonX.UseVisualStyleBackColor = true;
+            this.buttonX.Click += new System.EventHandler(this.buttonX_Click);
             // 
             // FormEditTrigger
             // 
             this.AcceptButton = this.buttonUpdateCreate;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(635, 436);
+            this.ClientSize = new System.Drawing.Size(635, 437);
             this.Controls.Add(this.panelTest);
             this.Controls.Add(this.panelRegex);
             this.Controls.Add(this.panel2);
@@ -3698,21 +3952,22 @@ namespace ACT_Plugin
             this.ShowIcon = false;
             this.Text = "Edit Trigger";
             this.Shown += new System.EventHandler(this.FormEditTrigger_Shown);
-            this.contextMenuStrip1.ResumeLayout(false);
+            this.contextMenuRegex.ResumeLayout(false);
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
             this.panelTest.ResumeLayout(false);
-            this.panelRegex.ResumeLayout(false);
-            this.panelRegex.PerformLayout();
-            this.panel2.ResumeLayout(false);
             this.splitContainerLog.Panel1.ResumeLayout(false);
             this.splitContainerLog.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.splitContainerLog)).EndInit();
             this.splitContainerLog.ResumeLayout(false);
-            this.panelLogFind.ResumeLayout(false);
-            this.panelLogFind.PerformLayout();
             this.panelLogLines.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.dataGridViewLines)).EndInit();
+            this.panelLogFind.ResumeLayout(false);
+            this.panelLogFind.PerformLayout();
+            this.panelRegex.ResumeLayout(false);
+            this.panelRegex.PerformLayout();
+            this.panel2.ResumeLayout(false);
+            this.contextMenuLog.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -3746,7 +4001,7 @@ namespace ACT_Plugin
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Button buttonPaste;
         private System.Windows.Forms.Label label4;
-        private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
+        private System.Windows.Forms.ContextMenuStrip contextMenuRegex;
         private System.Windows.Forms.ToolStripMenuItem MakePlayer;
         private System.Windows.Forms.ToolStripMenuItem MakeAttacker;
         private System.Windows.Forms.ToolStripMenuItem Undo;
@@ -3760,7 +4015,6 @@ namespace ACT_Plugin
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
         private System.Windows.Forms.Button buttonFindTimer;
         private System.Windows.Forms.ToolTip toolTip1;
-        private System.Windows.Forms.Button buttonTest;
         private System.Windows.Forms.Panel panelTest;
         private System.Windows.Forms.Panel panelRegex;
         private System.Windows.Forms.Panel panel2;
@@ -3771,6 +4025,12 @@ namespace ACT_Plugin
         private System.Windows.Forms.Panel panelLogFind;
         private System.Windows.Forms.Label label5;
         private System.Windows.Forms.DataGridView dataGridViewLines;
+        private System.Windows.Forms.CheckBox checkBoxLogLines;
+        private System.Windows.Forms.ContextMenuStrip contextMenuLog;
+        private System.Windows.Forms.ToolStripMenuItem pasteInRegularExpressionToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem testWithRegularExpressionToolStripMenuItem;
+        private System.Windows.Forms.Label labelGridHelp;
+        private System.Windows.Forms.Button buttonX;
     }
 
     //logic

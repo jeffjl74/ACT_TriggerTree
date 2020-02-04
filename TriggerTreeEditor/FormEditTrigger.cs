@@ -9,6 +9,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Advanced_Combat_Tracker;
 
@@ -30,7 +31,7 @@ namespace TriggerTreeEditor
         //set by owner
         public bool haveOriginal = true;    //set false by parent when creating a brand new trigger
         public ConcurrentDictionary<int, CombatToggleEventArgs> encounters;
-
+        int logMenuRow = -1;                //context menu location in the log line grid view
 
         public FormEditTrigger()
         {
@@ -274,10 +275,22 @@ namespace TriggerTreeEditor
         private void buttonPaste_Click(object sender, EventArgs e)
         {
             string text = Clipboard.GetText();
+            PasteRegEx(text);
+            //Match match = parsePaste.Match(text);
+            //if (match.Success)
+            //{
+            //    text = match.Groups["expr"].Value.Replace("\\","\\\\");
+            //}
+            //textBoxRegex.Text = text;
+            //textBoxRegex.SelectAll();
+        }
+
+        private void PasteRegEx(string text)
+        {
             Match match = parsePaste.Match(text);
             if (match.Success)
             {
-                text = match.Groups["expr"].Value.Replace("\\","\\\\");
+                text = match.Groups["expr"].Value.Replace("\\", "\\\\");
             }
             textBoxRegex.Text = text;
             textBoxRegex.SelectAll();
@@ -395,6 +408,10 @@ namespace TriggerTreeEditor
                 editingTrigger.RestrictToCategoryZone = checkBoxRestrict.Checked;
                 buttonUpdateCreate.Enabled = true;
             }
+            if (editingTrigger.RestrictToCategoryZone)
+                textBoxCategory.ForeColor = Color.Green;
+            else
+                textBoxCategory.ForeColor = Color.Black;
         }
 
         private void checkBoxTimer_CheckedChanged(object sender, EventArgs e)
@@ -471,39 +488,39 @@ namespace TriggerTreeEditor
         private void contextMenuStrip1_Opening(object sender, CancelEventArgs e)
         {
             if (textBoxRegex.CanUndo)
-                contextMenuStrip1.Items["Undo"].Enabled = true;
+                contextMenuRegex.Items["Undo"].Enabled = true;
             else
-                contextMenuStrip1.Items["Undo"].Enabled = false;
+                contextMenuRegex.Items["Undo"].Enabled = false;
 
             //can't cut, copy, paste, delete, make capture if nothing slected
             if(textBoxRegex.SelectedText.Length == 0)
             {
-                contextMenuStrip1.Items["Cut"].Enabled = false;
-                contextMenuStrip1.Items["Copy"].Enabled = false;
-                contextMenuStrip1.Items["Delete"].Enabled = false;
-                contextMenuStrip1.Items["MakePlayer"].Enabled = false;
-                contextMenuStrip1.Items["MakeAttacker"].Enabled = false;
+                contextMenuRegex.Items["Cut"].Enabled = false;
+                contextMenuRegex.Items["Copy"].Enabled = false;
+                contextMenuRegex.Items["Delete"].Enabled = false;
+                contextMenuRegex.Items["MakePlayer"].Enabled = false;
+                contextMenuRegex.Items["MakeAttacker"].Enabled = false;
             }
             else
             {
-                contextMenuStrip1.Items["Cut"].Enabled = true;
-                contextMenuStrip1.Items["Copy"].Enabled = true;
-                contextMenuStrip1.Items["Delete"].Enabled = true;
-                contextMenuStrip1.Items["MakePlayer"].Enabled = true;
-                contextMenuStrip1.Items["MakeAttacker"].Enabled = true;
+                contextMenuRegex.Items["Cut"].Enabled = true;
+                contextMenuRegex.Items["Copy"].Enabled = true;
+                contextMenuRegex.Items["Delete"].Enabled = true;
+                contextMenuRegex.Items["MakePlayer"].Enabled = true;
+                contextMenuRegex.Items["MakeAttacker"].Enabled = true;
             }
 
             //can't paste if there is nothing in the clipboard
             if (Clipboard.ContainsText())
-                contextMenuStrip1.Items["Paste"].Enabled = true;
+                contextMenuRegex.Items["Paste"].Enabled = true;
             else
-                contextMenuStrip1.Items["Paste"].Enabled = false;
+                contextMenuRegex.Items["Paste"].Enabled = false;
 
             //can't select all if there is no text
             if (textBoxRegex.Text.Length == 0)
-                contextMenuStrip1.Items["SelectAll"].Enabled = false;
+                contextMenuRegex.Items["SelectAll"].Enabled = false;
             else
-                contextMenuStrip1.Items["SelectAll"].Enabled = true;
+                contextMenuRegex.Items["SelectAll"].Enabled = true;
 
         }
 
@@ -587,94 +604,139 @@ namespace TriggerTreeEditor
 
         //protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         //{
-        //    //if we are "finding", use the <Enter> key to proceed
-        //    if (keyData == Keys.Enter)
+        //    //if we are using SQL queries, use the <Enter> key to proceed
+        //    if (checkBoxSql.Checked)
         //    {
-        //        if (textBoxFindLine.Focused)
+        //        if (keyData == Keys.Enter)
         //        {
-        //            FindAll();
-        //            return true;
+        //            if (textBoxFindLine.Focused)
+        //            {
+        //                ApplyFilter();
+        //                return true;
+        //            }
         //        }
         //    }
         //    return base.ProcessCmdKey(ref msg, keyData);
         //}
 
-        private void buttonTest_Click(object sender, EventArgs e)
+        private async void listBoxEncounters_SelectedIndexChanged(object sender, EventArgs e)
         {
-            panelTest.Visible = !panelTest.Visible;
-            if(panelTest.Visible)
-            {
-                this.Height = this.MinimumSize.Height + panelTest.MinimumSize.Height;
-                if (encounters != null)
-                {
-                    listBoxEncounters.Items.Clear();
-                    for (int i = 0; i < encounters.Count; i++)
-                    {
-                        CombatToggleEventArgs arg;
-                        if (encounters.TryGetValue(i, out arg))
-                        {
-                            listBoxEncounters.Items.Add(arg.encounter.ToString());
-                        }
-                    }
-                }
-            }
-            else
-            {
-                this.Height = this.MinimumSize.Height;
-            }
-        }
-
-        private void listBoxEncounters_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            //lastFound = -1;
             int index = listBoxEncounters.SelectedIndex;
             CombatToggleEventArgs arg;
             if(encounters.TryGetValue(index, out arg))
             {
-                dataGridViewLines.DataSource = ToLineTable(arg.encounter.LogLines);
-                dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+                textBoxFindLine.Text = string.Empty;
+                DataTable dt = null;
+                dataGridViewLines.DataSource = new DataTable();
+                try
+                {
+                    //don't tie up the UI thread
+                    await Task.Run(() =>
+                    {
+                        UseWaitCursor = true;
+                        dt = ToLineTable(arg.encounter.LogLines);
+                        UseWaitCursor = false;
+                    });
+                    if (dt != null)
+                    {
+                        dataGridViewLines.DataSource = dt;
+                        dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+                        //dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
+                        //dataGridViewLines.AutoResizeColumns();
+                    }
+                }
+                catch(Exception dtx)
+                {
+                    MessageBox.Show(this, "Problem collecting the log lines:\n" + dtx.Message);
+                }
             }
         }
 
-        private void textBoxFindLine_TextChanged(object sender, EventArgs e)
+        private async void textBoxFindLine_TextChanged(object sender, EventArgs e)
         {
-            //lastFound = -1;
-            FindNext();
+            await ApplyFilter();
         }
 
-        private void FindNext()
+        private async Task ApplyFilter()
         {
             try
             {
                 DataTable dt = dataGridViewLines.DataSource as DataTable;
                 if (dt != null)
                 {
-                    dt.DefaultView.RowFilter = "LogLine LIKE '%" + textBoxFindLine.Text + "%'";
+                    if (dt.Rows.Count > 0)
+                    {
+                        string filter = textBoxFindLine.Text;
+                        if (!string.IsNullOrEmpty(filter))
+                        {
+                            //for a simple search, fix special chars and add LIKE syntax
+                            filter = "LogLine LIKE '%" + EscapeLikeValue(filter) + "%'";
+                        }
+                        //this can take a while on a large encounter
+                        //don't tie up the UI thread
+                        await Task.Run(() =>
+                            {
+                                //UseWaitCursor = true;
+                                UpdateRowFilter(this, dataGridViewLines, filter);
+                                //UseWaitCursor = false;
+                            });
+                    }
                 }
             }
             catch (Exception exc)
             {
+                UseWaitCursor = false;
                 MessageBox.Show(this, exc.Message);
             }
         }
 
-        //public void FindAll()
-        //{
-        //    int index = listBoxEncounters.SelectedIndex;
-        //    CombatToggleEventArgs arg;
-        //    if (encounters.TryGetValue(index, out arg))
-        //    {
-        //        DataTable dt = ToDataTable(arg.encounter.LogLines);
-        //        dataGridViewLines.DataSource = dt;
-        //        dataGridViewLines.Columns["gts"].Visible = false;
-        //        dataGridViewLines.Columns["SearchSelected"].Visible = false;
-        //        dataGridViewLines.Columns["Time"].Visible = false;
-        //        dataGridViewLines.Columns["ParsedType"].Visible = false;
-        //        dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
-        //        dt.DefaultView.RowFilter = "LogLine LIKE '%" + textBoxFindLine.Text + "%'";
-        //    }
+        delegate void UpdateRowFilterCallback(Form parent, DataGridView target, string filter);
+        private void UpdateRowFilter(Form parent, DataGridView target, string filter)
+        {
+            if (target.InvokeRequired)
+            {
+                UpdateRowFilterCallback cb = new UpdateRowFilterCallback(UpdateRowFilter);
+                parent.Invoke(cb, new object[] { parent, target, filter });
+            }
+            else
+            {
+                DataTable dt = dataGridViewLines.DataSource as DataTable;
+                if (dt != null)
+                {
+                    if (dt.Rows.Count > 0)
+                    {
+                        {
+                            UseWaitCursor = true;
+                            DataView view = dt.DefaultView;
+                            if (view != null)
+                            {
+                                if (string.IsNullOrEmpty(filter))
+                                    view.RowFilter = string.Empty;
+                                else
+                                    view.RowFilter = filter;
+                            }
+                            UseWaitCursor = false;
+                        }
+                    }
+                }
+            }
+        }
 
-        //}
+        private static string EscapeLikeValue(string valueWithoutWildcards)
+        {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < valueWithoutWildcards.Length; i++)
+            {
+                char c = valueWithoutWildcards[i];
+                if (c == '*' || c == '%' || c == '[' || c == ']')
+                    sb.Append("[").Append(c).Append("]");
+                else if (c == '\'')
+                    sb.Append("''");
+                else
+                    sb.Append(c);
+            }
+            return sb.ToString();
+        }
 
         private static DataTable ToLineTable(List<LogLineEntry> list)
         {
@@ -687,30 +749,142 @@ namespace TriggerTreeEditor
             return dt;
         }
 
-        //public static DataTable ToDataTable<T>(IList<T> data)
-        //{
-        //    FieldInfo[] myFieldInfo;
-        //    Type myType = typeof(T);
-        //    // Get the type and fields of FieldInfoClass.
-        //    myFieldInfo = myType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance
-        //        | BindingFlags.Public);
+        private async void checkBoxLogLines_CheckedChanged(object sender, EventArgs e)
+        {
+            //Use the minimum Sizes of the form and the panel (set in the designer)
+            // to show/hide the encounters list.
+            //If shown, populate it
+            panelTest.Visible = checkBoxLogLines.Checked;
+            if (panelTest.Visible)
+            {
+                this.Height = this.MinimumSize.Height + panelTest.MinimumSize.Height;
+                labelGridHelp.Visible = true;
+                if (encounters != null)
+                {
+                    await Task.Run(() =>
+                        {
+                            //UseWaitCursor = true;
+                            ShowEncounters(this, listBoxEncounters);
+                            //UseWaitCursor = false;
+                        });
+                }
+            }
+            else
+            {
+                //hide the panel
+                this.Height = this.MinimumSize.Height;
+                labelGridHelp.Visible = false;
+            }
 
-        //    DataTable dt = new DataTable();
-        //    for (int i = 0; i < myFieldInfo.Length; i++)
-        //    {
-        //        FieldInfo property = myFieldInfo[i];
-        //        dt.Columns.Add(property.Name, property.FieldType);
-        //    }
-        //    object[] values = new object[myFieldInfo.Length];
-        //    foreach (T item in data)
-        //    {
-        //        for (int i = 0; i < values.Length; i++)
-        //        {
-        //            values[i] = myFieldInfo[i].GetValue(item);
-        //        }
-        //        dt.Rows.Add(values);
-        //    }
-        //    return dt;
-        //}
+        }
+
+        delegate void ShowEncountersCallback(Form parent, ListBox target);
+        private void ShowEncounters(Form parent, ListBox target)
+        {
+            if (target.InvokeRequired)
+            {
+                ShowEncountersCallback cb = new ShowEncountersCallback(ShowEncounters);
+                parent.Invoke(cb, new object[] { parent, target });
+            }
+            else
+            {
+                UseWaitCursor = true;
+                target.Items.Clear();
+                dataGridViewLines.DataSource = new DataTable();
+                for (int i = 0; i < encounters.Count; i++)
+                {
+                    CombatToggleEventArgs arg;
+                    if (encounters.TryGetValue(i, out arg))
+                    {
+                        target.Items.Add(arg.encounter.ToString());
+                    }
+                }
+                //scroll to the bottom (most recent)
+                target.TopIndex = listBoxEncounters.Items.Count - 1;
+                UseWaitCursor = false;
+            }
+        }
+
+        private void pasteInRegularExpressionToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            //copy the log line to the regex with reformatting
+            string line = dataGridViewLines.Rows[logMenuRow].Cells["LogLine"].Value.ToString();
+            if (!string.IsNullOrEmpty(line))
+                PasteRegEx(line);
+
+            //copy the zone to the Category / Zone
+            int index = listBoxEncounters.SelectedIndex;
+            CombatToggleEventArgs arg;
+            if (encounters.TryGetValue(index, out arg))
+            {
+                string zone = arg.encounter.ZoneName;
+                if (!zone.Equals(textBoxCategory.Text))
+                {
+                    textBoxCategory.Text = zone;
+                    checkBoxRestrict.Checked = zoneCategory.Contains("[");
+                }
+            }
+        }
+
+        private void testWithRegularExpressionToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                string line = dataGridViewLines.Rows[logMenuRow].Cells["LogLine"].Value.ToString();
+                Regex re = new Regex(textBoxRegex.Text);
+                Match match = re.Match(line);
+                if(match.Success)
+                {
+                    if (radioButtonTts.Checked)
+                    {
+                        string alert = textBoxSound.Text;
+                        string[] groups = re.GetGroupNames();
+                        //group 0 is always the whole line
+                        if(groups.Length > 1)
+                        {
+                            for(int i=1; i<groups.Length; i++)
+                            {
+                                alert = alert.Replace("${" + groups[i] + "}", match.Groups[i].Value);
+                            }
+                        }
+                        ActGlobals.oFormActMain.TTS(alert);
+                    }
+                    else if (radioButtonWav.Checked)
+                    {
+                        if (File.Exists(textBoxSound.Text))
+                            ActGlobals.oFormActMain.PlaySoundWinApi(textBoxSound.Text, 100);
+                    }
+                    else if (radioButtonBeep.Checked)
+                        System.Media.SystemSounds.Beep.Play();
+                }
+                else
+                {
+                    MessageBox.Show(this, "Regular Expression does not match the log line");
+                }
+            }
+            catch (Exception rex)
+            {
+                MessageBox.Show(this, "Invalid regular expression:\n" + rex.Message);
+            }
+        }
+
+        private void checkBoxSql_CheckedChanged(object sender, EventArgs e)
+        {
+            textBoxFindLine.Clear();
+        }
+
+        private void dataGridViewLines_CellContextMenuStripNeeded(object sender, DataGridViewCellContextMenuStripNeededEventArgs e)
+        {
+            if (e.RowIndex >= 0)
+            {
+                e.ContextMenuStrip = contextMenuLog;
+                logMenuRow = e.RowIndex;
+            }
+        }
+
+        private void buttonX_Click(object sender, EventArgs e)
+        {
+            textBoxFindLine.Text = string.Empty;
+        }
     }
 }
