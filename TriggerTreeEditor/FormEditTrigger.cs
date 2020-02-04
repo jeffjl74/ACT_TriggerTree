@@ -9,6 +9,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Advanced_Combat_Tracker;
@@ -32,6 +33,7 @@ namespace TriggerTreeEditor
         public bool haveOriginal = true;    //set false by parent when creating a brand new trigger
         public ConcurrentDictionary<int, CombatToggleEventArgs> encounters;
         int logMenuRow = -1;                //context menu location in the log line grid view
+
 
         public FormEditTrigger()
         {
@@ -602,22 +604,7 @@ namespace TriggerTreeEditor
 
         #endregion Regex Context Menu
 
-        //protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
-        //{
-        //    //if we are using SQL queries, use the <Enter> key to proceed
-        //    if (checkBoxSql.Checked)
-        //    {
-        //        if (keyData == Keys.Enter)
-        //        {
-        //            if (textBoxFindLine.Focused)
-        //            {
-        //                ApplyFilter();
-        //                return true;
-        //            }
-        //        }
-        //    }
-        //    return base.ProcessCmdKey(ref msg, keyData);
-        //}
+        #region Encounters
 
         private async void listBoxEncounters_SelectedIndexChanged(object sender, EventArgs e)
         {
@@ -625,12 +612,12 @@ namespace TriggerTreeEditor
             CombatToggleEventArgs arg;
             if(encounters.TryGetValue(index, out arg))
             {
-                textBoxFindLine.Text = string.Empty;
+                textBoxFindLine.Clear();
                 DataTable dt = null;
                 dataGridViewLines.DataSource = new DataTable();
                 try
                 {
-                    //don't tie up the UI thread
+                    //don't tie up the UI thread building the table (even though it's not that slow)
                     await Task.Run(() =>
                     {
                         UseWaitCursor = true;
@@ -640,9 +627,11 @@ namespace TriggerTreeEditor
                     if (dt != null)
                     {
                         dataGridViewLines.DataSource = dt;
-                        dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
-                        //dataGridViewLines.Columns["LogLine"].AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
-                        //dataGridViewLines.AutoResizeColumns();
+
+                        //mode fill = can't get a horizontal scroll bar
+                        //any auto size mode takes too long on large encounters
+                        //so just set a pretty large width that should handle most everything we'd want to use to make a trigger
+                        dataGridViewLines.Columns["LogLine"].Width = 1000;
                     }
                 }
                 catch(Exception dtx)
@@ -652,12 +641,12 @@ namespace TriggerTreeEditor
             }
         }
 
-        private async void textBoxFindLine_TextChanged(object sender, EventArgs e)
+        private void textBoxFindLine_TextChanged(object sender, EventArgs e)
         {
-            await ApplyFilter();
+            ApplyFilter();
         }
 
-        private async Task ApplyFilter()
+        private void ApplyFilter()
         {
             try
             {
@@ -672,14 +661,16 @@ namespace TriggerTreeEditor
                             //for a simple search, fix special chars and add LIKE syntax
                             filter = "LogLine LIKE '%" + EscapeLikeValue(filter) + "%'";
                         }
-                        //this can take a while on a large encounter
-                        //don't tie up the UI thread
-                        await Task.Run(() =>
-                            {
-                                //UseWaitCursor = true;
-                                UpdateRowFilter(this, dataGridViewLines, filter);
-                                //UseWaitCursor = false;
-                            });
+                        UseWaitCursor = true;
+                        DataView view = dt.DefaultView;
+                        string apply = string.IsNullOrEmpty(filter) ? string.Empty : filter;
+                        if (view != null)
+                        {
+                            //this can take a second on a large encounter
+                            //can't put it on another thread since it affects the UI
+                            view.RowFilter = apply;
+                        }
+                        UseWaitCursor = false;
                     }
                 }
             }
@@ -687,38 +678,6 @@ namespace TriggerTreeEditor
             {
                 UseWaitCursor = false;
                 MessageBox.Show(this, exc.Message);
-            }
-        }
-
-        delegate void UpdateRowFilterCallback(Form parent, DataGridView target, string filter);
-        private void UpdateRowFilter(Form parent, DataGridView target, string filter)
-        {
-            if (target.InvokeRequired)
-            {
-                UpdateRowFilterCallback cb = new UpdateRowFilterCallback(UpdateRowFilter);
-                parent.Invoke(cb, new object[] { parent, target, filter });
-            }
-            else
-            {
-                DataTable dt = dataGridViewLines.DataSource as DataTable;
-                if (dt != null)
-                {
-                    if (dt.Rows.Count > 0)
-                    {
-                        {
-                            UseWaitCursor = true;
-                            DataView view = dt.DefaultView;
-                            if (view != null)
-                            {
-                                if (string.IsNullOrEmpty(filter))
-                                    view.RowFilter = string.Empty;
-                                else
-                                    view.RowFilter = filter;
-                            }
-                            UseWaitCursor = false;
-                        }
-                    }
-                }
             }
         }
 
@@ -749,7 +708,7 @@ namespace TriggerTreeEditor
             return dt;
         }
 
-        private async void checkBoxLogLines_CheckedChanged(object sender, EventArgs e)
+        private void checkBoxLogLines_CheckedChanged(object sender, EventArgs e)
         {
             //Use the minimum Sizes of the form and the panel (set in the designer)
             // to show/hide the encounters list.
@@ -761,12 +720,21 @@ namespace TriggerTreeEditor
                 labelGridHelp.Visible = true;
                 if (encounters != null)
                 {
-                    await Task.Run(() =>
+                    UseWaitCursor = true;
+                    listBoxEncounters.Items.Clear();
+                    dataGridViewLines.DataSource = new DataTable(); //clear it
+                    textBoxFindLine.Clear();
+                    for (int i = 0; i < encounters.Count; i++)
+                    {
+                        CombatToggleEventArgs arg;
+                        if (encounters.TryGetValue(i, out arg))
                         {
-                            //UseWaitCursor = true;
-                            ShowEncounters(this, listBoxEncounters);
-                            //UseWaitCursor = false;
-                        });
+                            listBoxEncounters.Items.Add(arg.encounter.ToString());
+                        }
+                    }
+                    //scroll to the bottom (most recent)
+                    listBoxEncounters.TopIndex = listBoxEncounters.Items.Count - 1;
+                    UseWaitCursor = false;
                 }
             }
             else
@@ -776,33 +744,6 @@ namespace TriggerTreeEditor
                 labelGridHelp.Visible = false;
             }
 
-        }
-
-        delegate void ShowEncountersCallback(Form parent, ListBox target);
-        private void ShowEncounters(Form parent, ListBox target)
-        {
-            if (target.InvokeRequired)
-            {
-                ShowEncountersCallback cb = new ShowEncountersCallback(ShowEncounters);
-                parent.Invoke(cb, new object[] { parent, target });
-            }
-            else
-            {
-                UseWaitCursor = true;
-                target.Items.Clear();
-                dataGridViewLines.DataSource = new DataTable();
-                for (int i = 0; i < encounters.Count; i++)
-                {
-                    CombatToggleEventArgs arg;
-                    if (encounters.TryGetValue(i, out arg))
-                    {
-                        target.Items.Add(arg.encounter.ToString());
-                    }
-                }
-                //scroll to the bottom (most recent)
-                target.TopIndex = listBoxEncounters.Items.Count - 1;
-                UseWaitCursor = false;
-            }
         }
 
         private void pasteInRegularExpressionToolStripMenuItem_Click(object sender, EventArgs e)
@@ -868,11 +809,6 @@ namespace TriggerTreeEditor
             }
         }
 
-        private void checkBoxSql_CheckedChanged(object sender, EventArgs e)
-        {
-            textBoxFindLine.Clear();
-        }
-
         private void dataGridViewLines_CellContextMenuStripNeeded(object sender, DataGridViewCellContextMenuStripNeededEventArgs e)
         {
             if (e.RowIndex >= 0)
@@ -884,7 +820,10 @@ namespace TriggerTreeEditor
 
         private void buttonX_Click(object sender, EventArgs e)
         {
-            textBoxFindLine.Text = string.Empty;
+            textBoxFindLine.Clear();
+            textBoxFindLine.Focus();
         }
+
+        #endregion Encounters
     }
 }
