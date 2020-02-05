@@ -1781,6 +1781,7 @@ namespace ACT_Plugin
             string result = string.Empty;
             if (trigger != null)
             {
+                //match the character replacement scheme used by the Custom Triggers tab
                 StringBuilder sb = new StringBuilder();
                 sb.Append("<Trigger R=\"" + EncodeXml_ish(trigger.ShortRegexString, true, false, true) + "\"");
                 sb.Append(" SD=\"" + EncodeXml_ish(trigger.SoundData, false, true, false) + "\"");
@@ -2629,6 +2630,7 @@ namespace ACT_Plugin
                 text = match.Groups["expr"].Value.Replace("\\", "\\\\");
             }
             textBoxRegex.Text = text;
+            textBoxRegex.Focus();
             textBoxRegex.SelectAll();
         }
 
@@ -3087,11 +3089,6 @@ namespace ACT_Plugin
 
         private void pasteInRegularExpressionToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            //copy the log line to the regex with reformatting
-            string line = dataGridViewLines.Rows[logMenuRow].Cells["LogLine"].Value.ToString();
-            if (!string.IsNullOrEmpty(line))
-                PasteRegEx(line);
-
             //copy the zone to the Category / Zone
             int index = listBoxEncounters.SelectedIndex;
             CombatToggleEventArgs arg;
@@ -3104,6 +3101,11 @@ namespace ACT_Plugin
                     checkBoxRestrict.Checked = zoneCategory.Contains("[");
                 }
             }
+
+            //copy the log line to the regex with reformatting
+            string line = dataGridViewLines.Rows[logMenuRow].Cells["LogLine"].Value.ToString();
+            if (!string.IsNullOrEmpty(line))
+                PasteRegEx(line);
         }
 
         private void testWithRegularExpressionToolStripMenuItem_Click(object sender, EventArgs e)
@@ -4049,7 +4051,7 @@ namespace ACT_Plugin
     }
 
     //logic
-    partial class FormEditSound : Form
+    public partial class FormEditSound : Form
     {
         CustomTrigger editingTrigger;               //a reference to the original trigger
 
@@ -4121,6 +4123,7 @@ namespace ACT_Plugin
             if (editingTrigger != null) //so the form can come up for standalone testing
             {
                 textBoxSound.Text = editingTrigger.SoundData;
+                this.Text = "Edit Alert Sound: " + editingTrigger.ShortRegexString;
 
                 switch (editingTrigger.SoundType)
                 {
@@ -4328,7 +4331,7 @@ namespace ACT_Plugin
             this.textBoxSound.Location = new System.Drawing.Point(130, 13);
             this.textBoxSound.Name = "textBoxSound";
             this.helpProvider1.SetShowHelp(this.textBoxSound, true);
-            this.textBoxSound.Size = new System.Drawing.Size(288, 20);
+            this.textBoxSound.Size = new System.Drawing.Size(248, 20);
             this.textBoxSound.TabIndex = 0;
             // 
             // buttonInsCapture
@@ -4337,7 +4340,7 @@ namespace ACT_Plugin
             this.buttonInsCapture.Enabled = false;
             this.buttonInsCapture.Font = new System.Drawing.Font("Wingdings 3", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
             this.helpProvider1.SetHelpString(this.buttonInsCapture, "Insert the selected capture into the alert sound");
-            this.buttonInsCapture.Location = new System.Drawing.Point(293, 37);
+            this.buttonInsCapture.Location = new System.Drawing.Point(253, 37);
             this.buttonInsCapture.Name = "buttonInsCapture";
             this.helpProvider1.SetShowHelp(this.buttonInsCapture, true);
             this.buttonInsCapture.Size = new System.Drawing.Size(32, 23);
@@ -4348,19 +4351,21 @@ namespace ACT_Plugin
             // 
             // comboBoxGroups
             // 
+            this.comboBoxGroups.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.comboBoxGroups.FormattingEnabled = true;
             this.helpProvider1.SetHelpString(this.comboBoxGroups, "Available capture names from the regular expression");
             this.comboBoxGroups.Location = new System.Drawing.Point(130, 39);
             this.comboBoxGroups.Name = "comboBoxGroups";
             this.helpProvider1.SetShowHelp(this.comboBoxGroups, true);
-            this.comboBoxGroups.Size = new System.Drawing.Size(153, 21);
+            this.comboBoxGroups.Size = new System.Drawing.Size(117, 21);
             this.comboBoxGroups.TabIndex = 7;
             // 
             // buttonOk
             // 
             this.buttonOk.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
             this.buttonOk.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.buttonOk.Location = new System.Drawing.Point(168, 71);
+            this.buttonOk.Location = new System.Drawing.Point(148, 71);
             this.buttonOk.Name = "buttonOk";
             this.buttonOk.Size = new System.Drawing.Size(70, 23);
             this.buttonOk.TabIndex = 9;
@@ -4372,7 +4377,7 @@ namespace ACT_Plugin
             // 
             this.buttonCancel.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
             this.buttonCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.buttonCancel.Location = new System.Drawing.Point(250, 71);
+            this.buttonCancel.Location = new System.Drawing.Point(230, 71);
             this.buttonCancel.Name = "buttonCancel";
             this.buttonCancel.Size = new System.Drawing.Size(75, 23);
             this.buttonCancel.TabIndex = 10;
@@ -4384,7 +4389,7 @@ namespace ACT_Plugin
             // 
             this.buttonBrowse.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.helpProvider1.SetHelpString(this.buttonBrowse, "Browse for wav file");
-            this.buttonBrowse.Location = new System.Drawing.Point(424, 11);
+            this.buttonBrowse.Location = new System.Drawing.Point(384, 11);
             this.buttonBrowse.Name = "buttonBrowse";
             this.helpProvider1.SetShowHelp(this.buttonBrowse, true);
             this.buttonBrowse.Size = new System.Drawing.Size(25, 23);
@@ -4399,7 +4404,7 @@ namespace ACT_Plugin
             this.buttonPlay.Enabled = false;
             this.buttonPlay.Font = new System.Drawing.Font("Wingdings 3", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
             this.helpProvider1.SetHelpString(this.buttonPlay, "Play the alert sound");
-            this.buttonPlay.Location = new System.Drawing.Point(455, 11);
+            this.buttonPlay.Location = new System.Drawing.Point(415, 11);
             this.buttonPlay.Name = "buttonPlay";
             this.helpProvider1.SetShowHelp(this.buttonPlay, true);
             this.buttonPlay.Size = new System.Drawing.Size(25, 23);
@@ -4417,7 +4422,7 @@ namespace ACT_Plugin
             this.AcceptButton = this.buttonOk;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(492, 106);
+            this.ClientSize = new System.Drawing.Size(452, 106);
             this.Controls.Add(this.buttonPlay);
             this.Controls.Add(this.buttonBrowse);
             this.Controls.Add(this.buttonCancel);
@@ -4432,6 +4437,7 @@ namespace ACT_Plugin
             this.HelpButton = true;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
+            this.MinimumSize = new System.Drawing.Size(415, 145);
             this.Name = "FormEditSound";
             this.helpProvider1.SetShowHelp(this, true);
             this.ShowIcon = false;
@@ -4460,7 +4466,7 @@ namespace ACT_Plugin
     }
 
     //logic
-    partial class FormEditTimer : Form
+    public partial class FormEditTimer : Form
     {
         CustomTrigger editingTrigger;
         public event EventHandler EditDoneEvent; //callback
@@ -4513,8 +4519,28 @@ namespace ACT_Plugin
 
         private void FormEditTimer_Shown(object sender, EventArgs e)
         {
-            textBoxName.Text = editingTrigger.TimerName;
+            if (editingTrigger != null)
+            {
+                this.Text = "Edit Timer / Tab Name: " + editingTrigger.ShortRegexString;
+                textBoxName.Text = editingTrigger.TimerName;
+            }
+            textBoxName.Focus();
             textBoxName.SelectAll();
+        }
+
+        private void buttonFind_Click(object sender, EventArgs e)
+        {
+            string name = textBoxName.Text.ToLower();
+            if (!string.IsNullOrEmpty(name))
+            {
+                if (!string.IsNullOrEmpty(name))
+                {
+                    ActGlobals.oFormSpellTimers.SearchSpellTreeView(name);
+                    ActGlobals.oFormSpellTimers.Visible = true;
+                }
+            }
+            else
+                MessageBox.Show(this, "Enter a spell timer name to search");
         }
     }
 
@@ -4551,12 +4577,13 @@ namespace ACT_Plugin
             this.buttonCancel = new System.Windows.Forms.Button();
             this.label1 = new System.Windows.Forms.Label();
             this.textBoxName = new System.Windows.Forms.TextBox();
+            this.buttonFind = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // buttonOk
             // 
             this.buttonOk.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.buttonOk.Location = new System.Drawing.Point(53, 54);
+            this.buttonOk.Location = new System.Drawing.Point(71, 54);
             this.buttonOk.Name = "buttonOk";
             this.buttonOk.Size = new System.Drawing.Size(75, 23);
             this.buttonOk.TabIndex = 2;
@@ -4567,7 +4594,7 @@ namespace ACT_Plugin
             // buttonCancel
             // 
             this.buttonCancel.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.buttonCancel.Location = new System.Drawing.Point(135, 53);
+            this.buttonCancel.Location = new System.Drawing.Point(153, 53);
             this.buttonCancel.Name = "buttonCancel";
             this.buttonCancel.Size = new System.Drawing.Size(75, 23);
             this.buttonCancel.TabIndex = 3;
@@ -4590,16 +4617,28 @@ namespace ACT_Plugin
             | System.Windows.Forms.AnchorStyles.Right)));
             this.textBoxName.Location = new System.Drawing.Point(117, 13);
             this.textBoxName.Name = "textBoxName";
-            this.textBoxName.Size = new System.Drawing.Size(134, 20);
+            this.textBoxName.Size = new System.Drawing.Size(108, 20);
             this.textBoxName.TabIndex = 1;
+            // 
+            // buttonFind
+            // 
+            this.buttonFind.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.buttonFind.Location = new System.Drawing.Point(232, 11);
+            this.buttonFind.Name = "buttonFind";
+            this.buttonFind.Size = new System.Drawing.Size(54, 23);
+            this.buttonFind.TabIndex = 4;
+            this.buttonFind.Text = "Find";
+            this.buttonFind.UseVisualStyleBackColor = true;
+            this.buttonFind.Click += new System.EventHandler(this.buttonFind_Click);
             // 
             // FormEditTimer
             // 
             this.AcceptButton = this.buttonOk;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(263, 88);
+            this.ClientSize = new System.Drawing.Size(298, 91);
             this.ControlBox = false;
+            this.Controls.Add(this.buttonFind);
             this.Controls.Add(this.textBoxName);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.buttonCancel);
@@ -4619,6 +4658,7 @@ namespace ACT_Plugin
         private System.Windows.Forms.Button buttonCancel;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.TextBox textBoxName;
+        private System.Windows.Forms.Button buttonFind;
     }
 
     #endregion Edit Forms

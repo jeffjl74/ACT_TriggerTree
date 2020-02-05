@@ -64,8 +64,28 @@ namespace FormEditTimer
 
         private void FormEditTimer_Shown(object sender, EventArgs e)
         {
-            textBoxName.Text = editingTrigger.TimerName;
+            if (editingTrigger != null)
+            {
+                this.Text = "Edit Timer / Tab Name: " + editingTrigger.ShortRegexString;
+                textBoxName.Text = editingTrigger.TimerName;
+            }
+            textBoxName.Focus();
             textBoxName.SelectAll();
+        }
+
+        private void buttonFind_Click(object sender, EventArgs e)
+        {
+            string name = textBoxName.Text.ToLower();
+            if (!string.IsNullOrEmpty(name))
+            {
+                if (!string.IsNullOrEmpty(name))
+                {
+                    ActGlobals.oFormSpellTimers.SearchSpellTreeView(name);
+                    ActGlobals.oFormSpellTimers.Visible = true;
+                }
+            }
+            else
+                MessageBox.Show(this, "Enter a spell timer name to search");
         }
     }
 }

@@ -298,6 +298,7 @@ namespace TriggerTreeEditor
                 text = match.Groups["expr"].Value.Replace("\\", "\\\\");
             }
             textBoxRegex.Text = text;
+            textBoxRegex.Focus();
             textBoxRegex.SelectAll();
         }
 
@@ -756,11 +757,6 @@ namespace TriggerTreeEditor
 
         private void pasteInRegularExpressionToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            //copy the log line to the regex with reformatting
-            string line = dataGridViewLines.Rows[logMenuRow].Cells["LogLine"].Value.ToString();
-            if (!string.IsNullOrEmpty(line))
-                PasteRegEx(line);
-
             //copy the zone to the Category / Zone
             int index = listBoxEncounters.SelectedIndex;
             CombatToggleEventArgs arg;
@@ -773,6 +769,11 @@ namespace TriggerTreeEditor
                     checkBoxRestrict.Checked = zoneCategory.Contains("[");
                 }
             }
+
+            //copy the log line to the regex with reformatting
+            string line = dataGridViewLines.Rows[logMenuRow].Cells["LogLine"].Value.ToString();
+            if (!string.IsNullOrEmpty(line))
+                PasteRegEx(line);
         }
 
         private void testWithRegularExpressionToolStripMenuItem_Click(object sender, EventArgs e)

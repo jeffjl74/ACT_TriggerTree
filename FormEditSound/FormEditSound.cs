@@ -84,6 +84,7 @@ namespace FormEditSound
             if (editingTrigger != null) //so the form can come up for standalone testing
             {
                 textBoxSound.Text = editingTrigger.SoundData;
+                this.Text = "Edit Alert Sound: " + editingTrigger.ShortRegexString;
 
                 switch (editingTrigger.SoundType)
                 {
