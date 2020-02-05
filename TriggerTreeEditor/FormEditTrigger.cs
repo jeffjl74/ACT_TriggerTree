@@ -27,7 +27,10 @@ namespace TriggerTreeEditor
         string zoneCategory;
         bool regexChanged = false;          //track for replace / create new
         bool initializing = true;           //oncheck() methods do not need to do anything during shown()
-        //int lastFound = -1;                 //find next tracking
+
+        //color the regex depending on restricted status / matching
+        Color activeColor = Color.Green;
+        Color inactiveColor = Color.Black;
 
         //set by owner
         public bool haveOriginal = true;    //set false by parent when creating a brand new trigger
@@ -410,10 +413,10 @@ namespace TriggerTreeEditor
                 editingTrigger.RestrictToCategoryZone = checkBoxRestrict.Checked;
                 buttonUpdateCreate.Enabled = true;
             }
-            if (editingTrigger.RestrictToCategoryZone)
-                textBoxCategory.ForeColor = Color.Green;
+            if (!editingTrigger.RestrictToCategoryZone || zoneCategory.Equals(editingTrigger.Category))
+                textBoxRegex.ForeColor =  activeColor;
             else
-                textBoxCategory.ForeColor = Color.Black;
+                textBoxRegex.ForeColor = inactiveColor;
         }
 
         private void checkBoxTimer_CheckedChanged(object sender, EventArgs e)
@@ -456,7 +459,12 @@ namespace TriggerTreeEditor
                     textBoxRegex.ForeColor = Color.Red;
                 }
                 if (ok)
-                    textBoxRegex.ForeColor = Color.Black;
+                {
+                    if (!editingTrigger.RestrictToCategoryZone || zoneCategory.Equals(editingTrigger.Category))
+                        textBoxRegex.ForeColor = activeColor;
+                    else
+                        textBoxRegex.ForeColor = inactiveColor;
+                }
             }
         }
 

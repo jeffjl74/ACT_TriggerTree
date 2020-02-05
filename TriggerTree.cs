@@ -56,7 +56,7 @@ namespace ACT_Plugin
 
         TreeNode selectedTriggerNode = null;        //node selected via mouse click
         TreeNode clickedCategoryNode = null;
-        Point whereTrigMouseDown;                        //screen location for the trigger tree context menu
+        Point whereTrigMouseDown;                   //screen location for the trigger tree context menu
         bool isDoubleClick = false;                 //to intercept the double click
 
         string keyLastFound = string.Empty;         //for Find Next trigger
@@ -66,7 +66,7 @@ namespace ACT_Plugin
         bool initialVisible = true;                 //save the splitter location only if it has been initialized 
 
         //keep encounter data for building triggers
-        //using a dictionary with a integer key to emulate a CurrentList<> since there isn't one
+        //using a dictionary with a integer key to emulate a ConcurrentList<>
         ConcurrentDictionary<int, CombatToggleEventArgs> encounters = new ConcurrentDictionary<int, CombatToggleEventArgs>();
 
         //trigger macro file stuff
@@ -76,7 +76,7 @@ namespace ACT_Plugin
         string validTriggerText = "Make a triggers.txt macro file to share trigger with the ";
         string invalidCategoryText = "All triggers are disabled or contain characters that do not work in a macro file: ";
         string validCategoryText = "Make a triggers.txt macro file to share all valid enabled triggers with the ";
-        //these are the characters that make a macro file fail to work
+        //these are the characters and strings that make a macro file fail to work
         List<char> invalidMacroChars = new List<char> { '<', '>', '\'', '\"', ';' };
         List<string> invalidMacroStrings = new List<string> { "\\#" };
 
@@ -84,10 +84,6 @@ namespace ACT_Plugin
 
         string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\TreeTriggers.config.xml");
         SettingsSerializer xmlSettings;
-        private ToolStripSeparator toolStripSeparator5;
-        private ToolStripMenuItem deleteTriggerToolStripMenuItem;
-        private ToolStripMenuItem editTriggerToolStripMenuItem;
-        private ToolStripSeparator toolStripSeparator6;
 
         #region Designer Created Code (Avoid editing)
 
@@ -577,6 +573,10 @@ namespace ACT_Plugin
         private ToolStripSeparator toolStripSeparator3;
         private ToolStripMenuItem raidsayShareMacroToolStripMenuItem;
         private ToolStripMenuItem groupsayShareMacroToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator5;
+        private ToolStripMenuItem deleteTriggerToolStripMenuItem;
+        private ToolStripMenuItem editTriggerToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator6;
 
         #endregion
 
@@ -615,13 +615,6 @@ namespace ACT_Plugin
 
             lblStatus.Text = "Plugin Started";
 		}
-
-        private void OFormActMain_OnCombatEnd(bool isImport, CombatToggleEventArgs encounterInfo)
-        {
-            //since this is the only place we add to this dictionary, just use it's current count as its "index" key
-            int count = encounters.Count;
-            encounters.TryAdd(count, encounterInfo);
-        }
 
         public void DeInitPlugin()
 		{
@@ -666,19 +659,18 @@ namespace ACT_Plugin
 
         private void OFormActMain_OnLogLineRead(bool isImport, LogLineEventArgs logInfo)
         {
-            //if (!isImport)
+            //Go ahead and process imports so we switch to the current category.
+
+            //lines that ACT parses have a non-zero logInfo.detectedType
+            //we only need type == 0 non-combat lines for a zone change
+            if (logInfo.detectedType == 0 && logInfo.logLine.Length > logTimeStampLength)
             {
-                //lines that ACT parses have a non-zero logInfo.detectedType
-                //we want type == 0 non-combat lines
-                if (logInfo.detectedType == 0 && logInfo.logLine.Length > logTimeStampLength)
+                //look for zone change
+                if (!string.IsNullOrEmpty(logInfo.detectedZone) && logInfo.detectedZone != zoneName)
                 {
-                    //look for zone change
-                    if (!string.IsNullOrEmpty(logInfo.detectedZone) && logInfo.detectedZone != zoneName)
-                    {
-                        zoneName = logInfo.detectedZone;
-                        UpdateCategoryColors(ActGlobals.oFormActMain, treeViewCats, true);
-                        UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
-                    }
+                    zoneName = logInfo.detectedZone;
+                    UpdateCategoryColors(ActGlobals.oFormActMain, treeViewCats, true);
+                    UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
                 }
             }
         }
@@ -689,6 +681,19 @@ namespace ACT_Plugin
             {
                 //we need to rebuild if there is a new trigger share incoming
                 PopulateCatsTree();
+            }
+        }
+
+        private void OFormActMain_OnCombatEnd(bool isImport, CombatToggleEventArgs encounterInfo)
+        {
+            //keep a queue of encounters for use when building a new trigger
+            if (encounterInfo.encounter.Parent.PopulateAll)
+            {
+                //since this is the only place we add to this dictionary, 
+                // for a key we can just use it's current count
+                // which we can then use as an "index" for lookups
+                int count = encounters.Count;
+                encounters.TryAdd(count, encounterInfo);
             }
         }
 
@@ -1236,7 +1241,7 @@ namespace ACT_Plugin
                                 else
                                 {
                                     sb.Append(sayCmd);
-                                    sb.Append(MacroEncodeTrigger(trigger));
+                                    sb.Append(TriggerToMacro(trigger));
                                     sb.Append(Environment.NewLine);
                                     valid++;
                                     if(valid > 16)
@@ -1576,12 +1581,20 @@ namespace ACT_Plugin
             }
             else if(e.Button == MouseButtons.Left)
             {
-                isDoubleClick = e.Clicks > 1; //to prevent expand/collapse
+                isDoubleClick = e.Clicks > 1; //used to prevent expand/collapse
                 if(isDoubleClick)
                 {
                     if(selectedTriggerNode != null)
                     {
-                        CopyAsShareableXML();
+                        if(CopyAsShareableXML())
+                        {
+                            TraySlider traySlider = new TraySlider();
+                            traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
+                            string msg = "Trigger:\n\n" 
+                                + (selectedTriggerNode.Parent == null ? selectedTriggerNode.Text : selectedTriggerNode.Parent.Text)
+                                + "\n\ncopied to the clipboard";
+                            traySlider.ShowTraySlider(msg, "Trigger Copied");
+                        }
                     }
                 }
             }
@@ -1738,8 +1751,9 @@ namespace ACT_Plugin
             CopyAsShareableXML();
         }
 
-        private void CopyAsShareableXML()
+        private bool CopyAsShareableXML()
         {
+            bool result = false;
             CustomTrigger trigger = null;
             if (selectedTriggerNode.Tag != null)
                 trigger = selectedTriggerNode.Tag as CustomTrigger;
@@ -1749,7 +1763,8 @@ namespace ACT_Plugin
             {
                 try
                 {
-                    Clipboard.SetText(EncodeTrigger(trigger));
+                    Clipboard.SetText(TriggerToXML(trigger));
+                    result = true;
                 }
                 catch
                 {
@@ -1758,21 +1773,22 @@ namespace ACT_Plugin
                     traySlider.ShowTraySlider("Copy to trigger to clipboard failed", "Clipboard Failed");
                 }
             }
+            return result;
         }
 
-        private string EncodeTrigger(CustomTrigger trigger)
+        private string TriggerToXML(CustomTrigger trigger)
         {
             string result = string.Empty;
             if (trigger != null)
             {
                 StringBuilder sb = new StringBuilder();
-                sb.Append("<Trigger R=\"" + EncodeXml_ish(trigger.ShortRegexString) + "\"");
-                sb.Append(" SD=\"" + EncodeXml_ish(trigger.SoundData) + "\"");
+                sb.Append("<Trigger R=\"" + EncodeXml_ish(trigger.ShortRegexString, true, false, true) + "\"");
+                sb.Append(" SD=\"" + EncodeXml_ish(trigger.SoundData, false, true, false) + "\"");
                 sb.Append(" ST=\"" + trigger.SoundType.ToString() + "\"");
                 sb.Append(" CR=\"" + (trigger.RestrictToCategoryZone ? "T" : "F") + "\"");
-                sb.Append(" C=\"" + EncodeXml_ish(trigger.Category) + "\"");
+                sb.Append(" C=\"" + EncodeXml_ish(trigger.Category, false, true, false) + "\"");
                 sb.Append(" T=\"" + (trigger.Timer ? "T" : "F") + "\"");
-                sb.Append(" TN=\"" + EncodeXml_ish(trigger.TimerName) + "\"");
+                sb.Append(" TN=\"" + EncodeXml_ish(trigger.TimerName, false, true, false) + "\"");
                 sb.Append(" Ta=\"" + (trigger.Tabbed ? "T" : "F") + "\"");
                 sb.Append(" />");
 
@@ -1781,7 +1797,7 @@ namespace ACT_Plugin
             return result;
         }
 
-        private string MacroEncodeTrigger(CustomTrigger trigger)
+        private string TriggerToMacro(CustomTrigger trigger)
         {
             string result = string.Empty;
             if (trigger != null)
@@ -1857,7 +1873,7 @@ namespace ACT_Plugin
             return result;
         }
 
-        private string EncodeXml_ish(string text, bool encodeHash = true)
+        private string EncodeXml_ish(string text, bool encodeHash, bool encodePos, bool encodeSlashes)
         {
             if (text == null)
                 return string.Empty;
@@ -1881,22 +1897,30 @@ namespace ACT_Plugin
                         sb.Append("&amp;");
                         break;
                     case '\'':
-                        sb.Append("&apos;");
+                        if (encodePos)
+                            sb.Append("&apos;");
+                        else
+                            sb.Append(text[i]);
                         break;
                     case '\\':
-                        if (i < len - 1)
+                        if (encodeSlashes)
                         {
-                            //only encode double backslashes
-                            if (text[i + 1] == '\\')
+                            if (i < len - 1)
                             {
-                                sb.Append("&#92;&#92;");
-                                i++;
+                                //only encode double backslashes
+                                if (text[i + 1] == '\\')
+                                {
+                                    sb.Append("&#92;&#92;");
+                                    i++;
+                                }
+                                else
+                                    sb.Append(text[i]);
                             }
                             else
-                                sb.Append("\\");
+                                sb.Append(text[i]);
                         }
                         else
-                            sb.Append("\\");
+                            sb.Append(text[i]);
                         break;
                     case '#':
                         if (encodeHash)
@@ -1919,8 +1943,8 @@ namespace ACT_Plugin
                 trigger = selectedTriggerNode.Tag as CustomTrigger;
             else
                 trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
-            string encoded = EncodeTrigger(trigger);
-            string doubled = EncodeXml_ish(encoded, false);
+            string encoded = TriggerToXML(trigger);
+            string doubled = EncodeXml_ish(encoded, false, false, false);
             try
             {
                 Clipboard.SetText(doubled);
@@ -2134,7 +2158,7 @@ namespace ACT_Plugin
                             StringBuilder sb = new StringBuilder();
                             {
                                 sb.Append(sayCmd);
-                                sb.Append(MacroEncodeTrigger(trigger));
+                                sb.Append(TriggerToMacro(trigger));
                                 sb.Append(Environment.NewLine);
                             }
                             if (ActGlobals.oFormActMain.SendToMacroFile(doFileName, sb.ToString(), string.Empty))
@@ -2297,12 +2321,16 @@ namespace ACT_Plugin
 
         private void treeViewTrigs_BeforeCollapse(object sender, TreeViewCancelEventArgs e)
         {
+            //we are using double click to copy the trigger to the clipboard
+            //rather than expanding / collapsing the tree
             if (isDoubleClick && e.Action == TreeViewAction.Collapse)
                 e.Cancel = true;
         }
 
         private void treeViewTrigs_BeforeExpand(object sender, TreeViewCancelEventArgs e)
         {
+            //we are using double click to copy the trigger to the clipboard
+            //rather than expanding / collapsing the tree
             if (isDoubleClick && e.Action == TreeViewAction.Expand)
                 e.Cancel = true;
         }
@@ -2330,7 +2358,10 @@ namespace ACT_Plugin
         string zoneCategory;
         bool regexChanged = false;          //track for replace / create new
         bool initializing = true;           //oncheck() methods do not need to do anything during shown()
-        //int lastFound = -1;                 //find next tracking
+
+        //color the regex depending on restricted status / matching
+        Color activeColor = Color.Green;
+        Color inactiveColor = Color.Black;
 
         //set by owner
         public bool haveOriginal = true;    //set false by parent when creating a brand new trigger
@@ -2713,10 +2744,10 @@ namespace ACT_Plugin
                 editingTrigger.RestrictToCategoryZone = checkBoxRestrict.Checked;
                 buttonUpdateCreate.Enabled = true;
             }
-            if (editingTrigger.RestrictToCategoryZone)
-                textBoxCategory.ForeColor = Color.Green;
+            if (!editingTrigger.RestrictToCategoryZone || zoneCategory.Equals(editingTrigger.Category))
+                textBoxRegex.ForeColor = activeColor;
             else
-                textBoxCategory.ForeColor = Color.Black;
+                textBoxRegex.ForeColor = inactiveColor;
         }
 
         private void checkBoxTimer_CheckedChanged(object sender, EventArgs e)
@@ -2759,7 +2790,12 @@ namespace ACT_Plugin
                     textBoxRegex.ForeColor = Color.Red;
                 }
                 if (ok)
-                    textBoxRegex.ForeColor = Color.Black;
+                {
+                    if (!editingTrigger.RestrictToCategoryZone || zoneCategory.Equals(editingTrigger.Category))
+                        textBoxRegex.ForeColor = activeColor;
+                    else
+                        textBoxRegex.ForeColor = inactiveColor;
+                }
             }
         }
 
