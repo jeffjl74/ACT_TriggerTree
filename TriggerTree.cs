@@ -56,7 +56,8 @@ namespace ACT_Plugin
 
         TreeNode selectedTriggerNode = null;        //node selected via mouse click
         TreeNode clickedCategoryNode = null;
-        Point trigMouseDown;                        //screen location for the trigger tree context menu
+        Point whereTrigMouseDown;                        //screen location for the trigger tree context menu
+        bool isDoubleClick = false;                 //to intercept the double click
 
         string keyLastFound = string.Empty;         //for Find Next trigger
         string catLastFound = string.Empty;         //for find next cat
@@ -254,6 +255,8 @@ namespace ACT_Plugin
             this.treeViewTrigs.TabIndex = 1;
             this.treeViewTrigs.BeforeCheck += new System.Windows.Forms.TreeViewCancelEventHandler(this.treeViewTrigs_BeforeCheck);
             this.treeViewTrigs.AfterCheck += new System.Windows.Forms.TreeViewEventHandler(this.treeViewTrigs_AfterCheck);
+            this.treeViewTrigs.BeforeCollapse += new System.Windows.Forms.TreeViewCancelEventHandler(this.treeViewTrigs_BeforeCollapse);
+            this.treeViewTrigs.BeforeExpand += new System.Windows.Forms.TreeViewCancelEventHandler(this.treeViewTrigs_BeforeExpand);
             this.treeViewTrigs.KeyDown += new System.Windows.Forms.KeyEventHandler(this.treeViewTrigs_KeyDown);
             this.treeViewTrigs.MouseDown += new System.Windows.Forms.MouseEventHandler(this.treeViewTrigs_MouseDown);
             // 
@@ -487,10 +490,10 @@ namespace ACT_Plugin
             this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label1.Location = new System.Drawing.Point(5, 3);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(567, 13);
+            this.label1.Size = new System.Drawing.Size(559, 13);
             this.label1.TabIndex = 0;
-            this.label1.Text = "Right-click a category or trigger for menu choices. Expand a trigger to access ch" +
-    "eckboxes and other right-click options.";
+            this.label1.Text = "Right-click a category or trigger for menu choices.  Right-click a blank line in " +
+    "the triggers pane to create a new trigger.";
             // 
             // panel1
             // 
@@ -509,9 +512,10 @@ namespace ACT_Plugin
             this.label2.AutoSize = true;
             this.label2.Location = new System.Drawing.Point(5, 20);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(321, 13);
+            this.label2.Size = new System.Drawing.Size(501, 13);
             this.label2.TabIndex = 1;
-            this.label2.Text = "To create a new trigger, right-click a blank line in the triggers pane.";
+            this.label2.Text = "Double click a trigger to copy XML.  Expand a trigger to access checkboxes and th" +
+    "eir right-click options. ";
             // 
             // TriggerTree
             // 
@@ -1543,15 +1547,15 @@ namespace ACT_Plugin
 
         private void treeViewTrigs_MouseDown(object sender, MouseEventArgs e)
         {
-            if(e.Button == MouseButtons.Right)
+            Point pt = new Point(e.X, e.Y);
+            selectedTriggerNode = treeViewTrigs.GetNodeAt(pt);
+            whereTrigMouseDown = treeViewTrigs.PointToScreen(pt);
+            if (e.Button == MouseButtons.Right)
             {
-                Point pt = new Point(e.X, e.Y);
-                selectedTriggerNode = treeViewTrigs.GetNodeAt(pt);
-                trigMouseDown = treeViewTrigs.PointToScreen(pt);
                 if (selectedTriggerNode != null)
                 {
                     treeViewTrigs.SelectedNode = selectedTriggerNode;
-                    contextMenuStripTrig.Show(trigMouseDown);
+                    contextMenuStripTrig.Show(whereTrigMouseDown);
                 }
                 else
                 {
@@ -1567,7 +1571,18 @@ namespace ACT_Plugin
                     formEditTrigger.encounters = encounters;
                     formEditTrigger.haveOriginal = false; //disable the replace button since there is nothing to replace
                     formEditTrigger.Show(this);
-                    PositionChildForm(formEditTrigger, trigMouseDown);
+                    PositionChildForm(formEditTrigger, whereTrigMouseDown);
+                }
+            }
+            else if(e.Button == MouseButtons.Left)
+            {
+                isDoubleClick = e.Clicks > 1; //to prevent expand/collapse
+                if(isDoubleClick)
+                {
+                    if(selectedTriggerNode != null)
+                    {
+                        CopyAsShareableXML();
+                    }
                 }
             }
         }
@@ -1720,6 +1735,11 @@ namespace ACT_Plugin
 
         private void copyAsShareableXMLToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            CopyAsShareableXML();
+        }
+
+        private void CopyAsShareableXML()
+        {
             CustomTrigger trigger = null;
             if (selectedTriggerNode.Tag != null)
                 trigger = selectedTriggerNode.Tag as CustomTrigger;
@@ -1837,13 +1857,12 @@ namespace ACT_Plugin
             return result;
         }
 
-        private string EncodeXml_ish(string text)
+        private string EncodeXml_ish(string text, bool encodeHash = true)
         {
             if (text == null)
                 return string.Empty;
 
             StringBuilder sb = new StringBuilder();
-
             int len = text.Length;
             for (int i = 0; i < len; i++)
             {
@@ -1865,18 +1884,28 @@ namespace ACT_Plugin
                         sb.Append("&apos;");
                         break;
                     case '\\':
-                        sb.Append("&#92;");
-                        break;
-                    default:
-                        if (text[i] > 127)
+                        if (i < len - 1)
                         {
-                            // decimal numeric entity
-                            sb.Append("&#");
-                            sb.Append(((int)text[i]).ToString());
-                            sb.Append(";");
+                            //only encode double backslashes
+                            if (text[i + 1] == '\\')
+                            {
+                                sb.Append("&#92;&#92;");
+                                i++;
+                            }
+                            else
+                                sb.Append("\\");
                         }
                         else
+                            sb.Append("\\");
+                        break;
+                    case '#':
+                        if (encodeHash)
+                            sb.Append("&#35;");
+                        else //leave it alone when double encoding
                             sb.Append(text[i]);
+                        break;
+                    default:
+                        sb.Append(text[i]);
                         break;
                 }
             }
@@ -1891,7 +1920,7 @@ namespace ACT_Plugin
             else
                 trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
             string encoded = EncodeTrigger(trigger);
-            string doubled = EncodeXml_ish(encoded);
+            string doubled = EncodeXml_ish(encoded, false);
             try
             {
                 Clipboard.SetText(doubled);
@@ -2221,13 +2250,13 @@ namespace ACT_Plugin
                     {
                         FormEditSound formEditSound = new FormEditSound(selectedTriggerNode.Parent.Tag as CustomTrigger, Sound_EditDoneEvent);
                         formEditSound.Show(this);
-                        PositionChildForm(formEditSound, trigMouseDown);
+                        PositionChildForm(formEditSound, whereTrigMouseDown);
                     }
                     else if (selectedTriggerNode.Index == indexTimerName)
                     {
                         FormEditTimer formEditTimer = new FormEditTimer(selectedTriggerNode.Parent.Tag as CustomTrigger, Timer_EditDoneEvent);
                         formEditTimer.Show(this);
-                        PositionChildForm(formEditTimer, trigMouseDown);
+                        PositionChildForm(formEditTimer, whereTrigMouseDown);
 
                     }
                     else if (selectedTriggerNode.Index == indexTimer)
@@ -2251,7 +2280,7 @@ namespace ACT_Plugin
                         formEditTrigger.EditDoneEvent += Edit_EditDoneEvent; //callback for when the edit is done
                         formEditTrigger.encounters = encounters;
                         formEditTrigger.Show(this);
-                        PositionChildForm(formEditTrigger, trigMouseDown);
+                        PositionChildForm(formEditTrigger, whereTrigMouseDown);
                     }
                 }
                 else
@@ -2261,9 +2290,21 @@ namespace ACT_Plugin
                     formEditTrigger.EditDoneEvent += Edit_EditDoneEvent; //callback for when the edit is done
                     formEditTrigger.encounters = encounters;
                     formEditTrigger.Show(this);
-                    PositionChildForm(formEditTrigger, trigMouseDown);
+                    PositionChildForm(formEditTrigger, whereTrigMouseDown);
                 }
             }
+        }
+
+        private void treeViewTrigs_BeforeCollapse(object sender, TreeViewCancelEventArgs e)
+        {
+            if (isDoubleClick && e.Action == TreeViewAction.Collapse)
+                e.Cancel = true;
+        }
+
+        private void treeViewTrigs_BeforeExpand(object sender, TreeViewCancelEventArgs e)
+        {
+            if (isDoubleClick && e.Action == TreeViewAction.Expand)
+                e.Cancel = true;
         }
 
         #endregion Trigger Tree
