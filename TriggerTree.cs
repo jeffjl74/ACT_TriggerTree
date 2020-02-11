@@ -57,7 +57,7 @@ namespace ACT_Plugin
         TreeNode selectedTriggerNode = null;        //node selected via mouse click
         TreeNode clickedCategoryNode = null;
         Point whereTrigMouseDown;                   //screen location for the trigger tree context menu
-        bool isDoubleClick = false;                 //to intercept the double click
+        bool isDoubleClick = false;                 //to intercept the double click on a trigger
 
         string keyLastFound = string.Empty;         //for Find Next trigger
         string catLastFound = string.Empty;         //for find next cat
@@ -66,7 +66,7 @@ namespace ACT_Plugin
         bool initialVisible = true;                 //save the splitter location only if it has been initialized 
 
         //keep encounter data for building triggers
-        //using a dictionary with a integer key to emulate a ConcurrentList<>
+        //using a thread safe dictionary with a integer key to emulate a ConcurrentList<>
         ConcurrentDictionary<int, CombatToggleEventArgs> encounters = new ConcurrentDictionary<int, CombatToggleEventArgs>();
 
         //trigger macro file stuff
@@ -78,7 +78,7 @@ namespace ACT_Plugin
         string validCategoryText = "Make a triggers.txt macro file to share all valid enabled triggers with the ";
         //these are the characters and strings that make a macro file fail to work
         List<char> invalidMacroChars = new List<char> { '<', '>', '\'', '\"', ';' };
-        List<string> invalidMacroStrings = new List<string> { "\\#" };
+        List<string> invalidMacroStrings = new List<string> { @"\#" };
 
         Label lblStatus;                            // The status label that appears in ACT's Plugin tab
 
@@ -638,7 +638,7 @@ namespace ACT_Plugin
             //    DateTime remoteDate = ActGlobals.oFormActMain.PluginGetRemoteDateUtc(pluginId);
             //    if (localDate.AddHours(2) < remoteDate)
             //    {
-            //        DialogResult result = MessageBox.Show("There is an updated version of the Synergy Plugin.  Update it now?\n\n(If there is an update to ACT, you should click No and update ACT first.)", "New Version", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            //        DialogResult result = MessageBox.Show("There is an updated version of the Trigger Tree Plugin.  Update it now?\n\n(If there is an update to ACT, you should click No and update ACT first.)", "New Version", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             //        if (result == DialogResult.Yes)
             //        {
             //            FileInfo updatedFile = ActGlobals.oFormActMain.PluginDownload(pluginId);
@@ -686,12 +686,12 @@ namespace ACT_Plugin
 
         private void OFormActMain_OnCombatEnd(bool isImport, CombatToggleEventArgs encounterInfo)
         {
-            //keep a queue of encounters for use when building a new trigger
+            //keep a list of encounters for use when building a new trigger
             if (encounterInfo.encounter.Parent.PopulateAll)
             {
                 //since this is the only place we add to this dictionary, 
-                // for a key we can just use it's current count
-                // which we can then use as an "index" for lookups
+                // for a key we can just use its current count
+                // which we can later use as an "index" for lookups
                 int count = encounters.Count;
                 encounters.TryAdd(count, encounterInfo);
             }
@@ -827,6 +827,7 @@ namespace ACT_Plugin
                     List<CustomTrigger> list;
                     if(treeDict.TryGetValue(key, out list))
                     {
+                        //look through the triggers to determine if the category should be green
                         foreach(CustomTrigger trigger in list)
                         {
                             if (trigger.Active)
@@ -1092,6 +1093,8 @@ namespace ACT_Plugin
                 treeViewCats.HideSelection = false;
                 string category = treeViewCats.SelectedNode.Text;
 
+                textBoxTrigFind.Clear();
+
                 UpdateTriggerList(category);
             }
         }
@@ -1158,7 +1161,7 @@ namespace ACT_Plugin
                 {
                     if (resume && !foundLast)
                     {
-                        //move until the last find
+                        //keep looping until we get to the last find
                         if (node.Text.Equals(catLastFound))
                         {
                             foundLast = true;
@@ -1166,6 +1169,7 @@ namespace ACT_Plugin
                     }
                     else
                     {
+                        //once past the previous find, look for the next one
                         if (node.Text.ToLower().Contains(find))
                         {
                             treeViewCats.SelectedNode = node;
@@ -1534,10 +1538,6 @@ namespace ACT_Plugin
                                 e.Node.Parent.Nodes[indexTimerName].Checked = trigger.Timer || trigger.Tabbed;
                             updateACT = true;
                         }
-                        //else if (e.Node.Index == indexTimerName)
-                        //{
-
-                        //}
                     }
                 }
             }
@@ -1581,7 +1581,7 @@ namespace ACT_Plugin
             }
             else if(e.Button == MouseButtons.Left)
             {
-                isDoubleClick = e.Clicks > 1; //used to prevent expand/collapse
+                isDoubleClick = e.Clicks > 1; //used to prevent expand/collapse on double click
                 if(isDoubleClick)
                 {
                     if(selectedTriggerNode != null)
@@ -1637,7 +1637,7 @@ namespace ACT_Plugin
 
         private void Edit_EditDoneEvent(object sender, EventArgs e)
         {
-            //edit dialog callback
+            //edit trigger dialog callback
 
             FormEditTrigger.EditEventArgs args = e as FormEditTrigger.EditEventArgs;
             if (args.result != FormEditTrigger.EventResult.CANCEL_EDIT)
@@ -1839,7 +1839,7 @@ namespace ACT_Plugin
                     result = true;
                     break;
                 }
-                if (trigger.SoundData.Contains(c.ToString()))
+                if (trigger.TimerName.Contains(c.ToString()))
                 {
                     result = true;
                     break;
@@ -1864,7 +1864,7 @@ namespace ACT_Plugin
                         result = true;
                         break;
                     }
-                    if (trigger.SoundData.Contains(s))
+                    if (trigger.TimerName.Contains(s))
                     {
                         result = true;
                         break;
@@ -1993,16 +1993,21 @@ namespace ACT_Plugin
         private FindResult FindTrigger(CustomTrigger trigger, string find)
         {
             FindResult found = FindResult.NOT_FOUND;
+            //This is a trigger from enumerating the ACT dictionary.
+            //If it contains the string we are searching for,
+            // look for and select it in our tree structure
             if (trigger.ShortRegexString.ToLower().Contains(find)
                 || trigger.TimerName.ToLower().Contains(find)
                 || trigger.SoundData.ToLower().Contains(find))
             {
+                //get our category set
                 string category = trigger.Category;
                 TreeNode[] cats = treeViewCats.Nodes.Find(category, false);
                 if (cats.Length > 0)
                 {
                     treeViewCats.SelectedNode = cats[0];
                     treeViewCats.SelectedNode.EnsureVisible();
+                    //now find the trigger in that category
                     foreach (TreeNode trigNode in treeViewTrigs.Nodes)
                     {
                         if (trigNode.Text.Equals(trigger.ShortRegexString))
@@ -2016,7 +2021,7 @@ namespace ACT_Plugin
                         }
                     }
                     //once we change the selected category,
-                    // cannot continue enumerating the dictionary
+                    // cannot continue enumerating the ACT dictionary in the calling method
                     if(found == FindResult.NOT_FOUND)
                         found = FindResult.FIND_FAILED; //should not get here, but avoid an exception in case we do
                 }
@@ -2148,7 +2153,7 @@ namespace ACT_Plugin
                 {
                     if (IsInvalidMacroTrigger(trigger))
                     {
-                        MessageBox.Show(this, "EQII does not allow quote marks or backslashes in a macro.\nThis trigger cannot be saved to a macro.", 
+                        MessageBox.Show(this, "EQII does not allow certain characters in a macro.\nThis trigger cannot be saved to a macro.", 
                             "Unsupported Action", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
                         return;
                     }
@@ -2268,6 +2273,7 @@ namespace ACT_Plugin
         {
             if (selectedTriggerNode != null)
             {
+                int wholeEdit = 0;
                 if (selectedTriggerNode.Parent != null)
                 {
                     //it's a child item
@@ -2282,7 +2288,6 @@ namespace ACT_Plugin
                         FormEditTimer formEditTimer = new FormEditTimer(selectedTriggerNode.Parent.Tag as CustomTrigger, Timer_EditDoneEvent);
                         formEditTimer.Show(this);
                         PositionChildForm(formEditTimer, whereTrigMouseDown);
-
                     }
                     else if (selectedTriggerNode.Index == indexTimer)
                     {
@@ -2301,17 +2306,23 @@ namespace ACT_Plugin
                     else
                     {
                         //edit the whole trigger for any other child
-                        FormEditTrigger formEditTrigger = new FormEditTrigger(selectedTriggerNode.Parent.Tag as CustomTrigger, zoneName);
-                        formEditTrigger.EditDoneEvent += Edit_EditDoneEvent; //callback for when the edit is done
-                        formEditTrigger.encounters = encounters;
-                        formEditTrigger.Show(this);
-                        PositionChildForm(formEditTrigger, whereTrigMouseDown);
+                        wholeEdit = 2;
                     }
                 }
                 else
                 {
                     //clicked a a parent node
-                    FormEditTrigger formEditTrigger = new FormEditTrigger(selectedTriggerNode.Tag as CustomTrigger, zoneName);
+                    wholeEdit = 1;
+                }
+                if(wholeEdit > 0)
+                {
+                    //bring up the trigger edit form
+                    CustomTrigger t;
+                    if (wholeEdit == 1)
+                        t = selectedTriggerNode.Tag as CustomTrigger;
+                    else
+                        t = selectedTriggerNode.Parent.Tag as CustomTrigger;
+                    FormEditTrigger formEditTrigger = new FormEditTrigger(t, zoneName);
                     formEditTrigger.EditDoneEvent += Edit_EditDoneEvent; //callback for when the edit is done
                     formEditTrigger.encounters = encounters;
                     formEditTrigger.Show(this);
@@ -2348,7 +2359,7 @@ namespace ACT_Plugin
     // while still maintaining this one source file for ACT to load as a plugin.
 
     //logic
-    public partial class FormEditTrigger : Form
+    partial class FormEditTrigger : Form
     {
         const int logTimeStampLength = 39;  //# of chars in the log file timestamp
         const string logTimeStampRegexStr = @"^\(\d{10}\)\[.{24}\] ";
@@ -2372,6 +2383,7 @@ namespace ACT_Plugin
 
         public FormEditTrigger()
         {
+            //for stand alone testing
             InitializeComponent();
         }
 
@@ -2381,6 +2393,7 @@ namespace ACT_Plugin
 
             zoneCategory = category;
             undoTrigger = trigger;
+            //make a new trigger that we can modify without changing the original trigger
             editingTrigger = new CustomTrigger(trigger.RegEx.ToString(), trigger.SoundType, trigger.SoundData, trigger.Timer, trigger.TimerName, trigger.Tabbed);
             editingTrigger.Category = trigger.Category;
             editingTrigger.RestrictToCategoryZone = trigger.RestrictToCategoryZone;
@@ -2388,6 +2401,7 @@ namespace ACT_Plugin
 
         private void FormEditTrigger_Shown(object sender, EventArgs e)
         {
+            //hide encounters, initially
             this.Height = this.MinimumSize.Height;
 
             if (editingTrigger != null)
@@ -2599,6 +2613,7 @@ namespace ACT_Plugin
             string group = comboBoxGroups.Text;
             if (!string.IsNullOrEmpty(group))
             {
+                //insert $1 if un-named, ${name} if named
                 int i = 0;
                 bool result = int.TryParse(group, out i);
                 if (!result)
@@ -2613,25 +2628,22 @@ namespace ACT_Plugin
         {
             string text = Clipboard.GetText();
             PasteRegEx(text);
-            //Match match = parsePaste.Match(text);
-            //if (match.Success)
-            //{
-            //    text = match.Groups["expr"].Value.Replace("\\","\\\\");
-            //}
-            //textBoxRegex.Text = text;
-            //textBoxRegex.SelectAll();
         }
 
         private void PasteRegEx(string text)
         {
-            Match match = parsePaste.Match(text);
-            if (match.Success)
+            if (!string.IsNullOrEmpty(text))
             {
-                text = match.Groups["expr"].Value.Replace("\\", "\\\\");
+                Match match = parsePaste.Match(text);
+                if (match.Success)
+                {
+                    // a \\ in the log is not an escaped \, it is two backslashes. fix it
+                    text = match.Groups["expr"].Value.Replace("\\", "\\\\");
+                }
+                textBoxRegex.Text = text;
+                textBoxRegex.Focus();
+                textBoxRegex.SelectAll();
             }
-            textBoxRegex.Text = text;
-            textBoxRegex.Focus();
-            textBoxRegex.SelectAll();
         }
 
         private void buttonFindTimer_Click(object sender, EventArgs e)
@@ -2835,7 +2847,7 @@ namespace ACT_Plugin
             else
                 contextMenuRegex.Items["Undo"].Enabled = false;
 
-            //can't cut, copy, paste, delete, make capture if nothing slected
+            //can't make capture, cut, copy, paste, or delete if nothing is selected
             if (textBoxRegex.SelectedText.Length == 0)
             {
                 contextMenuRegex.Items["Cut"].Enabled = false;
@@ -2915,7 +2927,7 @@ namespace ACT_Plugin
             //This double-click-select replacement is easy, but the tradeoff is it's visually distracting.
             //By the time we get here the textbox has already made its "word" selection.
             //But it delimits strictly by spaces, and includes the trailing space.
-            //We want to delimit by letters a-z, which is way more likely what we want to replace.
+            //We want to delimit by letters a-z, which is way more likely to be what we want to replace.
             //The user will see the seleciton change if we end up adjusting it.
 
             string text = textBoxRegex.Text;
@@ -2999,7 +3011,7 @@ namespace ACT_Plugin
                         string filter = textBoxFindLine.Text;
                         if (!string.IsNullOrEmpty(filter))
                         {
-                            //for a simple search, fix special chars and add LIKE syntax
+                            //use a simple filter, fix special chars and add LIKE syntax
                             filter = "LogLine LIKE '%" + EscapeLikeValue(filter) + "%'";
                         }
                         UseWaitCursor = true;
@@ -3040,6 +3052,7 @@ namespace ACT_Plugin
 
         private static DataTable ToLineTable(List<LogLineEntry> list)
         {
+            //make a DataTable of the log lines to make filtering easy
             DataTable dt = new DataTable();
             dt.Columns.Add("LogLine");
             foreach (LogLineEntry line in list)
@@ -3083,8 +3096,8 @@ namespace ACT_Plugin
                 //hide the panel
                 this.Height = this.MinimumSize.Height;
                 labelGridHelp.Visible = false;
+                dataGridViewLines.DataSource = new DataTable(); //clear it, allow garbage collection
             }
-
         }
 
         private void pasteInRegularExpressionToolStripMenuItem_Click(object sender, EventArgs e)
@@ -3112,6 +3125,7 @@ namespace ACT_Plugin
         {
             try
             {
+                //use the regex on the log line selected by the right click
                 string line = dataGridViewLines.Rows[logMenuRow].Cells["LogLine"].Value.ToString();
                 Regex re = new Regex(textBoxRegex.Text);
                 Match match = re.Match(line);
@@ -3126,7 +3140,12 @@ namespace ACT_Plugin
                         {
                             for (int i = 1; i < groups.Length; i++)
                             {
-                                alert = alert.Replace("${" + groups[i] + "}", match.Groups[i].Value);
+                                int cap = 0;
+                                bool result = int.TryParse(groups[i], out cap);
+                                if (result)
+                                    alert = alert.Replace("$" + groups[i], match.Groups[i].Value);
+                                else
+                                    alert = alert.Replace("${" + groups[i] + "}", match.Groups[i].Value);
                             }
                         }
                         ActGlobals.oFormActMain.TTS(alert);
@@ -3155,6 +3174,7 @@ namespace ACT_Plugin
             if (e.RowIndex >= 0)
             {
                 e.ContextMenuStrip = contextMenuLog;
+                //save where the mouse clicked
                 logMenuRow = e.RowIndex;
             }
         }
@@ -4051,7 +4071,7 @@ namespace ACT_Plugin
     }
 
     //logic
-    public partial class FormEditSound : Form
+    partial class FormEditSound : Form
     {
         CustomTrigger editingTrigger;               //a reference to the original trigger
 
@@ -4466,7 +4486,7 @@ namespace ACT_Plugin
     }
 
     //logic
-    public partial class FormEditTimer : Form
+    partial class FormEditTimer : Form
     {
         CustomTrigger editingTrigger;
         public event EventHandler EditDoneEvent; //callback

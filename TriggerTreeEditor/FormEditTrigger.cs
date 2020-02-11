@@ -40,6 +40,7 @@ namespace TriggerTreeEditor
 
         public FormEditTrigger()
         {
+            //for stand alone testing
             InitializeComponent();
         }
 
@@ -49,6 +50,7 @@ namespace TriggerTreeEditor
 
             zoneCategory = category;
             undoTrigger = trigger;
+            //make a new trigger that we can modify without changing the original trigger
             editingTrigger = new CustomTrigger(trigger.RegEx.ToString(), trigger.SoundType, trigger.SoundData, trigger.Timer, trigger.TimerName, trigger.Tabbed);
             editingTrigger.Category = trigger.Category;
             editingTrigger.RestrictToCategoryZone = trigger.RestrictToCategoryZone;
@@ -56,6 +58,7 @@ namespace TriggerTreeEditor
 
         private void FormEditTrigger_Shown(object sender, EventArgs e)
         {
+            //hide encounters, initially
             this.Height = this.MinimumSize.Height;
 
             if (editingTrigger != null)
@@ -267,6 +270,7 @@ namespace TriggerTreeEditor
             string group = comboBoxGroups.Text;
             if (!string.IsNullOrEmpty(group))
             {
+                //insert $1 if un-named, ${name} if named
                 int i = 0;
                 bool result = int.TryParse(group, out i);
                 if (!result)
@@ -281,25 +285,22 @@ namespace TriggerTreeEditor
         {
             string text = Clipboard.GetText();
             PasteRegEx(text);
-            //Match match = parsePaste.Match(text);
-            //if (match.Success)
-            //{
-            //    text = match.Groups["expr"].Value.Replace("\\","\\\\");
-            //}
-            //textBoxRegex.Text = text;
-            //textBoxRegex.SelectAll();
         }
 
         private void PasteRegEx(string text)
         {
-            Match match = parsePaste.Match(text);
-            if (match.Success)
+            if (!string.IsNullOrEmpty(text))
             {
-                text = match.Groups["expr"].Value.Replace("\\", "\\\\");
+                Match match = parsePaste.Match(text);
+                if (match.Success)
+                {
+                    // a \\ in the log is not an escaped \, it is two backslashes. fix it
+                    text = match.Groups["expr"].Value.Replace("\\", "\\\\");
+                }
+                textBoxRegex.Text = text;
+                textBoxRegex.Focus();
+                textBoxRegex.SelectAll();
             }
-            textBoxRegex.Text = text;
-            textBoxRegex.Focus();
-            textBoxRegex.SelectAll();
         }
 
         private void buttonFindTimer_Click(object sender, EventArgs e)
@@ -503,8 +504,8 @@ namespace TriggerTreeEditor
             else
                 contextMenuRegex.Items["Undo"].Enabled = false;
 
-            //can't cut, copy, paste, delete, make capture if nothing slected
-            if(textBoxRegex.SelectedText.Length == 0)
+            //can't make capture, cut, copy, paste, or delete if nothing is selected
+            if (textBoxRegex.SelectedText.Length == 0)
             {
                 contextMenuRegex.Items["Cut"].Enabled = false;
                 contextMenuRegex.Items["Copy"].Enabled = false;
@@ -583,7 +584,7 @@ namespace TriggerTreeEditor
             //This double-click-select replacement is easy, but the tradeoff is it's visually distracting.
             //By the time we get here the textbox has already made its "word" selection.
             //But it delimits strictly by spaces, and includes the trailing space.
-            //We want to delimit by letters a-z, which is way more likely what we want to replace.
+            //We want to delimit by letters a-z, which is way more likely to be what we want to replace.
             //The user will see the seleciton change if we end up adjusting it.
 
             string text = textBoxRegex.Text;
@@ -667,7 +668,7 @@ namespace TriggerTreeEditor
                         string filter = textBoxFindLine.Text;
                         if (!string.IsNullOrEmpty(filter))
                         {
-                            //for a simple search, fix special chars and add LIKE syntax
+                            //use a simple filter, fix special chars and add LIKE syntax
                             filter = "LogLine LIKE '%" + EscapeLikeValue(filter) + "%'";
                         }
                         UseWaitCursor = true;
@@ -708,6 +709,7 @@ namespace TriggerTreeEditor
 
         private static DataTable ToLineTable(List<LogLineEntry> list)
         {
+            //make a DataTable of the log lines to make filtering easy
             DataTable dt = new DataTable();
             dt.Columns.Add("LogLine");
             foreach(LogLineEntry line in list)
@@ -751,8 +753,8 @@ namespace TriggerTreeEditor
                 //hide the panel
                 this.Height = this.MinimumSize.Height;
                 labelGridHelp.Visible = false;
+                dataGridViewLines.DataSource = new DataTable(); //clear it, allow garbage collection
             }
-
         }
 
         private void pasteInRegularExpressionToolStripMenuItem_Click(object sender, EventArgs e)
@@ -780,6 +782,7 @@ namespace TriggerTreeEditor
         {
             try
             {
+                //use the regex on the log line selected by the right click
                 string line = dataGridViewLines.Rows[logMenuRow].Cells["LogLine"].Value.ToString();
                 Regex re = new Regex(textBoxRegex.Text);
                 Match match = re.Match(line);
@@ -794,7 +797,12 @@ namespace TriggerTreeEditor
                         {
                             for(int i=1; i<groups.Length; i++)
                             {
-                                alert = alert.Replace("${" + groups[i] + "}", match.Groups[i].Value);
+                                int cap = 0;
+                                bool result = int.TryParse(groups[i], out cap);
+                                if (result)
+                                    alert = alert.Replace("$" + groups[i], match.Groups[i].Value);
+                                else
+                                    alert = alert.Replace("${" + groups[i] + "}", match.Groups[i].Value);
                             }
                         }
                         ActGlobals.oFormActMain.TTS(alert);
@@ -823,6 +831,7 @@ namespace TriggerTreeEditor
             if (e.RowIndex >= 0)
             {
                 e.ContextMenuStrip = contextMenuLog;
+                //save where the mouse clicked
                 logMenuRow = e.RowIndex;
             }
         }
