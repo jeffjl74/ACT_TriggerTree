@@ -1093,8 +1093,6 @@ namespace ACT_Plugin
                 treeViewCats.HideSelection = false;
                 string category = treeViewCats.SelectedNode.Text;
 
-                textBoxTrigFind.Clear();
-
                 UpdateTriggerList(category);
             }
         }
