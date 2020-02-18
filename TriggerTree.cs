@@ -1584,14 +1584,33 @@ namespace ACT_Plugin
                 {
                     if(selectedTriggerNode != null)
                     {
-                        if(CopyAsShareableXML())
+                        if (selectedTriggerNode.Parent == null)
                         {
-                            TraySlider traySlider = new TraySlider();
-                            traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
-                            string msg = "Trigger:\n\n" 
-                                + (selectedTriggerNode.Parent == null ? selectedTriggerNode.Text : selectedTriggerNode.Parent.Text)
-                                + "\n\ncopied to the clipboard";
-                            traySlider.ShowTraySlider(msg, "Trigger Copied");
+                            //regex node
+                            if (CopyAsShareableXML())
+                            {
+                                TraySlider traySlider = new TraySlider();
+                                traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
+                                string msg = "Trigger:\n\n"
+                                    + (selectedTriggerNode.Parent == null ? selectedTriggerNode.Text : selectedTriggerNode.Parent.Text)
+                                    + "\n\ncopied to the clipboard";
+                                traySlider.ShowTraySlider(msg, "Trigger Copied");
+                            }
+                        }
+                        else
+                        {
+                            if (selectedTriggerNode.Index == indexAlertType)
+                            {
+                                FormEditSound formEditSound = new FormEditSound(selectedTriggerNode.Parent.Tag as CustomTrigger, Sound_EditDoneEvent);
+                                formEditSound.Show(this);
+                                PositionChildForm(formEditSound, whereTrigMouseDown);
+                            }
+                            else if (selectedTriggerNode.Index == indexTimerName)
+                            {
+                                FormEditTimer formEditTimer = new FormEditTimer(selectedTriggerNode.Parent.Tag as CustomTrigger, Timer_EditDoneEvent);
+                                formEditTimer.Show(this);
+                                PositionChildForm(formEditTimer, whereTrigMouseDown);
+                            }
                         }
                     }
                 }
