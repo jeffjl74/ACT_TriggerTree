@@ -92,6 +92,7 @@ namespace FormEditSound
                         radioButtonTts.Checked = true;
                         buttonPlay.Enabled = true;
                         buttonInsCapture.Enabled = true;
+                        textBoxSound.Focus();
                         textBoxSound.SelectAll();
                         break;
                     case (int)CustomTriggerSoundTypeEnum.Beep:
@@ -103,6 +104,7 @@ namespace FormEditSound
                         radioButtonWav.Checked = true;
                         buttonPlay.Enabled = true;
                         buttonBrowse.Enabled = true;
+                        textBoxSound.Focus();
                         textBoxSound.SelectAll();
                         break;
                     default:

@@ -254,6 +254,7 @@ namespace ACT_Plugin
             this.treeViewTrigs.BeforeCollapse += new System.Windows.Forms.TreeViewCancelEventHandler(this.treeViewTrigs_BeforeCollapse);
             this.treeViewTrigs.BeforeExpand += new System.Windows.Forms.TreeViewCancelEventHandler(this.treeViewTrigs_BeforeExpand);
             this.treeViewTrigs.KeyDown += new System.Windows.Forms.KeyEventHandler(this.treeViewTrigs_KeyDown);
+            this.treeViewTrigs.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.treeViewTrigs_MouseDoubleClick);
             this.treeViewTrigs.MouseDown += new System.Windows.Forms.MouseEventHandler(this.treeViewTrigs_MouseDown);
             // 
             // panel2
@@ -508,10 +509,10 @@ namespace ACT_Plugin
             this.label2.AutoSize = true;
             this.label2.Location = new System.Drawing.Point(5, 20);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(501, 13);
+            this.label2.Size = new System.Drawing.Size(499, 13);
             this.label2.TabIndex = 1;
-            this.label2.Text = "Double click a trigger to copy XML.  Expand a trigger to access checkboxes and th" +
-    "eir right-click options. ";
+            this.label2.Text = "Double click a trigger to copy XML.  Expand a trigger for checkbox, right-click, " +
+    "and double-click actions. ";
             // 
             // TriggerTree
             // 
@@ -1424,7 +1425,7 @@ namespace ACT_Plugin
                     TreeNode timerNode = parent.Nodes.Add(timerLable);
                     timerNode.Checked = trigger.Timer;
                     if (!string.IsNullOrEmpty(trigger.TimerName))
-                        timerNode.ToolTipText = "Right-click to search for the timer\n(Use [Clear] btn in timer window to reset search)";
+                        timerNode.ToolTipText = "Double-click to search for the timer\n(Use [Clear] btn in timer window to reset search)";
                     indexTimer = 2;
 
                     //add tab child
@@ -1548,75 +1549,6 @@ namespace ACT_Plugin
 
         }
 
-        private void treeViewTrigs_MouseDown(object sender, MouseEventArgs e)
-        {
-            Point pt = new Point(e.X, e.Y);
-            selectedTriggerNode = treeViewTrigs.GetNodeAt(pt);
-            whereTrigMouseDown = treeViewTrigs.PointToScreen(pt);
-            if (e.Button == MouseButtons.Right)
-            {
-                if (selectedTriggerNode != null)
-                {
-                    treeViewTrigs.SelectedNode = selectedTriggerNode;
-                    contextMenuStripTrig.Show(whereTrigMouseDown);
-                }
-                else
-                {
-                    //clicked an empty line
-                    //start a brand new trigger
-                    string category = " General";
-                    if (treeViewCats.SelectedNode != null)
-                        category = treeViewCats.SelectedNode.Text;
-                    CustomTrigger trigger = new CustomTrigger("new expression", category);
-                    trigger.RestrictToCategoryZone = category.Contains("["); //set restrict if it kinda looks like a zone name
-                    FormEditTrigger formEditTrigger = new FormEditTrigger(trigger, zoneName);
-                    formEditTrigger.EditDoneEvent += Edit_EditDoneEvent; //callback for when the edit is done
-                    formEditTrigger.encounters = encounters;
-                    formEditTrigger.haveOriginal = false; //disable the replace button since there is nothing to replace
-                    formEditTrigger.Show(this);
-                    PositionChildForm(formEditTrigger, whereTrigMouseDown);
-                }
-            }
-            else if(e.Button == MouseButtons.Left)
-            {
-                isDoubleClick = e.Clicks > 1; //used to prevent expand/collapse on double click
-                if(isDoubleClick)
-                {
-                    if(selectedTriggerNode != null)
-                    {
-                        if (selectedTriggerNode.Parent == null)
-                        {
-                            //regex node
-                            if (CopyAsShareableXML())
-                            {
-                                TraySlider traySlider = new TraySlider();
-                                traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
-                                string msg = "Trigger:\n\n"
-                                    + (selectedTriggerNode.Parent == null ? selectedTriggerNode.Text : selectedTriggerNode.Parent.Text)
-                                    + "\n\ncopied to the clipboard";
-                                traySlider.ShowTraySlider(msg, "Trigger Copied");
-                            }
-                        }
-                        else
-                        {
-                            if (selectedTriggerNode.Index == indexAlertType)
-                            {
-                                FormEditSound formEditSound = new FormEditSound(selectedTriggerNode.Parent.Tag as CustomTrigger, Sound_EditDoneEvent);
-                                formEditSound.Show(this);
-                                PositionChildForm(formEditSound, whereTrigMouseDown);
-                            }
-                            else if (selectedTriggerNode.Index == indexTimerName)
-                            {
-                                FormEditTimer formEditTimer = new FormEditTimer(selectedTriggerNode.Parent.Tag as CustomTrigger, Timer_EditDoneEvent);
-                                formEditTimer.Show(this);
-                                PositionChildForm(formEditTimer, whereTrigMouseDown);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         private void PositionChildForm(Form form, Point loc)
         {
             if (loc.X + form.Width > SystemInformation.VirtualScreen.Right)
@@ -1734,276 +1666,6 @@ namespace ACT_Plugin
                         trigger = treeViewTrigs.SelectedNode.Tag as CustomTrigger;
                     DeleteTrigger(trigger, false);
                 }
-            }
-        }
-
-        private bool DeleteTrigger(CustomTrigger trigger, bool silently)
-        {
-            bool result = false;
-            if (trigger != null)
-            {
-                string category = trigger.Category;
-                bool doit;
-                if (silently)
-                    doit = true;
-                else
-                    doit = MessageBox.Show(ActGlobals.oFormActMain, "Delete trigger:\n" + trigger.ShortRegexString, "Delete?",
-                        MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
-                if(doit)
-                {
-                    if (ActGlobals.oFormActMain.CustomTriggers.Remove(category + "|" + trigger.ShortRegexString))
-                    {
-                        ActGlobals.oFormActMain.RebuildActiveCustomTriggers();
-                        PopulateCatsTree();
-                        UpdateTriggerList(category);
-                        result = true;
-                    }
-                }
-            }
-            return result;
-        }
-
-        private void copyAsShareableXMLToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            CopyAsShareableXML();
-        }
-
-        private bool CopyAsShareableXML()
-        {
-            bool result = false;
-            CustomTrigger trigger = null;
-            if (selectedTriggerNode.Tag != null)
-                trigger = selectedTriggerNode.Tag as CustomTrigger;
-            else
-                trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
-            if (trigger != null)
-            {
-                try
-                {
-                    Clipboard.SetText(TriggerToXML(trigger));
-                    result = true;
-                }
-                catch
-                {
-                    TraySlider traySlider = new TraySlider();
-                    traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
-                    traySlider.ShowTraySlider("Copy to trigger to clipboard failed", "Clipboard Failed");
-                }
-            }
-            return result;
-        }
-
-        private string TriggerToXML(CustomTrigger trigger)
-        {
-            string result = string.Empty;
-            if (trigger != null)
-            {
-                //match the character replacement scheme used by the Custom Triggers tab
-                StringBuilder sb = new StringBuilder();
-                sb.Append("<Trigger R=\"" + EncodeXml_ish(trigger.ShortRegexString, true, false, true) + "\"");
-                sb.Append(" SD=\"" + EncodeXml_ish(trigger.SoundData, false, true, false) + "\"");
-                sb.Append(" ST=\"" + trigger.SoundType.ToString() + "\"");
-                sb.Append(" CR=\"" + (trigger.RestrictToCategoryZone ? "T" : "F") + "\"");
-                sb.Append(" C=\"" + EncodeXml_ish(trigger.Category, false, true, false) + "\"");
-                sb.Append(" T=\"" + (trigger.Timer ? "T" : "F") + "\"");
-                sb.Append(" TN=\"" + EncodeXml_ish(trigger.TimerName, false, true, false) + "\"");
-                sb.Append(" Ta=\"" + (trigger.Tabbed ? "T" : "F") + "\"");
-                sb.Append(" />");
-
-                result = sb.ToString();
-            }
-            return result;
-        }
-
-        private string TriggerToMacro(CustomTrigger trigger)
-        {
-            string result = string.Empty;
-            if (trigger != null)
-            {
-                StringBuilder sb = new StringBuilder();
-                sb.Append("<Trigger R='" + trigger.ShortRegexString.Replace("\\\\","\\\\\\\\") + "'");
-                sb.Append(" SD='" + trigger.SoundData + "'");
-                sb.Append(" ST='" + trigger.SoundType.ToString() + "'");
-                sb.Append(" CR='" + (trigger.RestrictToCategoryZone ? "T" : "F") + "'");
-                sb.Append(" C='" + trigger.Category + "'");
-                sb.Append(" T='" + (trigger.Timer ? "T" : "F") + "'");
-                sb.Append(" TN='" + trigger.TimerName + "'");
-                sb.Append(" Ta='" + (trigger.Tabbed ? "T" : "F") + "'");
-                sb.Append(" />");
-
-                result = sb.ToString();
-            }
-            return result;
-        }
-
-        private bool IsInvalidMacroTrigger(CustomTrigger trigger)
-        {
-            bool result = false; //assume OK = not invalid
-            foreach(char c in invalidMacroChars)
-            {
-                if (trigger.ShortRegexString.Contains(c.ToString()))
-                {
-                    result = true;
-                    break;
-                }
-                if (trigger.Category.Contains(c.ToString()))
-                {
-                    result = true;
-                    break;
-                }
-                if (trigger.SoundData.Contains(c.ToString()))
-                {
-                    result = true;
-                    break;
-                }
-                if (trigger.TimerName.Contains(c.ToString()))
-                {
-                    result = true;
-                    break;
-                }
-            }
-            if(result == false)
-            {
-                foreach(string s in invalidMacroStrings)
-                {
-                    if (trigger.ShortRegexString.Contains(s))
-                    {
-                        result = true;
-                        break;
-                    }
-                    if (trigger.Category.Contains(s))
-                    {
-                        result = true;
-                        break;
-                    }
-                    if (trigger.SoundData.Contains(s))
-                    {
-                        result = true;
-                        break;
-                    }
-                    if (trigger.TimerName.Contains(s))
-                    {
-                        result = true;
-                        break;
-                    }
-                }
-            }
-            return result;
-        }
-
-        private string EncodeXml_ish(string text, bool encodeHash, bool encodePos, bool encodeSlashes)
-        {
-            if (text == null)
-                return string.Empty;
-
-            StringBuilder sb = new StringBuilder();
-            int len = text.Length;
-            for (int i = 0; i < len; i++)
-            {
-                switch (text[i])
-                {
-                    case '<':
-                        sb.Append("&lt;");
-                        break;
-                    case '>':
-                        sb.Append("&gt;");
-                        break;
-                    case '"':
-                        sb.Append("&quot;");
-                        break;
-                    case '&':
-                        sb.Append("&amp;");
-                        break;
-                    case '\'':
-                        if (encodePos)
-                            sb.Append("&apos;");
-                        else
-                            sb.Append(text[i]);
-                        break;
-                    case '\\':
-                        if (encodeSlashes)
-                        {
-                            if (i < len - 1)
-                            {
-                                //only encode double backslashes
-                                if (text[i + 1] == '\\')
-                                {
-                                    sb.Append("&#92;&#92;");
-                                    i++;
-                                }
-                                else
-                                    sb.Append(text[i]);
-                            }
-                            else
-                                sb.Append(text[i]);
-                        }
-                        else
-                            sb.Append(text[i]);
-                        break;
-                    case '#':
-                        if (encodeHash)
-                            sb.Append("&#35;");
-                        else //leave it alone when double encoding
-                            sb.Append(text[i]);
-                        break;
-                    default:
-                        sb.Append(text[i]);
-                        break;
-                }
-            }
-            return sb.ToString();
-        }
-
-        private void copyAsDoubleEncodedXMLToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            CustomTrigger trigger;
-            if (selectedTriggerNode.Tag != null)
-                trigger = selectedTriggerNode.Tag as CustomTrigger;
-            else
-                trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
-            string encoded = TriggerToXML(trigger);
-            string doubled = EncodeXml_ish(encoded, false, false, false);
-            try
-            {
-                Clipboard.SetText(doubled);
-            }
-            catch
-            {
-                TraySlider traySlider = new TraySlider();
-                traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
-                traySlider.ShowTraySlider("Copy to clipboard failed", "Clipboard Failed");
-            }
-        }
-
-        private void expandAllToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            treeViewTrigs.ExpandAll();
-        }
-
-        private void collapseAllToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            treeViewTrigs.CollapseAll();
-        }
-
-        private void playAlertSoundToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            CustomTrigger trigger;
-            if (selectedTriggerNode.Tag != null)
-                trigger = selectedTriggerNode.Tag as CustomTrigger;
-            else
-                trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
-            if(trigger != null)
-            {
-                if (trigger.SoundType == (int)CustomTriggerSoundTypeEnum.TTS)
-                    ActGlobals.oFormActMain.TTS(trigger.SoundData);
-                else if (trigger.SoundType == (int)CustomTriggerSoundTypeEnum.WAV)
-                {
-                    if (File.Exists(trigger.SoundData))
-                        ActGlobals.oFormActMain.PlaySoundWinApi(trigger.SoundData, 100);
-                }
-                else if (trigger.SoundType == (int)CustomTriggerSoundTypeEnum.Beep)
-                    System.Media.SystemSounds.Beep.Play();
-
             }
         }
 
@@ -2147,62 +1809,108 @@ namespace ACT_Plugin
             }
         }
 
-        private void raidsayShareMacroToolStripMenuItem_Click(object sender, EventArgs e)
+        private void treeViewTrigs_MouseDown(object sender, MouseEventArgs e)
         {
-            WriteTriggerMacroFile("r ");
+            Point pt = new Point(e.X, e.Y);
+            selectedTriggerNode = treeViewTrigs.GetNodeAt(pt);
+            whereTrigMouseDown = treeViewTrigs.PointToScreen(pt);
+            if (e.Button == MouseButtons.Right)
+            {
+                isDoubleClick = false; //used to prevent expand/collapse on double click
+
+                if (selectedTriggerNode != null)
+                {
+                    treeViewTrigs.SelectedNode = selectedTriggerNode;
+                    contextMenuStripTrig.Show(whereTrigMouseDown);
+                }
+                else
+                {
+                    //clicked an empty line
+                    //start a brand new trigger
+                    string category = " General";
+                    if (treeViewCats.SelectedNode != null)
+                        category = treeViewCats.SelectedNode.Text;
+                    CustomTrigger trigger = new CustomTrigger("new expression", category);
+                    trigger.RestrictToCategoryZone = category.Contains("["); //set restrict if it kinda looks like a zone name
+                    FormEditTrigger formEditTrigger = new FormEditTrigger(trigger, zoneName);
+                    formEditTrigger.EditDoneEvent += Edit_EditDoneEvent; //callback for when the edit is done
+                    formEditTrigger.encounters = encounters;
+                    formEditTrigger.haveOriginal = false; //disable the replace button since there is nothing to replace
+                    formEditTrigger.Show(this);
+                    PositionChildForm(formEditTrigger, whereTrigMouseDown);
+                }
+            }
+            else if (e.Button == MouseButtons.Left)
+            {
+                isDoubleClick = e.Clicks > 1; //used to prevent expand/collapse on double click
+            }
         }
 
-        private void groupsayShareMacroToolStripMenuItem_Click(object sender, EventArgs e)
+        private void treeViewTrigs_BeforeCollapse(object sender, TreeViewCancelEventArgs e)
         {
-            WriteTriggerMacroFile("g ");
+            //we are using double click to copy the trigger to the clipboard
+            //rather than expanding / collapsing the tree
+            if (isDoubleClick && e.Action == TreeViewAction.Collapse)
+                e.Cancel = true;
         }
 
-        private void WriteTriggerMacroFile(string sayCmd)
+        private void treeViewTrigs_BeforeExpand(object sender, TreeViewCancelEventArgs e)
+        {
+            //we are using double click to copy the trigger to the clipboard
+            //rather than expanding / collapsing the tree
+            if (isDoubleClick && e.Action == TreeViewAction.Expand)
+                e.Cancel = true;
+        }
+
+        private void treeViewTrigs_MouseDoubleClick(object sender, MouseEventArgs e)
         {
             if (selectedTriggerNode != null)
             {
-                CustomTrigger trigger;
-                if (selectedTriggerNode.Tag != null)
-                    trigger = selectedTriggerNode.Tag as CustomTrigger;
-                else
-                    trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
-                if(trigger != null)
+                if (selectedTriggerNode.Parent == null)
                 {
-                    if (IsInvalidMacroTrigger(trigger))
+                    //regex node, copy for share
+                    if (CopyAsShareableXML())
                     {
-                        MessageBox.Show(this, "EQII does not allow certain characters in a macro.\nThis trigger cannot be saved to a macro.", 
-                            "Unsupported Action", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
-                        return;
+                        TraySlider traySlider = new TraySlider();
+                        traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
+                        string msg = "Trigger copied to the clipboard:\n\n"
+                            + (selectedTriggerNode.Parent == null ? selectedTriggerNode.Text : selectedTriggerNode.Parent.Text);
+                        traySlider.ShowTraySlider(msg, "Trigger Copied");
                     }
-                    else
+                }
+                else
+                {
+                    if (selectedTriggerNode.Index == indexAlertType)
                     {
-                        try
+                        FormEditSound formEditSound = new FormEditSound(selectedTriggerNode.Parent.Tag as CustomTrigger, Sound_EditDoneEvent);
+                        formEditSound.Show(this);
+                        PositionChildForm(formEditSound, whereTrigMouseDown);
+                    }
+                    else if (selectedTriggerNode.Index == indexTimerName)
+                    {
+                        FormEditTimer formEditTimer = new FormEditTimer(selectedTriggerNode.Parent.Tag as CustomTrigger, Timer_EditDoneEvent);
+                        formEditTimer.Show(this);
+                        PositionChildForm(formEditTimer, whereTrigMouseDown);
+                    }
+                    else if (selectedTriggerNode.Index == indexTimer)
+                    {
+                        // search for the timer if there is a timer name
+                        CustomTrigger trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
+                        if (trigger != null)
                         {
-                            StringBuilder sb = new StringBuilder();
+                            string timerName = trigger.TimerName.ToLower();
+                            if (!string.IsNullOrEmpty(timerName))
                             {
-                                sb.Append(sayCmd);
-                                sb.Append(TriggerToMacro(trigger));
-                                sb.Append(Environment.NewLine);
+                                ActGlobals.oFormSpellTimers.SearchSpellTreeView(timerName);
+                                ActGlobals.oFormSpellTimers.Visible = true;
                             }
-                            if (ActGlobals.oFormActMain.SendToMacroFile(doFileName, sb.ToString(), string.Empty))
-                            {
-                                string msg = "Wrote trigger "
-                                    + "to macro file " + doFileName + ".  "
-                                    + "\n\nIn EQII chat, enter: /do_file_commands " + doFileName;
-                                TraySlider traySlider = new TraySlider();
-                                traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
-                                traySlider.ShowTraySlider(msg, "Trigger Macro");
-
-                            }
-                        }
-                        catch (Exception x)
-                        {
-                            MessageBox.Show(this, "Macro file error:\n" + x.Message);
                         }
                     }
                 }
             }
         }
+
+        #region Context Menu
 
         private void contextMenuStripTrg_Opening(object sender, CancelEventArgs e)
         {
@@ -2237,7 +1945,7 @@ namespace ACT_Plugin
                     playAlertSoundToolStripMenuItem.Enabled = trigger.SoundType != (int)CustomTriggerSoundTypeEnum.None;
 
                     //set the Edit menu item depending on which item was clicked
-                    if(isParent)
+                    if (isParent)
                     {
                         editTriggerToolStripMenuItem.Text = "Edit Trigger";
                         editTriggerToolStripMenuItem.Enabled = true;
@@ -2250,12 +1958,12 @@ namespace ACT_Plugin
                         else
                             editTriggerToolStripMenuItem.Enabled = true;
                     }
-                    else if(selectedTriggerNode.Index == indexAlertType)
+                    else if (selectedTriggerNode.Index == indexAlertType)
                     {
                         editTriggerToolStripMenuItem.Text = "Edit Alert Sound";
                         editTriggerToolStripMenuItem.Enabled = true;
                     }
-                    else if(selectedTriggerNode.Index == indexTimerName)
+                    else if (selectedTriggerNode.Index == indexTimerName)
                     {
                         editTriggerToolStripMenuItem.Text = "Edit Timer Name";
                         editTriggerToolStripMenuItem.Enabled = true;
@@ -2272,7 +1980,7 @@ namespace ACT_Plugin
 
         private void deleteTriggerToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if(selectedTriggerNode != null)
+            if (selectedTriggerNode != null)
             {
                 CustomTrigger trigger;
                 if (selectedTriggerNode.Tag != null)
@@ -2331,7 +2039,7 @@ namespace ACT_Plugin
                     //clicked a a parent node
                     wholeEdit = 1;
                 }
-                if(wholeEdit > 0)
+                if (wholeEdit > 0)
                 {
                     //bring up the trigger edit form
                     CustomTrigger t;
@@ -2348,21 +2056,334 @@ namespace ACT_Plugin
             }
         }
 
-        private void treeViewTrigs_BeforeCollapse(object sender, TreeViewCancelEventArgs e)
+        private void raidsayShareMacroToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            //we are using double click to copy the trigger to the clipboard
-            //rather than expanding / collapsing the tree
-            if (isDoubleClick && e.Action == TreeViewAction.Collapse)
-                e.Cancel = true;
+            WriteTriggerMacroFile("r ");
         }
 
-        private void treeViewTrigs_BeforeExpand(object sender, TreeViewCancelEventArgs e)
+        private void groupsayShareMacroToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            //we are using double click to copy the trigger to the clipboard
-            //rather than expanding / collapsing the tree
-            if (isDoubleClick && e.Action == TreeViewAction.Expand)
-                e.Cancel = true;
+            WriteTriggerMacroFile("g ");
         }
+
+        private void WriteTriggerMacroFile(string sayCmd)
+        {
+            if (selectedTriggerNode != null)
+            {
+                CustomTrigger trigger;
+                if (selectedTriggerNode.Tag != null)
+                    trigger = selectedTriggerNode.Tag as CustomTrigger;
+                else
+                    trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
+                if (trigger != null)
+                {
+                    if (IsInvalidMacroTrigger(trigger))
+                    {
+                        MessageBox.Show(this, "EQII does not allow certain characters in a macro.\nThis trigger cannot be saved to a macro.",
+                            "Unsupported Action", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                        return;
+                    }
+                    else
+                    {
+                        try
+                        {
+                            StringBuilder sb = new StringBuilder();
+                            {
+                                sb.Append(sayCmd);
+                                sb.Append(TriggerToMacro(trigger));
+                                sb.Append(Environment.NewLine);
+                            }
+                            if (ActGlobals.oFormActMain.SendToMacroFile(doFileName, sb.ToString(), string.Empty))
+                            {
+                                string msg = "Wrote trigger "
+                                    + "to macro file " + doFileName + ".  "
+                                    + "\n\nIn EQII chat, enter: /do_file_commands " + doFileName;
+                                TraySlider traySlider = new TraySlider();
+                                traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
+                                traySlider.ShowTraySlider(msg, "Trigger Macro");
+
+                            }
+                        }
+                        catch (Exception x)
+                        {
+                            MessageBox.Show(this, "Macro file error:\n" + x.Message);
+                        }
+                    }
+                }
+            }
+        }
+
+        private bool DeleteTrigger(CustomTrigger trigger, bool silently)
+        {
+            bool result = false;
+            if (trigger != null)
+            {
+                string category = trigger.Category;
+                bool doit;
+                if (silently)
+                    doit = true;
+                else
+                    doit = MessageBox.Show(ActGlobals.oFormActMain, "Delete trigger:\n" + trigger.ShortRegexString, "Delete?",
+                        MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
+                if (doit)
+                {
+                    if (ActGlobals.oFormActMain.CustomTriggers.Remove(category + "|" + trigger.ShortRegexString))
+                    {
+                        ActGlobals.oFormActMain.RebuildActiveCustomTriggers();
+                        PopulateCatsTree();
+                        UpdateTriggerList(category);
+                        result = true;
+                    }
+                }
+            }
+            return result;
+        }
+
+        private void copyAsShareableXMLToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            CopyAsShareableXML();
+        }
+
+        private bool CopyAsShareableXML()
+        {
+            bool result = false;
+            CustomTrigger trigger = null;
+            if (selectedTriggerNode.Tag != null)
+                trigger = selectedTriggerNode.Tag as CustomTrigger;
+            else
+                trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
+            if (trigger != null)
+            {
+                try
+                {
+                    Clipboard.SetText(TriggerToXML(trigger));
+                    result = true;
+                }
+                catch
+                {
+                    TraySlider traySlider = new TraySlider();
+                    traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
+                    traySlider.ShowTraySlider("Copy to trigger to clipboard failed", "Clipboard Failed");
+                }
+            }
+            return result;
+        }
+
+        private string TriggerToXML(CustomTrigger trigger)
+        {
+            string result = string.Empty;
+            if (trigger != null)
+            {
+                //match the character replacement scheme used by the Custom Triggers tab
+                StringBuilder sb = new StringBuilder();
+                sb.Append("<Trigger R=\"" + EncodeXml_ish(trigger.ShortRegexString, true, false, true) + "\"");
+                sb.Append(" SD=\"" + EncodeXml_ish(trigger.SoundData, false, true, false) + "\"");
+                sb.Append(" ST=\"" + trigger.SoundType.ToString() + "\"");
+                sb.Append(" CR=\"" + (trigger.RestrictToCategoryZone ? "T" : "F") + "\"");
+                sb.Append(" C=\"" + EncodeXml_ish(trigger.Category, false, true, false) + "\"");
+                sb.Append(" T=\"" + (trigger.Timer ? "T" : "F") + "\"");
+                sb.Append(" TN=\"" + EncodeXml_ish(trigger.TimerName, false, true, false) + "\"");
+                sb.Append(" Ta=\"" + (trigger.Tabbed ? "T" : "F") + "\"");
+                sb.Append(" />");
+
+                result = sb.ToString();
+            }
+            return result;
+        }
+
+        private string TriggerToMacro(CustomTrigger trigger)
+        {
+            string result = string.Empty;
+            if (trigger != null)
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append("<Trigger R='" + trigger.ShortRegexString.Replace("\\\\", "\\\\\\\\") + "'");
+                sb.Append(" SD='" + trigger.SoundData + "'");
+                sb.Append(" ST='" + trigger.SoundType.ToString() + "'");
+                sb.Append(" CR='" + (trigger.RestrictToCategoryZone ? "T" : "F") + "'");
+                sb.Append(" C='" + trigger.Category + "'");
+                sb.Append(" T='" + (trigger.Timer ? "T" : "F") + "'");
+                sb.Append(" TN='" + trigger.TimerName + "'");
+                sb.Append(" Ta='" + (trigger.Tabbed ? "T" : "F") + "'");
+                sb.Append(" />");
+
+                result = sb.ToString();
+            }
+            return result;
+        }
+
+        private bool IsInvalidMacroTrigger(CustomTrigger trigger)
+        {
+            bool result = false; //assume OK = not invalid
+            foreach (char c in invalidMacroChars)
+            {
+                if (trigger.ShortRegexString.Contains(c.ToString()))
+                {
+                    result = true;
+                    break;
+                }
+                if (trigger.Category.Contains(c.ToString()))
+                {
+                    result = true;
+                    break;
+                }
+                if (trigger.SoundData.Contains(c.ToString()))
+                {
+                    result = true;
+                    break;
+                }
+                if (trigger.TimerName.Contains(c.ToString()))
+                {
+                    result = true;
+                    break;
+                }
+            }
+            if (result == false)
+            {
+                foreach (string s in invalidMacroStrings)
+                {
+                    if (trigger.ShortRegexString.Contains(s))
+                    {
+                        result = true;
+                        break;
+                    }
+                    if (trigger.Category.Contains(s))
+                    {
+                        result = true;
+                        break;
+                    }
+                    if (trigger.SoundData.Contains(s))
+                    {
+                        result = true;
+                        break;
+                    }
+                    if (trigger.TimerName.Contains(s))
+                    {
+                        result = true;
+                        break;
+                    }
+                }
+            }
+            return result;
+        }
+
+        private string EncodeXml_ish(string text, bool encodeHash, bool encodePos, bool encodeSlashes)
+        {
+            if (text == null)
+                return string.Empty;
+
+            StringBuilder sb = new StringBuilder();
+            int len = text.Length;
+            for (int i = 0; i < len; i++)
+            {
+                switch (text[i])
+                {
+                    case '<':
+                        sb.Append("&lt;");
+                        break;
+                    case '>':
+                        sb.Append("&gt;");
+                        break;
+                    case '"':
+                        sb.Append("&quot;");
+                        break;
+                    case '&':
+                        sb.Append("&amp;");
+                        break;
+                    case '\'':
+                        if (encodePos)
+                            sb.Append("&apos;");
+                        else
+                            sb.Append(text[i]);
+                        break;
+                    case '\\':
+                        if (encodeSlashes)
+                        {
+                            if (i < len - 1)
+                            {
+                                //only encode double backslashes
+                                if (text[i + 1] == '\\')
+                                {
+                                    sb.Append("&#92;&#92;");
+                                    i++;
+                                }
+                                else
+                                    sb.Append(text[i]);
+                            }
+                            else
+                                sb.Append(text[i]);
+                        }
+                        else
+                            sb.Append(text[i]);
+                        break;
+                    case '#':
+                        if (encodeHash)
+                            sb.Append("&#35;");
+                        else //leave it alone when double encoding
+                            sb.Append(text[i]);
+                        break;
+                    default:
+                        sb.Append(text[i]);
+                        break;
+                }
+            }
+            return sb.ToString();
+        }
+
+        private void copyAsDoubleEncodedXMLToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            CustomTrigger trigger;
+            if (selectedTriggerNode.Tag != null)
+                trigger = selectedTriggerNode.Tag as CustomTrigger;
+            else
+                trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
+            string encoded = TriggerToXML(trigger);
+            string doubled = EncodeXml_ish(encoded, false, false, false);
+            try
+            {
+                Clipboard.SetText(doubled);
+            }
+            catch
+            {
+                TraySlider traySlider = new TraySlider();
+                traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
+                traySlider.ShowTraySlider("Copy to clipboard failed", "Clipboard Failed");
+            }
+        }
+
+        private void expandAllToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            treeViewTrigs.ExpandAll();
+        }
+
+        private void collapseAllToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            treeViewTrigs.CollapseAll();
+        }
+
+        private void playAlertSoundToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            CustomTrigger trigger;
+            if (selectedTriggerNode.Tag != null)
+                trigger = selectedTriggerNode.Tag as CustomTrigger;
+            else
+                trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
+            if (trigger != null)
+            {
+                if (trigger.SoundType == (int)CustomTriggerSoundTypeEnum.TTS)
+                    ActGlobals.oFormActMain.TTS(trigger.SoundData);
+                else if (trigger.SoundType == (int)CustomTriggerSoundTypeEnum.WAV)
+                {
+                    if (File.Exists(trigger.SoundData))
+                        ActGlobals.oFormActMain.PlaySoundWinApi(trigger.SoundData, 100);
+                }
+                else if (trigger.SoundType == (int)CustomTriggerSoundTypeEnum.Beep)
+                    System.Media.SystemSounds.Beep.Play();
+
+            }
+        }
+
+        #endregion Context Menu
 
         #endregion Trigger Tree
 
@@ -4088,7 +4109,7 @@ namespace ACT_Plugin
     }
 
     //logic
-    partial class FormEditSound : Form
+    public partial class FormEditSound : Form
     {
         CustomTrigger editingTrigger;               //a reference to the original trigger
 
@@ -4168,6 +4189,7 @@ namespace ACT_Plugin
                         radioButtonTts.Checked = true;
                         buttonPlay.Enabled = true;
                         buttonInsCapture.Enabled = true;
+                        textBoxSound.Focus();
                         textBoxSound.SelectAll();
                         break;
                     case (int)CustomTriggerSoundTypeEnum.Beep:
@@ -4179,6 +4201,7 @@ namespace ACT_Plugin
                         radioButtonWav.Checked = true;
                         buttonPlay.Enabled = true;
                         buttonBrowse.Enabled = true;
+                        textBoxSound.Focus();
                         textBoxSound.SelectAll();
                         break;
                     default:
