@@ -67,27 +67,28 @@
             this.buttonInsert = new System.Windows.Forms.Button();
             this.buttonPaste = new System.Windows.Forms.Button();
             this.buttonFindTimer = new System.Windows.Forms.Button();
+            this.dataGridViewLines = new System.Windows.Forms.DataGridView();
+            this.textBoxFindLine = new System.Windows.Forms.TextBox();
+            this.checkBoxLogLines = new System.Windows.Forms.CheckBox();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.label4 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
+            this.buttonX = new System.Windows.Forms.Button();
             this.panelTest = new System.Windows.Forms.Panel();
             this.splitContainerLog = new System.Windows.Forms.SplitContainer();
             this.listBoxEncounters = new System.Windows.Forms.ListBox();
             this.panelLogLines = new System.Windows.Forms.Panel();
-            this.dataGridViewLines = new System.Windows.Forms.DataGridView();
             this.panelLogFind = new System.Windows.Forms.Panel();
             this.label5 = new System.Windows.Forms.Label();
-            this.textBoxFindLine = new System.Windows.Forms.TextBox();
             this.panelRegex = new System.Windows.Forms.Panel();
+            this.labelGridHelp = new System.Windows.Forms.Label();
             this.panel2 = new System.Windows.Forms.Panel();
-            this.checkBoxLogLines = new System.Windows.Forms.CheckBox();
             this.contextMenuLog = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.pasteInRegularExpressionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.testWithRegularExpressionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.labelGridHelp = new System.Windows.Forms.Label();
-            this.buttonX = new System.Windows.Forms.Button();
             this.contextMenuRegex.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewLines)).BeginInit();
             this.groupBox1.SuspendLayout();
             this.panelTest.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainerLog)).BeginInit();
@@ -95,7 +96,6 @@
             this.splitContainerLog.Panel2.SuspendLayout();
             this.splitContainerLog.SuspendLayout();
             this.panelLogLines.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewLines)).BeginInit();
             this.panelLogFind.SuspendLayout();
             this.panelRegex.SuspendLayout();
             this.panel2.SuspendLayout();
@@ -541,6 +541,56 @@
             this.buttonFindTimer.UseVisualStyleBackColor = true;
             this.buttonFindTimer.Click += new System.EventHandler(this.buttonFindTimer_Click);
             // 
+            // dataGridViewLines
+            // 
+            this.dataGridViewLines.AllowUserToAddRows = false;
+            this.dataGridViewLines.AllowUserToDeleteRows = false;
+            this.dataGridViewLines.AllowUserToResizeColumns = false;
+            this.dataGridViewLines.CellBorderStyle = System.Windows.Forms.DataGridViewCellBorderStyle.None;
+            this.dataGridViewLines.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.dataGridViewLines.ColumnHeadersVisible = false;
+            this.dataGridViewLines.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.helpProvider1.SetHelpString(this.dataGridViewLines, "Right click a log line for an option menu");
+            this.dataGridViewLines.Location = new System.Drawing.Point(0, 0);
+            this.dataGridViewLines.Name = "dataGridViewLines";
+            this.dataGridViewLines.ReadOnly = true;
+            this.dataGridViewLines.RowHeadersVisible = false;
+            this.dataGridViewLines.RowTemplate.Height = 18;
+            this.helpProvider1.SetShowHelp(this.dataGridViewLines, true);
+            this.dataGridViewLines.Size = new System.Drawing.Size(487, 145);
+            this.dataGridViewLines.TabIndex = 0;
+            this.dataGridViewLines.CellContextMenuStripNeeded += new System.Windows.Forms.DataGridViewCellContextMenuStripNeededEventHandler(this.dataGridViewLines_CellContextMenuStripNeeded);
+            // 
+            // textBoxFindLine
+            // 
+            this.textBoxFindLine.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.helpProvider1.SetHelpString(this.textBoxFindLine, "Filter log lines to show only those containing this text (no wildcards). For exam" +
+        "ple: \'#\' to show colored lines. \'says,\' (include the comma) to show mob dialog.");
+            this.textBoxFindLine.Location = new System.Drawing.Point(40, 2);
+            this.textBoxFindLine.Name = "textBoxFindLine";
+            this.helpProvider1.SetShowHelp(this.textBoxFindLine, true);
+            this.textBoxFindLine.Size = new System.Drawing.Size(433, 20);
+            this.textBoxFindLine.TabIndex = 1;
+            this.toolTip1.SetToolTip(this.textBoxFindLine, "Show lines containing text. Examples: \'#\' for colored lines. \'says,\' for mob dial" +
+        "og.");
+            this.textBoxFindLine.TextChanged += new System.EventHandler(this.textBoxFindLine_TextChanged);
+            // 
+            // checkBoxLogLines
+            // 
+            this.checkBoxLogLines.AutoSize = true;
+            this.helpProvider1.SetHelpString(this.checkBoxLogLines, "Check to show the list of encounters and log lines. Useful for creating and testi" +
+        "ng new triggers.");
+            this.checkBoxLogLines.Location = new System.Drawing.Point(12, 208);
+            this.checkBoxLogLines.Name = "checkBoxLogLines";
+            this.helpProvider1.SetShowHelp(this.checkBoxLogLines, true);
+            this.checkBoxLogLines.Size = new System.Drawing.Size(110, 17);
+            this.checkBoxLogLines.TabIndex = 26;
+            this.checkBoxLogLines.Text = "Show Encounters";
+            this.toolTip1.SetToolTip(this.checkBoxLogLines, "Show / Hide encounter list");
+            this.checkBoxLogLines.UseVisualStyleBackColor = true;
+            this.checkBoxLogLines.CheckedChanged += new System.EventHandler(this.checkBoxLogLines_CheckedChanged);
+            // 
             // groupBox1
             // 
             this.groupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
@@ -582,6 +632,19 @@
             this.label1.TabIndex = 23;
             this.label1.Text = "Changing any other field simply updates the existing trigger.";
             this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // buttonX
+            // 
+            this.buttonX.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.buttonX.Location = new System.Drawing.Point(457, 2);
+            this.buttonX.Name = "buttonX";
+            this.buttonX.Size = new System.Drawing.Size(16, 20);
+            this.buttonX.TabIndex = 28;
+            this.buttonX.Text = "x";
+            this.buttonX.TextAlign = System.Drawing.ContentAlignment.TopCenter;
+            this.toolTip1.SetToolTip(this.buttonX, "Clear Filter:");
+            this.buttonX.UseVisualStyleBackColor = true;
+            this.buttonX.Click += new System.EventHandler(this.buttonX_Click);
             // 
             // panelTest
             // 
@@ -631,26 +694,6 @@
             this.panelLogLines.Size = new System.Drawing.Size(487, 145);
             this.panelLogLines.TabIndex = 4;
             // 
-            // dataGridViewLines
-            // 
-            this.dataGridViewLines.AllowUserToAddRows = false;
-            this.dataGridViewLines.AllowUserToDeleteRows = false;
-            this.dataGridViewLines.AllowUserToResizeColumns = false;
-            this.dataGridViewLines.CellBorderStyle = System.Windows.Forms.DataGridViewCellBorderStyle.None;
-            this.dataGridViewLines.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dataGridViewLines.ColumnHeadersVisible = false;
-            this.dataGridViewLines.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.helpProvider1.SetHelpString(this.dataGridViewLines, "Right click a log line for an option menu");
-            this.dataGridViewLines.Location = new System.Drawing.Point(0, 0);
-            this.dataGridViewLines.Name = "dataGridViewLines";
-            this.dataGridViewLines.ReadOnly = true;
-            this.dataGridViewLines.RowHeadersVisible = false;
-            this.dataGridViewLines.RowTemplate.Height = 18;
-            this.helpProvider1.SetShowHelp(this.dataGridViewLines, true);
-            this.dataGridViewLines.Size = new System.Drawing.Size(487, 145);
-            this.dataGridViewLines.TabIndex = 0;
-            this.dataGridViewLines.CellContextMenuStripNeeded += new System.Windows.Forms.DataGridViewCellContextMenuStripNeededEventHandler(this.dataGridViewLines_CellContextMenuStripNeeded);
-            // 
             // panelLogFind
             // 
             this.panelLogFind.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
@@ -671,19 +714,6 @@
             this.label5.Size = new System.Drawing.Size(32, 13);
             this.label5.TabIndex = 2;
             this.label5.Text = "Filter:";
-            // 
-            // textBoxFindLine
-            // 
-            this.textBoxFindLine.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.helpProvider1.SetHelpString(this.textBoxFindLine, "Filter log lines to show only those containing this text (no wildcards).");
-            this.textBoxFindLine.Location = new System.Drawing.Point(40, 2);
-            this.textBoxFindLine.Name = "textBoxFindLine";
-            this.helpProvider1.SetShowHelp(this.textBoxFindLine, true);
-            this.textBoxFindLine.Size = new System.Drawing.Size(433, 20);
-            this.textBoxFindLine.TabIndex = 1;
-            this.toolTip1.SetToolTip(this.textBoxFindLine, "Show lines containing text");
-            this.textBoxFindLine.TextChanged += new System.EventHandler(this.textBoxFindLine_TextChanged);
             // 
             // panelRegex
             // 
@@ -709,6 +739,17 @@
             this.panelRegex.Size = new System.Drawing.Size(635, 228);
             this.panelRegex.TabIndex = 27;
             // 
+            // labelGridHelp
+            // 
+            this.labelGridHelp.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.labelGridHelp.AutoSize = true;
+            this.labelGridHelp.Location = new System.Drawing.Point(157, 209);
+            this.labelGridHelp.Name = "labelGridHelp";
+            this.labelGridHelp.Size = new System.Drawing.Size(196, 13);
+            this.labelGridHelp.TabIndex = 27;
+            this.labelGridHelp.Text = "Right-click a log line for the option menu";
+            this.labelGridHelp.Visible = false;
+            // 
             // panel2
             // 
             this.panel2.Controls.Add(this.buttonUpdateCreate);
@@ -719,21 +760,6 @@
             this.panel2.Name = "panel2";
             this.panel2.Size = new System.Drawing.Size(635, 37);
             this.panel2.TabIndex = 28;
-            // 
-            // checkBoxLogLines
-            // 
-            this.checkBoxLogLines.AutoSize = true;
-            this.helpProvider1.SetHelpString(this.checkBoxLogLines, "Check to show the list of encounters and log lines. Useful for creating and testi" +
-        "ng new triggers.");
-            this.checkBoxLogLines.Location = new System.Drawing.Point(12, 208);
-            this.checkBoxLogLines.Name = "checkBoxLogLines";
-            this.helpProvider1.SetShowHelp(this.checkBoxLogLines, true);
-            this.checkBoxLogLines.Size = new System.Drawing.Size(110, 17);
-            this.checkBoxLogLines.TabIndex = 26;
-            this.checkBoxLogLines.Text = "Show Encounters";
-            this.toolTip1.SetToolTip(this.checkBoxLogLines, "Show / Hide encounter list");
-            this.checkBoxLogLines.UseVisualStyleBackColor = true;
-            this.checkBoxLogLines.CheckedChanged += new System.EventHandler(this.checkBoxLogLines_CheckedChanged);
             // 
             // contextMenuLog
             // 
@@ -759,30 +785,6 @@
             this.testWithRegularExpressionToolStripMenuItem.ToolTipText = "Run the Regular Expression against this log line";
             this.testWithRegularExpressionToolStripMenuItem.Click += new System.EventHandler(this.testWithRegularExpressionToolStripMenuItem_Click);
             // 
-            // labelGridHelp
-            // 
-            this.labelGridHelp.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.labelGridHelp.AutoSize = true;
-            this.labelGridHelp.Location = new System.Drawing.Point(157, 209);
-            this.labelGridHelp.Name = "labelGridHelp";
-            this.labelGridHelp.Size = new System.Drawing.Size(196, 13);
-            this.labelGridHelp.TabIndex = 27;
-            this.labelGridHelp.Text = "Right-click a log line for the option menu";
-            this.labelGridHelp.Visible = false;
-            // 
-            // buttonX
-            // 
-            this.buttonX.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonX.Location = new System.Drawing.Point(457, 2);
-            this.buttonX.Name = "buttonX";
-            this.buttonX.Size = new System.Drawing.Size(16, 20);
-            this.buttonX.TabIndex = 28;
-            this.buttonX.Text = "x";
-            this.buttonX.TextAlign = System.Drawing.ContentAlignment.TopCenter;
-            this.toolTip1.SetToolTip(this.buttonX, "Clear Filter:");
-            this.buttonX.UseVisualStyleBackColor = true;
-            this.buttonX.Click += new System.EventHandler(this.buttonX_Click);
-            // 
             // FormEditTrigger
             // 
             this.AcceptButton = this.buttonUpdateCreate;
@@ -801,6 +803,7 @@
             this.Text = "Edit Trigger";
             this.Shown += new System.EventHandler(this.FormEditTrigger_Shown);
             this.contextMenuRegex.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewLines)).EndInit();
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
             this.panelTest.ResumeLayout(false);
@@ -809,7 +812,6 @@
             ((System.ComponentModel.ISupportInitialize)(this.splitContainerLog)).EndInit();
             this.splitContainerLog.ResumeLayout(false);
             this.panelLogLines.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewLines)).EndInit();
             this.panelLogFind.ResumeLayout(false);
             this.panelLogFind.PerformLayout();
             this.panelRegex.ResumeLayout(false);
