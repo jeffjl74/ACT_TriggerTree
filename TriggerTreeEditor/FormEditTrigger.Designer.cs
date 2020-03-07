@@ -208,6 +208,7 @@
             this.MakeNumbered.Name = "MakeNumbered";
             this.MakeNumbered.Size = new System.Drawing.Size(277, 22);
             this.MakeNumbered.Text = "Make (\\w+) numbered capture group";
+            this.MakeNumbered.ToolTipText = "Numbered capture groups can be shared in a macro";
             this.MakeNumbered.Click += new System.EventHandler(this.MakewNumbered_Click);
             // 
             // MakePlayer
