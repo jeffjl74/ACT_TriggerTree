@@ -510,6 +510,7 @@ namespace TriggerTreeEditor
                 contextMenuRegex.Items["Cut"].Enabled = false;
                 contextMenuRegex.Items["Copy"].Enabled = false;
                 contextMenuRegex.Items["Delete"].Enabled = false;
+                contextMenuRegex.Items["MakeNumbered"].Enabled = false;
                 contextMenuRegex.Items["MakePlayer"].Enabled = false;
                 contextMenuRegex.Items["MakeAttacker"].Enabled = false;
             }
@@ -518,6 +519,7 @@ namespace TriggerTreeEditor
                 contextMenuRegex.Items["Cut"].Enabled = true;
                 contextMenuRegex.Items["Copy"].Enabled = true;
                 contextMenuRegex.Items["Delete"].Enabled = true;
+                contextMenuRegex.Items["MakeNumbered"].Enabled = true;
                 contextMenuRegex.Items["MakePlayer"].Enabled = true;
                 contextMenuRegex.Items["MakeAttacker"].Enabled = true;
             }
@@ -565,6 +567,12 @@ namespace TriggerTreeEditor
         private void SelectAll_Click(object sender, EventArgs e)
         {
             textBoxRegex.SelectAll();
+        }
+
+        private void MakewNumbered_Click(object sender, EventArgs e)
+        {
+            //use .Paste() to enable Undo
+            textBoxRegex.Paste(@"(\w+)");
         }
 
         private void MakePlayer_Click(object sender, EventArgs e)
@@ -843,5 +851,6 @@ namespace TriggerTreeEditor
         }
 
         #endregion Encounters
+
     }
 }

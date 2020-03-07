@@ -40,6 +40,7 @@
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.SelectAll = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
+            this.MakeNumbered = new System.Windows.Forms.ToolStripMenuItem();
             this.MakePlayer = new System.Windows.Forms.ToolStripMenuItem();
             this.MakeAttacker = new System.Windows.Forms.ToolStripMenuItem();
             this.buttonUpdateCreate = new System.Windows.Forms.Button();
@@ -128,10 +129,11 @@
             this.toolStripSeparator2,
             this.SelectAll,
             this.toolStripSeparator3,
+            this.MakeNumbered,
             this.MakePlayer,
             this.MakeAttacker});
             this.contextMenuRegex.Name = "contextMenuStrip1";
-            this.contextMenuRegex.Size = new System.Drawing.Size(278, 198);
+            this.contextMenuRegex.Size = new System.Drawing.Size(278, 220);
             this.contextMenuRegex.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStrip1_Opening);
             // 
             // Undo
@@ -200,6 +202,13 @@
             // 
             this.toolStripSeparator3.Name = "toolStripSeparator3";
             this.toolStripSeparator3.Size = new System.Drawing.Size(274, 6);
+            // 
+            // MakeNumbered
+            // 
+            this.MakeNumbered.Name = "MakeNumbered";
+            this.MakeNumbered.Size = new System.Drawing.Size(277, 22);
+            this.MakeNumbered.Text = "Make (\\w+) numbered capture group";
+            this.MakeNumbered.Click += new System.EventHandler(this.MakewNumbered_Click);
             // 
             // MakePlayer
             // 
@@ -881,6 +890,7 @@
         private System.Windows.Forms.ToolStripMenuItem testWithRegularExpressionToolStripMenuItem;
         private System.Windows.Forms.Label labelGridHelp;
         private System.Windows.Forms.Button buttonX;
+        private System.Windows.Forms.ToolStripMenuItem MakeNumbered;
     }
 }
 
