@@ -632,6 +632,7 @@ namespace TriggerTreeEditor
             {
                 textBoxFindLine.Clear();
                 DataTable dt = null;
+                //disconnect the gridview while we update the table
                 dataGridViewLines.DataSource = new DataTable();
                 try
                 {
@@ -647,9 +648,9 @@ namespace TriggerTreeEditor
                         dataGridViewLines.DataSource = dt;
 
                         //mode fill = can't get a horizontal scroll bar
-                        //any auto size mode takes too long on large encounters
+                        //any auto size mode takes too much time on large encounters
                         //so just set a pretty large width that should handle most everything we'd want to use to make a trigger
-                        dataGridViewLines.Columns["LogLine"].Width = 1000;
+                        dataGridViewLines.Columns["LogLine"].Width = 1200;
                     }
                 }
                 catch(Exception dtx)

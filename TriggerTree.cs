@@ -70,7 +70,7 @@ namespace ACT_Plugin
         bool initialVisible = true;                 //save the splitter location only if it has been initialized 
 
         //keep encounter data for building triggers
-        //using a thread safe dictionary with a integer key to emulate a ConcurrentList<>
+        //using a thread safe dictionary with an integer key to emulate a ConcurrentList<> since there is no such thing
         ConcurrentDictionary<int, CombatToggleEventArgs> encounters = new ConcurrentDictionary<int, CombatToggleEventArgs>();
 
         //trigger macro file stuff
@@ -88,7 +88,7 @@ namespace ACT_Plugin
 
         Label lblStatus;                            // The status label that appears in ACT's Plugin tab
 
-        string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\TreeTriggers.config.xml");
+        string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\TriggerTree.config.xml");
         SettingsSerializer xmlSettings;
 
         #region Designer Created Code (Avoid editing)
@@ -126,6 +126,8 @@ namespace ACT_Plugin
             this.label3 = new System.Windows.Forms.Label();
             this.buttonCatFindNext = new System.Windows.Forms.Button();
             this.textBoxCatFind = new System.Windows.Forms.TextBox();
+            this.panelHelp = new System.Windows.Forms.Panel();
+            this.webBrowser1 = new System.Windows.Forms.WebBrowser();
             this.treeViewTrigs = new System.Windows.Forms.TreeView();
             this.panel2 = new System.Windows.Forms.Panel();
             this.label4 = new System.Windows.Forms.Label();
@@ -147,6 +149,7 @@ namespace ACT_Plugin
             this.expandAllToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.collapseAllToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
+            this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
             this.contextMenuStripCat = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.copyZoneNameToClipboardToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -162,6 +165,7 @@ namespace ACT_Plugin
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
             this.panel3.SuspendLayout();
+            this.panelHelp.SuspendLayout();
             this.panel2.SuspendLayout();
             this.contextMenuStripTrig.SuspendLayout();
             this.contextMenuStripCat.SuspendLayout();
@@ -181,6 +185,7 @@ namespace ACT_Plugin
             // 
             // splitContainer1.Panel2
             // 
+            this.splitContainer1.Panel2.Controls.Add(this.panelHelp);
             this.splitContainer1.Panel2.Controls.Add(this.treeViewTrigs);
             this.splitContainer1.Panel2.Controls.Add(this.panel2);
             this.splitContainer1.Size = new System.Drawing.Size(655, 560);
@@ -244,6 +249,28 @@ namespace ACT_Plugin
             this.textBoxCatFind.TabIndex = 0;
             this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
             this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
+            // 
+            // panelHelp
+            // 
+            this.panelHelp.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.panelHelp.Controls.Add(this.webBrowser1);
+            this.panelHelp.Dock = System.Windows.Forms.DockStyle.Right;
+            this.panelHelp.Location = new System.Drawing.Point(130, 30);
+            this.panelHelp.Name = "panelHelp";
+            this.panelHelp.Size = new System.Drawing.Size(304, 530);
+            this.panelHelp.TabIndex = 2;
+            this.panelHelp.Visible = false;
+            // 
+            // webBrowser1
+            // 
+            this.webBrowser1.AllowWebBrowserDrop = false;
+            this.webBrowser1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.webBrowser1.Location = new System.Drawing.Point(0, 0);
+            this.webBrowser1.MinimumSize = new System.Drawing.Size(20, 20);
+            this.webBrowser1.Name = "webBrowser1";
+            this.webBrowser1.Size = new System.Drawing.Size(300, 526);
+            this.webBrowser1.TabIndex = 0;
+            this.webBrowser1.DocumentCompleted += new System.Windows.Forms.WebBrowserDocumentCompletedEventHandler(this.webBrowser1_DocumentCompleted);
             // 
             // treeViewTrigs
             // 
@@ -336,9 +363,10 @@ namespace ACT_Plugin
             this.toolStripSeparator2,
             this.expandAllToolStripMenuItem,
             this.collapseAllToolStripMenuItem,
-            this.toolStripSeparator6});
+            this.toolStripSeparator6,
+            this.helpToolStripMenuItem});
             this.contextMenuStripTrig.Name = "contextMenuStrip1";
-            this.contextMenuStripTrig.Size = new System.Drawing.Size(290, 232);
+            this.contextMenuStripTrig.Size = new System.Drawing.Size(290, 254);
             this.contextMenuStripTrig.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripTrg_Opening);
             // 
             // copyAsShareableXMLToolStripMenuItem
@@ -434,6 +462,13 @@ namespace ACT_Plugin
             this.toolStripSeparator6.Name = "toolStripSeparator6";
             this.toolStripSeparator6.Size = new System.Drawing.Size(286, 6);
             // 
+            // helpToolStripMenuItem
+            // 
+            this.helpToolStripMenuItem.Name = "helpToolStripMenuItem";
+            this.helpToolStripMenuItem.Size = new System.Drawing.Size(289, 22);
+            this.helpToolStripMenuItem.Text = "Help";
+            this.helpToolStripMenuItem.Click += new System.EventHandler(this.helpToolStripMenuItem_Click);
+            // 
             // toolTip1
             // 
             this.toolTip1.AutomaticDelay = 750;
@@ -515,10 +550,10 @@ namespace ACT_Plugin
             this.label2.AutoSize = true;
             this.label2.Location = new System.Drawing.Point(5, 20);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(499, 13);
+            this.label2.Size = new System.Drawing.Size(476, 13);
             this.label2.TabIndex = 1;
-            this.label2.Text = "Double click a trigger to copy XML.  Expand a trigger for checkbox, right-click, " +
-    "and double-click actions. ";
+            this.label2.Text = "Double-click to edit trigger fields. Expand a trigger for checkbox and right-clic" +
+    "k actions on sub-items.";
             // 
             // TriggerTree
             // 
@@ -535,6 +570,7 @@ namespace ACT_Plugin
             this.splitContainer1.ResumeLayout(false);
             this.panel3.ResumeLayout(false);
             this.panel3.PerformLayout();
+            this.panelHelp.ResumeLayout(false);
             this.panel2.ResumeLayout(false);
             this.panel2.PerformLayout();
             this.contextMenuStripTrig.ResumeLayout(false);
@@ -584,6 +620,9 @@ namespace ACT_Plugin
         private ToolStripMenuItem deleteTriggerToolStripMenuItem;
         private ToolStripMenuItem editTriggerToolStripMenuItem;
         private ToolStripSeparator toolStripSeparator6;
+        private Panel panelHelp;
+        private WebBrowser webBrowser1;
+        private ToolStripMenuItem helpToolStripMenuItem;
 
         #endregion
 
@@ -613,6 +652,8 @@ namespace ACT_Plugin
             treeViewTrigs.ImageList = triggerImages;
 
             PopulateCatsTree();
+
+            SetHelp();
 
             ActGlobals.oFormActMain.OnLogLineRead += OFormActMain_OnLogLineRead;        //for zone change
             ActGlobals.oFormActMain.XmlSnippetAdded += OFormActMain_XmlSnippetAdded;    //for incoming shared trigger
@@ -762,6 +803,225 @@ namespace ACT_Plugin
 			xWriter.Close();
 		}
 
+        #region Help
+
+        private void SetHelp()
+        {
+            webBrowser1.DocumentText = @"
+                <html>
+                <body>
+                <button value=""Close"" name=""Close"" style=""float: right;"" >Close</button ><br>
+                <u>Trigger Tree Plugin</u><br>
+<br>
+The plugin provides another interface to the Custom Triggers. Triggers
+can be managed from either interface.<br>
+<br>
+The left panel lists each Category. The right panel lists all triggers
+in the selected Category.<br>
+<br>
+Features that are similar to the Custom Trigger Tab include:<br>
+<ul>
+<li>Active triggers are green text.</li>
+<li>Enabled but inactive triggers (e.g. you are not currently
+in the restricted zone) are black text.</li>
+<li>Disabled triggers (i.e. unchecked,&nbsp;they will never alert)
+are grey text.</li>
+<li>The checkbox next to the trigger will enable / disable the
+trigger.</li>
+<li>Right-click a Category or trigger to get a context menu,
+e.g. for sharing.</li>
+</ul>
+Additional features over the Custom Trigger tab include:<br>
+<ul>
+<li>Category Panel</li>
+<ul>
+<li>When entering a zone that has a matching Category, the
+Category is automatically selected.</li>
+</ul>
+<ul>
+<li>Perform an incremental search for a Category by entering
+text in the <i>Find:</i> box. The [Enter] key or the double arrow button
+performs a 'find next'.</li>
+</ul>
+<ul>
+<li>To support writing a new trigger after having left the zone, the
+context menu provides a 'Copy category name to clipboard'.</li>
+</ul>
+<ul>
+<li>If the Category name and triggers can be written to an
+EQII macro, the context menu allows saving all the triggers and spell
+timers in that Category to a macro for sharing in EQII. &nbsp;See
+the section on <a href='#macro_share'>macro limitations</a>.</li>
+</ul>
+<li>Trigger Panel</li>
+<ul>
+<li>Displays the triggers for the selected category.</li>
+<li>Trigger details are sub-items of the Regular Expression.</li>
+<li>If the Category name and trigger can be written to an
+EQII macro, the
+context menu allows saving&nbsp;the trigger and its spell timer to
+a macro for sharing in EQII. &nbsp;Triggers and spell timers that
+can be written to a macro file are indicated by the 'macro play' icon
+next to their checkbox. See the section on <a href='#macro_share'>macro
+limitations</a>.</li>
+<li>Double-click the <i>Alert</i> or&nbsp;<i>Timer or Tab Name</i> sub-items
+to open an edit dialog for just those settings.</li>
+<li>Double-click the&nbsp;<i>Trigger Timer</i> to open ACT's Spell
+Timers (Options) form and search for matching spell timer name.</li>
+<li>Right-click the&nbsp;<i>Timer or Tab Name</i> to copy the timer to
+the clipboard for sharing. Note that this will copy the first spell
+timer found that matches that name if there are multiple timers with
+the same name but different categories.</li>
+<li>Perform an incremental search in the <i>Regular Expression</i>,
+<i>Alert</i>, and <i>Timer or Tab Name</i> by entering text in the <i>Find:</i> box. The
+[Enter] key or the double arrow button performs a 'find next'.</li>
+</ul>
+<li>Edit Trigger Dialog (double-click a trigger regular
+expression)</li>
+<ul>
+<li>When editing a trigger's <i>Category / Zone</i> or<i> Regular Expression</i>,
+the dialog allows for replacing the original trigger or creating a new
+trigger.</li>
+</ul>
+<ul>
+<li>If a line is copied from the<i> View Logs</i>, it can be
+properly formatted and pasted into the <i>Regular Expression</i> using the
+[Paste Clipboard] button in the trigger edit dialog.</li>
+</ul>
+<ul>
+<li>Selecting text in the <i>Regular Expression</i> and then
+right-clicking allows replacing the selected text with a capture group.</li>
+<li><i>Regular Expression</i> syntax is checked as each character is
+typed in the box. An invalid expression turns the text red. If one of
+the dialog closing buttons (other than [Cancel]) is pressed when the
+expression is invalid, an error popup is displayed giving more
+information on the problem.</li>
+</ul>
+<ul>
+<li>Capture groups can be easily inserted into the TTS
+expression using the drop down list of capture names and the [Insert
+capture name] button.</li>
+</ul>
+<ul>
+<li>The [Search for spell timer] button will open ACT's Spell Timers (Options) form and search for
+matching spell timer name.<br>
+</li>
+</ul>
+<ul>
+<li>The <i>Show Encounters</i> checkbox&nbsp;will display a list of finished encounters. Selecting an encounter will display
+the log lines for that encounter, similar to ACT's <i>View Logs</i>. The
+dialog can be resized to see more of the log lines.</li>
+<li>Display only matching log lines by entering <i>Filter:</i> text.
+&nbsp;Useful filters include '#' for showing colored lines and
+'says,' for showing mob dialog.</li>
+<li>Right click a log line for a context menu to format and
+paste the line into the <i>Regular Expression</i>.</li>
+<li>Right click a log line for a context menu to test the
+trigger against the log line.</li>
+</ul>
+</ul>
+<u><a name='macro_share'></a>Sharing via an
+EQII Macro</u><br>
+Wouldn't it be nice to be able to share all triggers and their timers for a zone in one
+operation rather than copy-paste for each one? &nbsp;An EQII macro
+can <i>almost</i> do it.<br>
+<br>
+Unfortunately, EQII macros cannot handle all the XML encoding used in
+shared triggers. Some of the problems can be avoided by changing the
+trigger. Other problems simply prevent the trigger or spell timer from
+being shared via a macro and it must be shared via the clipboard. Prohibited characters are listed in
+the tool tip for the&nbsp;<i>Share Macro</i> context menus when macro share is
+disabled.<br>
+<br>You might want to use a macro to share a trigger to avoid clipboard
+problems such as the occasional clipboard failure or pasting the parse
+into chat rather than the trigger.<br><br>
+If a trigger can be saved in a macro, the 'macro play' icon is
+displayed next to its checkbox. &nbsp;If the trigger has a <i>Timer
+or Tab name</i> and the timer can be saved in a macro, the 'macro
+play' button is displayed next to&nbsp;that checkbox.<br>
+<br>
+When a trigger&nbsp;can be saved in a macro, selecting the
+trigger's <i>Raidsay Share Macro</i> or <i>Groupsay
+Share Macro</i> context menu will create a triggers.txt file to
+either /raidsay or /groupsay the shared trigger, respectively. If the
+trigger has a timer that can be saved in a macro, the timer is also
+written to the macro. To actually share the trigger in EQII, the user
+would enter in an EQII chat box: <br>
+&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;/do_file_commands triggers.txt<br>
+<br>If a Category has one or more triggers that can be saved in a macro,
+selecting the Category's <i>Raidsay Share Macro</i> or <i>Groupsay
+Share Macro</i> context menu will create a triggers.txt file to
+either /raidsay or /groupsay, respectively, all of the valid triggers
+and their valid timers. Macros are limited to 16 lines.<br>
+<br>
+Following are some macro issues and any workaround:<br>
+<ul>
+<li>If the Category name contains any prohibited
+characters, trigger macro share is disabled. There is no workaround.</li>
+<li>If the trigger <i>Regular Expression</i> contains prohibited
+characters, it can often be rewritten to remove those characters. In
+many cases the offending characters can just be removed from the
+beginning or end of the trigger without affecting its usefulness.
+Example alternate approaches or when that's not feasable&nbsp;include:</li>
+<ul>
+<li><i>Praetorian K'Tikrn gets sick</i> : replace
+the apostrophe with a wild card period, becoming : <i>Praetorian
+K.Tikrn gets sick</i></li>
+<li><i>prepares to unleash a mighty barrage in
+(?&lt;player&gt;\w+)</i> : replace the named capture
+group with a numbered capture group, becoming : <i>prepares to
+unleash a mighty barrage in (\w+)</i></li>
+<li><i>You have infected your enemies
+with&nbsp;\\#FF0000Dark Incubation!</i>&nbsp;:
+replace&nbsp;the \\ with a wild card period, becoming : <i>You
+have infected your enemies with .#FF0000Dark Incubation!</i></li>
+<li><i>\\#FF9900You feel energized by Crystalline
+Destruction</i> : just remove the slashes, becoming : <i>#FF9900You
+feel energized by Crystalline Destruction</i></li>
+<li><i>&nbsp;says, ''Bring on the rocks</i><i>
+: </i>replace the double quote with a wild card period, becoming
+:<i> &nbsp;says, .Bring on the rocks</i><i><br>
+</i></li>
+</ul>
+<li>If the trigger <i>Alert</i> or <i>Timer or Tab name</i> contain prohibited
+characters, they can often be written differently to exclude those
+characters.</li>
+<li>If the timer name, sounds, or tool tip contain prohibited
+&nbsp;characters, they can often be written differently to exclude
+those characters.</li>
+<li>Note that if the timer Category contains prohibited characters,
+changing it may break functionality if the <i>Restrict to
+category zone or mob</i> checkbox is checked.</li>
+</ul>
+<button value=""Close"" name=""Close"" style=""float: right;"" >Close</button ><br>
+                </body>
+                </html>
+                ";
+        }
+
+        private void webBrowser1_DocumentCompleted(object sender, WebBrowserDocumentCompletedEventArgs e)
+        {
+            webBrowser1.Document.Body.MouseDown += Body_MouseDown;
+        }
+
+        private void Body_MouseDown(object sender, HtmlElementEventArgs e)
+        {
+            switch (e.MouseButtonsPressed)
+            {
+                case MouseButtons.Left:
+                    HtmlElement element = webBrowser1.Document.GetElementFromPoint(e.ClientMousePosition);
+                    if (element != null && "Close".Equals(element.GetAttribute("name"), StringComparison.OrdinalIgnoreCase))
+                    {
+                        panelHelp.Visible = false;
+                        helpToolStripMenuItem.Checked = panelHelp.Visible;
+                    }
+                    break;
+            }
+        }
+
+        #endregion Help
+
         #region Category Tree
 
         void PopulateCatsTree()
@@ -868,20 +1128,20 @@ namespace ACT_Plugin
                   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
                   0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x10, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0xf3, 0xff,
                   0x61, 0x00, 0x00, 0x00, 0x09, 0x70, 0x48, 0x59, 0x73, 0x00, 0x00, 0x0e, 0xc4, 0x00, 0x00, 0x0e,
-                  0xc4, 0x01, 0x95, 0x2b, 0x0e, 0x1b, 0x00, 0x00, 0x00, 0xb1, 0x49, 0x44, 0x41, 0x54, 0x78, 0x5e,
-                  0xdd, 0x93, 0x31, 0x0a, 0x02, 0x31, 0x10, 0x45, 0x7f, 0x24, 0xe0, 0x92, 0x4a, 0xdd, 0x52, 0xac,
-                  0xb4, 0xb6, 0xb3, 0xf7, 0x1c, 0x96, 0x9e, 0xc0, 0x0b, 0x58, 0x59, 0xda, 0xd8, 0xad, 0x87, 0xb1,
-                  0x50, 0xb0, 0xf3, 0x12, 0x0b, 0x22, 0x56, 0x22, 0x22, 0x26, 0x2a, 0x31, 0xe3, 0x34, 0x03, 0x0b,
-                  0xee, 0x16, 0x2a, 0xb8, 0xe0, 0x83, 0x0f, 0xa9, 0x1e, 0x7f, 0x26, 0x89, 0x22, 0x22, 0x7c, 0x43,
-                  0x85, 0x53, 0xae, 0x40, 0xcb, 0xc1, 0x39, 0x57, 0x03, 0x70, 0x44, 0x3e, 0x5b, 0x4e, 0xc7, 0x18,
-                  0x73, 0x17, 0x81, 0x8c, 0xae, 0x91, 0x21, 0xf8, 0x2b, 0xf6, 0xeb, 0xe9, 0x8b, 0x20, 0xee, 0x0e,
-                  0x5a, 0x51, 0xa3, 0x3d, 0x04, 0x30, 0x2f, 0x6c, 0x20, 0x28, 0x5d, 0x45, 0xdc, 0x1b, 0x41, 0xb8,
-                  0xa4, 0x0b, 0x9c, 0xd3, 0x15, 0x58, 0x90, 0x58, 0x6b, 0x13, 0x10, 0x01, 0x4a, 0x81, 0x51, 0xb9,
-                  0x02, 0xf2, 0x37, 0x1c, 0x36, 0xb3, 0x4c, 0xad, 0x07, 0x28, 0x78, 0xec, 0x96, 0x13, 0x08, 0xcd,
-                  0xfe, 0xb8, 0xb0, 0x81, 0x48, 0x7e, 0x7b, 0x8d, 0x7f, 0xf1, 0x90, 0xc4, 0xa6, 0x23, 0xd9, 0xf0,
-                  0x47, 0x82, 0x13, 0xa7, 0x8e, 0x37, 0x29, 0xff, 0x37, 0x3e, 0x01, 0x8c, 0xa0, 0x34, 0x81, 0x20,
-                  0x14, 0x4a, 0x57, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
-              };
+                  0xc4, 0x01, 0x95, 0x2b, 0x0e, 0x1b, 0x00, 0x00, 0x00, 0xa3, 0x49, 0x44, 0x41, 0x54, 0x78, 0x5e,
+                  0xed, 0xd3, 0xad, 0x0a, 0x42, 0x41, 0x10, 0x05, 0xe0, 0x73, 0x75, 0x82, 0x4c, 0xf1, 0x06, 0x83,
+                  0xd8, 0x6c, 0x26, 0x59, 0xa3, 0xcd, 0x27, 0xf0, 0x59, 0x6c, 0x16, 0xe1, 0x1a, 0x2c, 0x66, 0x1f,
+                  0xc6, 0x6a, 0xd3, 0xe6, 0xbe, 0x80, 0xc5, 0x20, 0x08, 0x06, 0x7f, 0x60, 0x11, 0x44, 0xd6, 0x83,
+                  0x20, 0x8b, 0x22, 0x0b, 0x72, 0x83, 0x20, 0x7e, 0x70, 0x18, 0xa6, 0xcc, 0xec, 0xc2, 0x6e, 0xe2,
+                  0xbd, 0x47, 0x1e, 0x89, 0x73, 0x6e, 0xc9, 0x6a, 0x10, 0xb7, 0x67, 0xea, 0xaa, 0xca, 0x1a, 0x70,
+                  0x39, 0xe4, 0x7a, 0x3e, 0x98, 0xed, 0x62, 0x82, 0x98, 0xb4, 0xd1, 0x4d, 0xb5, 0xda, 0xec, 0x01,
+                  0x18, 0xe2, 0x85, 0x14, 0x4b, 0x65, 0x10, 0x2a, 0xed, 0x3e, 0xde, 0xb9, 0x1c, 0xd7, 0x38, 0xad,
+                  0xa6, 0xe0, 0x80, 0x8c, 0xa7, 0xcd, 0x10, 0x58, 0xa6, 0x25, 0x8f, 0x6e, 0x37, 0x1f, 0x23, 0x66,
+                  0x33, 0x1b, 0x3d, 0xf5, 0xb5, 0xce, 0xc0, 0x80, 0x0a, 0xc8, 0xe1, 0x67, 0x06, 0xfc, 0x07, 0x08,
+                  0x63, 0xef, 0x8f, 0xe2, 0x73, 0x16, 0x14, 0x7e, 0xe3, 0xb7, 0xae, 0x70, 0x03, 0xb8, 0x17, 0x29,
+                  0xc4, 0xad, 0x11, 0x0a, 0x52, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60,
+                  0x82,
+            };
 
             Bitmap bmp;
             using (var ms = new MemoryStream(png_data))
@@ -895,29 +1155,28 @@ namespace ACT_Plugin
         {
             //could not figure out a better way to get an image in this file
             byte[] png_data = new byte[] {
-                  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+                   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
                   0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x10, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0xf3, 0xff,
                   0x61, 0x00, 0x00, 0x00, 0x09, 0x70, 0x48, 0x59, 0x73, 0x00, 0x00, 0x0e, 0xc4, 0x00, 0x00, 0x0e,
-                  0xc4, 0x01, 0x95, 0x2b, 0x0e, 0x1b, 0x00, 0x00, 0x01, 0x1e, 0x49, 0x44, 0x41, 0x54, 0x78, 0x5e,
-                  0xc5, 0x93, 0x31, 0x4b, 0x03, 0x41, 0x10, 0x46, 0x9f, 0xe1, 0x82, 0x61, 0x09, 0x31, 0x4a, 0x10,
-                  0x41, 0x91, 0x80, 0x42, 0x0a, 0x11, 0x44, 0x44, 0xb4, 0x31, 0xa5, 0x60, 0x63, 0x69, 0x63, 0x2b,
-                  0x58, 0xda, 0x59, 0x6a, 0x29, 0x88, 0xa2, 0x60, 0xed, 0x0f, 0xd0, 0x42, 0x7f, 0x81, 0xa0, 0x42,
-                  0xd0, 0x42, 0xb0, 0xb0, 0x11, 0x2c, 0x0e, 0x8c, 0xd8, 0xdc, 0x89, 0x24, 0xba, 0xa7, 0x18, 0x73,
-                  0x0e, 0x1c, 0x57, 0x2c, 0xec, 0x5d, 0x0a, 0x8b, 0x3c, 0xd8, 0x72, 0xde, 0xcc, 0x37, 0xbb, 0xdb,
-                  0x13, 0x86, 0x21, 0xff, 0x21, 0x03, 0x74, 0x57, 0xe0, 0x00, 0x04, 0x41, 0xb0, 0x0d, 0x6c, 0x61,
-                  0xe7, 0x1e, 0x98, 0x56, 0x4a, 0x19, 0x59, 0xe3, 0xe8, 0x0e, 0x11, 0x34, 0xdc, 0x4b, 0x9a, 0xee,
-                  0x95, 0x21, 0xc8, 0xe6, 0x87, 0x18, 0x9c, 0x59, 0x9b, 0x02, 0x96, 0x81, 0xf3, 0xc4, 0x09, 0x62,
-                  0x8a, 0x13, 0x2b, 0x38, 0x85, 0x32, 0x00, 0xb4, 0x7f, 0xf0, 0x6e, 0xf7, 0xf9, 0xf2, 0x1e, 0xc9,
-                  0x95, 0x2a, 0x67, 0x5a, 0x6b, 0x22, 0x38, 0x94, 0x69, 0x36, 0x0c, 0x81, 0x95, 0x4c, 0x16, 0x35,
-                  0x3c, 0x87, 0xff, 0x70, 0x42, 0x4c, 0x7e, 0x64, 0x96, 0xbe, 0xf1, 0xc5, 0x5e, 0x91, 0x15, 0x81,
-                  0xf7, 0x8e, 0x4b, 0x54, 0xa3, 0x55, 0x4a, 0xf3, 0x9b, 0xc8, 0xa1, 0x7f, 0x72, 0x95, 0xb0, 0xfd,
-                  0x2b, 0xa7, 0xb5, 0x0e, 0x5c, 0xa4, 0x4e, 0x10, 0xd4, 0xaf, 0xd1, 0xaf, 0x77, 0x18, 0x44, 0xc5,
-                  0xe4, 0x06, 0xc6, 0x90, 0x48, 0xbb, 0xc9, 0x02, 0xc9, 0xfe, 0xf9, 0x5c, 0xc3, 0x86, 0x2c, 0x15,
-                  0x29, 0x76, 0x81, 0xd3, 0xc4, 0x77, 0xa0, 0xeb, 0x35, 0x92, 0x28, 0x94, 0x17, 0x00, 0xf6, 0x94,
-                  0x52, 0x2d, 0xab, 0xe0, 0xfb, 0xed, 0x09, 0xfd, 0x72, 0x93, 0xd6, 0xdd, 0x07, 0x8e, 0x6d, 0xd7,
-                  0x28, 0xf6, 0x2a, 0x00, 0x54, 0x96, 0x48, 0xe1, 0x48, 0xba, 0x6b, 0x9b, 0x60, 0x07, 0x38, 0xa0,
-                  0x33, 0x1f, 0x98, 0xd0, 0xfd, 0xdf, 0xf8, 0x07, 0xb9, 0x23, 0x56, 0xb1, 0x82, 0x86, 0x81, 0xde,
-                  0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+                  0xc4, 0x01, 0x95, 0x2b, 0x0e, 0x1b, 0x00, 0x00, 0x01, 0x0b, 0x49, 0x44, 0x41, 0x54, 0x78, 0x5e,
+                  0xa5, 0xd2, 0xb1, 0x4a, 0xc4, 0x40, 0x14, 0x86, 0xd1, 0x2f, 0x63, 0x84, 0x10, 0x15, 0x2c, 0x84,
+                  0xdd, 0xc2, 0x62, 0x3b, 0x3b, 0x4b, 0xb5, 0x10, 0xf1, 0x15, 0x7c, 0x83, 0xdd, 0xde, 0xd2, 0xca,
+                  0x46, 0x04, 0x2b, 0xb1, 0xb1, 0xb6, 0xd8, 0xf8, 0x0a, 0x16, 0x96, 0xba, 0x85, 0x85, 0x82, 0x85,
+                  0x5a, 0x59, 0x88, 0xae, 0x20, 0x1a, 0x50, 0x24, 0xa2, 0x64, 0x57, 0xd8, 0xdd, 0xf1, 0x26, 0x38,
+                  0xc1, 0x85, 0xd1, 0x44, 0x72, 0xe0, 0x27, 0x45, 0x98, 0x3b, 0xf7, 0xce, 0x8c, 0x83, 0x88, 0xe3,
+                  0xb8, 0x06, 0x48, 0x7e, 0x75, 0xe1, 0xfb, 0x7e, 0x84, 0x85, 0x2b, 0x8b, 0x9b, 0x40, 0x9d, 0xbf,
+                  0x05, 0x40, 0x03, 0x0b, 0xe7, 0xfd, 0xf5, 0x49, 0x3f, 0x9f, 0xef, 0x31, 0xe8, 0x75, 0xb1, 0x19,
+                  0xf1, 0x26, 0xa9, 0x2c, 0xac, 0x22, 0x56, 0x00, 0xd3, 0x45, 0x5b, 0x3a, 0x6a, 0xf3, 0xdd, 0xbe,
+                  0xbe, 0x39, 0x5c, 0xd7, 0xf2, 0xb5, 0xe6, 0xee, 0x68, 0x5b, 0xbf, 0xdc, 0x9e, 0xda, 0xfe, 0x35,
+                  0x11, 0x2e, 0x39, 0x26, 0x6a, 0x4b, 0x44, 0xd7, 0x07, 0x69, 0x0c, 0xe5, 0x7a, 0x54, 0x17, 0xd7,
+                  0xea, 0x40, 0x23, 0xb7, 0x80, 0x5f, 0x9d, 0x4d, 0xf3, 0xd3, 0x63, 0x6b, 0x0b, 0x43, 0x51, 0x82,
+                  0x8c, 0xb1, 0xac, 0x28, 0xe7, 0xd8, 0x1d, 0xaa, 0x18, 0x5e, 0x99, 0x59, 0x73, 0x85, 0x27, 0x3b,
+                  0xc9, 0x39, 0x0c, 0x8f, 0xd0, 0x09, 0x2f, 0x29, 0xca, 0x9b, 0x9a, 0x41, 0x04, 0x59, 0x81, 0x7e,
+                  0xf7, 0x8d, 0xcf, 0xe8, 0x9e, 0xa2, 0xc6, 0xa6, 0xe7, 0x10, 0xfb, 0x59, 0x81, 0x8f, 0x87, 0x33,
+                  0x8a, 0x1a, 0x1d, 0xaf, 0x24, 0x49, 0x1e, 0x53, 0x4b, 0x99, 0x7b, 0xed, 0xc8, 0xfc, 0xc5, 0x77,
+                  0x9f, 0x47, 0xec, 0x9a, 0x87, 0xb4, 0x29, 0x87, 0xb1, 0xc1, 0xff, 0x05, 0x08, 0x47, 0x6b, 0x4d,
+                  0x19, 0x8a, 0x92, 0xbe, 0x00, 0xfd, 0xab, 0x7c, 0xc4, 0x09, 0xdb, 0x7d, 0x59, 0x00, 0x00, 0x00,
+                  0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
               };
 
             Bitmap bmp;
@@ -1064,8 +1323,10 @@ namespace ACT_Plugin
             {
                 List<CustomTrigger> triggers;
                 string category = clickedCategoryNode.Text;
-                int valid = 0;
+                int validTrigs = 0;
+                int validTimers = 0;
                 int invalid = 0;
+                bool tooLong = false;
                 if (treeDict.TryGetValue(category, out triggers))
                 {
                     try
@@ -1084,33 +1345,48 @@ namespace ACT_Plugin
                                     sb.Append(sayCmd);
                                     sb.Append(TriggerToMacro(trigger));
                                     sb.Append(Environment.NewLine);
-                                    valid++;
-                                    if(valid > 16)
+                                    validTrigs++;
+                                }
+                                if (validTrigs + validTimers >= 16)
+                                    tooLong = true;
+                                if (!tooLong)
+                                {
+                                    List<TimerData> timers = FindTimers(trigger);
+                                    foreach (TimerData timer in timers)
                                     {
-                                        MessageBox.Show(this, "Only 16 lines are allowed in a macro. Stopping after the 16th trigger.");
-                                        break;
+                                        if (!IsInvalidMacroTimer(timer))
+                                        {
+                                            sb.Append(sayCmd);
+                                            sb.Append(SpellTimerToMacro(timer));
+                                            sb.Append(Environment.NewLine);
+                                            validTimers++;
+                                            if (validTrigs + validTimers >= 16)
+                                            {
+                                                tooLong = true;
+                                                break;
+                                            }
+                                        }
                                     }
                                 }
-                                if(!string.IsNullOrEmpty(trigger.TimerName))
+
+                                if(tooLong)
                                 {
-                                    TimerData value;
-                                    if(ActGlobals.oFormSpellTimers.TimerDefs.TryGetValue(trigger.TimerName, out value))
-                                    {
-                                        Console.WriteLine(trigger.TimerName);
-                                    }
+                                    MessageBox.Show(this, "Only 16 lines are allowed in a macro. Stopping after the 16th line.");
+                                    break;
                                 }
                             }
                         }
-                        if (valid > 0)
+                        if (validTrigs > 0)
                         {
                             if (ActGlobals.oFormActMain.SendToMacroFile(doFileName, sb.ToString(), string.Empty))
                             {
-                                string m1 = string.Format("Wrote {0} triggers for category\n'{1}'\nto macro file {2}.\n\n", valid, category, doFileName);
-                                string m2 = (invalid > 0 ? string.Format("Could not write {0} triggers.\n\n", invalid) : string.Empty);
-                                string m3 = string.Format("In EQII chat, enter:\n/do_file_commands {0}", doFileName);
+                                string m1 = string.Format("For category\n'{0}'\nWrote {1} triggers", category, validTrigs);
+                                string m2 = validTimers > 0 ? string.Format(" and {0} timers", validTimers) : string.Empty;
+                                string m3 = invalid > 0 ? string.Format("\n\nCould not write {0} triggers.", invalid) : string.Empty;
+                                string m4 = string.Format("\n\nIn EQII chat, enter:\n/do_file_commands {0}", doFileName);
                                 TraySlider traySlider = new TraySlider();
                                 traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
-                                traySlider.ShowTraySlider(m1 + m2 + m3, "Category Triggers Macro");
+                                traySlider.ShowTraySlider(m1 + m2 + m3 + m4, "Category Triggers Macro");
                             }
                         }
                         else //should not get here since the menu should be disabled in this case
@@ -1295,18 +1571,7 @@ namespace ACT_Plugin
                     //timer name child
                     parent.Nodes.Add(timerNameLabel + trigger.TimerName).Checked = trigger.Timer || trigger.Tabbed;
                     indexTimerName = 4;
-                    List<TimerData> timers = FindTimers(trigger);
-                    //look for at least one macro-able timer
-                    int canMacro = 0;
-                    foreach(TimerData timer in timers)
-                    {
-                        if (!IsInvalidMacroTimer(timer))
-                        {
-                            canMacro++;
-                            break;
-                        }
-                    }
-                    if(canMacro > 0)
+                    if(CanMacroTimer(trigger))
                         parent.Nodes[indexTimerName].ImageIndex = parent.Nodes[indexTimerName].SelectedImageIndex = triggerCanMacro;
                     else
                         parent.Nodes[indexTimerName].ImageIndex = parent.Nodes[indexTimerName].SelectedImageIndex = triggerBlankImage;
@@ -1329,6 +1594,20 @@ namespace ACT_Plugin
                     }
                 }
             }
+        }
+
+        private bool CanMacroTimer(CustomTrigger trigger)
+        {
+            List<TimerData> timers = FindTimers(trigger);
+            //look for at least one macro-able timer
+            foreach (TimerData timer in timers)
+            {
+                if (!IsInvalidMacroTimer(timer))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private void TriggerTree_VisibleChanged(object sender, EventArgs e)
@@ -1709,6 +1988,34 @@ namespace ACT_Plugin
 
                     //set the timer name child
                     node.Nodes[indexTimerName].Text = timerNameLabel + trigger.TimerName;
+
+                    //set timer search tooltip
+                    if (string.IsNullOrEmpty(trigger.TimerName))
+                        node.Nodes[indexTimer].ToolTipText = string.Empty;
+                    else
+                        node.Nodes[indexTimer].ToolTipText = "Double-click to search for the timer\n(Use [Clear] btn in timer window to reset search)";
+
+                    //set macro icons
+                    if (IsInvalidMacroTrigger(trigger))
+                    {
+                        node.ImageIndex = triggerNoMacro;
+                        node.SelectedImageIndex = triggerNoMacro;
+                    }
+                    else
+                    {
+                        node.ImageIndex = triggerCanMacro;
+                        node.SelectedImageIndex = triggerCanMacro;
+                    }
+
+                    if (CanMacroTimer(trigger))
+                        node.Nodes[indexTimerName].ImageIndex = node.Nodes[indexTimerName].SelectedImageIndex = triggerCanMacro;
+                    else
+                        node.Nodes[indexTimerName].ImageIndex = node.Nodes[indexTimerName].SelectedImageIndex = triggerBlankImage;
+
+                    //update the Custom Triggers tab, the trigger itself is already changed
+                    ActGlobals.oFormActMain.AddEditCustomTrigger(trigger);
+
+                    break;
                 }
             }
         }
@@ -1752,7 +2059,7 @@ namespace ACT_Plugin
 
         private void treeViewTrigs_BeforeCollapse(object sender, TreeViewCancelEventArgs e)
         {
-            //we are using double click to copy the trigger to the clipboard
+            //we are using double click to edit the trigger
             //rather than expanding / collapsing the tree
             if (isDoubleClick && e.Action == TreeViewAction.Collapse)
                 e.Cancel = true;
@@ -1760,7 +2067,7 @@ namespace ACT_Plugin
 
         private void treeViewTrigs_BeforeExpand(object sender, TreeViewCancelEventArgs e)
         {
-            //we are using double click to copy the trigger to the clipboard
+            //we are using double click to edit the trigger
             //rather than expanding / collapsing the tree
             if (isDoubleClick && e.Action == TreeViewAction.Expand)
                 e.Cancel = true;
@@ -2472,6 +2779,12 @@ namespace ACT_Plugin
             }
         }
 
+        private void helpToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            panelHelp.Visible = !panelHelp.Visible;
+            helpToolStripMenuItem.Checked = panelHelp.Visible;
+        }
+
         #endregion Context Menu
 
         #endregion Trigger Tree
@@ -2486,7 +2799,7 @@ namespace ACT_Plugin
     // while still maintaining this one source file for ACT to load as a plugin.
 
     //logic
-    public partial class FormEditTrigger : Form
+    partial class FormEditTrigger : Form
     {
         const int logTimeStampLength = 39;  //# of chars in the log file timestamp
         const string logTimeStampRegexStr = @"^\(\d{10}\)\[.{24}\] ";
@@ -3102,6 +3415,7 @@ namespace ACT_Plugin
             {
                 textBoxFindLine.Clear();
                 DataTable dt = null;
+                //disconnect the gridview while we update the table
                 dataGridViewLines.DataSource = new DataTable();
                 try
                 {
@@ -3117,9 +3431,9 @@ namespace ACT_Plugin
                         dataGridViewLines.DataSource = dt;
 
                         //mode fill = can't get a horizontal scroll bar
-                        //any auto size mode takes too long on large encounters
+                        //any auto size mode takes too much time on large encounters
                         //so just set a pretty large width that should handle most everything we'd want to use to make a trigger
-                        dataGridViewLines.Columns["LogLine"].Width = 1000;
+                        dataGridViewLines.Columns["LogLine"].Width = 1200;
                     }
                 }
                 catch (Exception dtx)
@@ -3533,6 +3847,7 @@ namespace ACT_Plugin
             this.MakeNumbered.Name = "MakeNumbered";
             this.MakeNumbered.Size = new System.Drawing.Size(277, 22);
             this.MakeNumbered.Text = "Make (\\w+) numbered capture group";
+            this.MakeNumbered.ToolTipText = "Numbered capture groups can be shared in a macro";
             this.MakeNumbered.Click += new System.EventHandler(this.MakewNumbered_Click);
             // 
             // MakePlayer

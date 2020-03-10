@@ -1,0 +1,219 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html><head>
+<meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>TriggerTree</title>
+
+</head><body>
+<button name="Close" style="float: right;">Close</button><br>
+<u>Trigger Tree Plugin</u><br>
+<br>
+The plugin provides another interface to the Custom Triggers. Triggers
+can be managed from either interface.<br>
+<br>
+The left panel lists each Category. The right panel lists all triggers
+in the selected Category.<br>
+<br>
+Features that are similar to the Custom Trigger Tab include:<br>
+<ul>
+<li>Active triggers are green text.</li>
+<li>Enabled but inactive triggers (e.g. you are not currently
+in the restricted zone) are black text.</li>
+<li>Disabled triggers (i.e. unchecked,&nbsp;they will never
+alert)
+are grey text.</li>
+<li>The checkbox next to the trigger will enable / disable the
+trigger.</li>
+<li>Right-click a Category or trigger to get a context menu,
+e.g. for sharing.</li>
+</ul>
+Additional features over the Custom Trigger tab include:<br>
+<ul>
+<li>Category Panel</li>
+<ul>
+<li>When entering a zone that has a matching Category, the
+Category is automatically selected.</li>
+</ul>
+<ul>
+<li>Perform an incremental search for a Category by entering
+text in the <i>Find:</i> box. The [Enter] key or the
+double arrow button
+performs a 'find next'.</li>
+</ul>
+<ul>
+<li>To support writing a new trigger after having left the
+zone, the
+context menu provides a 'Copy category name to clipboard'.</li>
+</ul>
+<ul>
+<li>If the Category name and triggers can be written to an
+EQII macro, the context menu allows saving all the triggers and spell
+timers in that Category to a macro for sharing in EQII. &nbsp;See
+the section on <a href="#macro_share">macro limitations</a>.</li>
+</ul>
+<li>Trigger Panel</li>
+<ul>
+<li>Displays the triggers for the selected category.</li>
+<li>Trigger details are sub-items of the Regular Expression.</li>
+<li>If the Category name and trigger can be written to an
+EQII macro, the
+context menu allows saving&nbsp;the trigger and its spell timer to
+a macro for sharing in EQII. &nbsp;Triggers and spell timers that
+can be written to a macro file are indicated by the 'macro play' icon
+next to their checkbox. See the section on <a href="#macro_share">macro
+limitations</a>.</li>
+<li>Double-click the <i>Alert</i> or&nbsp;<i>Timer
+or Tab Name</i> sub-items
+to open an edit dialog for just those settings.</li>
+<li>Double-click the&nbsp;<i>Trigger Timer</i>
+to open ACT's Spell
+Timers (Options) form and search for matching spell timer name.</li>
+<li>Right-click the&nbsp;<i>Timer or Tab Name</i>
+to copy the timer to
+the clipboard for sharing. Note that this will copy the first spell
+timer found that matches that name if there are multiple timers with
+the same name but different categories.</li>
+<li>Perform an incremental search in the <i>Regular
+Expression</i>,
+<i>Alert</i>, and <i>Timer or Tab Name</i>
+by entering text in the <i>Find:</i> box. The
+[Enter] key or the double arrow button performs a 'find next'.</li>
+</ul>
+<li>Edit Trigger Dialog (double-click a trigger regular
+expression)</li>
+<ul>
+<li>When editing a trigger's <i>Category / Zone</i>
+or<i> Regular Expression</i>,
+the dialog allows for replacing the original trigger or creating a new
+trigger.</li>
+</ul>
+<ul>
+<li>If a line is copied from the<i> View Logs</i>,
+it can be
+properly formatted and pasted into the <i>Regular Expression</i>
+using the
+[Paste Clipboard] button in the trigger edit dialog.</li>
+</ul>
+<ul>
+<li>Selecting text in the <i>Regular Expression</i>
+and then
+right-clicking allows replacing the selected text with a capture group.</li>
+<li><i>Regular Expression</i> syntax is checked
+as each character is
+typed in the box. An invalid expression turns the text red. If one of
+the dialog closing buttons (other than [Cancel]) is pressed when the
+expression is invalid, an error popup is displayed giving more
+information on the problem.</li>
+</ul>
+<ul>
+<li>Capture groups can be easily inserted into the TTS
+expression using the drop down list of capture names and the [Insert
+capture name] button.</li>
+</ul>
+<ul>
+<li>The [Search for spell timer] button will open ACT's Spell
+Timers (Options) form and search for
+matching spell timer name.<br>
+</li>
+</ul>
+<ul>
+<li>The <i>Show Encounters</i>
+checkbox&nbsp;will display a list of finished encounters. Selecting
+an encounter will display
+the log lines for that encounter, similar to ACT's <i>View Logs</i>.
+The
+dialog can be resized to see more of the log lines.</li>
+<li>Display only matching log lines by entering <i>Filter:</i>
+text.
+&nbsp;Useful filters include '#' for showing colored lines and
+'says,' for showing mob dialog.</li>
+<li>Right click a log line for a context menu to format and
+paste the line into the <i>Regular Expression</i>.</li>
+<li>Right click a log line for a context menu to test the
+trigger against the log line.</li>
+</ul>
+</ul>
+<u><a name="macro_share"></a>Sharing via an
+EQII Macro</u><br>
+Wouldn't it be nice to be able to share all triggers and their timers
+for a zone in one
+operation rather than copy-paste for each one? &nbsp;An EQII macro
+can <i>almost</i> do it.<br>
+<br>
+Unfortunately, EQII macros cannot handle all the XML encoding used in
+shared triggers. Some of the problems can be avoided by changing the
+trigger. Other problems simply prevent the trigger or spell timer from
+being shared via a macro and it must be shared via the clipboard.
+Prohibited characters are listed in
+the tool tip for the&nbsp;<i>Share Macro</i> context
+menus when macro share is
+disabled.<br>
+<br>
+You might want to use a macro to share a trigger to avoid clipboard
+problems such as the occasional clipboard failure or pasting the parse
+into chat rather than the trigger.<br>
+<br>
+If a trigger can be saved in a macro, the 'macro play' icon is
+displayed next to its checkbox. &nbsp;If the trigger has a <i>Timer
+or Tab name</i> and the timer can be saved in a macro, the 'macro
+play' button is displayed next to&nbsp;that checkbox.<br>
+<br>
+When a trigger&nbsp;can be saved in a macro, selecting the
+trigger's <i>Raidsay Share Macro</i> or <i>Groupsay
+Share Macro</i> context menu will create a triggers.txt file to
+either /raidsay or /groupsay the shared trigger, respectively. If the
+trigger has a timer that can be saved in a macro, the timer is also
+written to the macro. To actually share the trigger in EQII, the user
+would enter in an EQII chat box: <br>
+&nbsp;&nbsp;
+&nbsp;&nbsp;&nbsp;/do_file_commands triggers.txt<br>
+<br>
+If a Category has one or more triggers that can be saved in a macro,
+selecting the Category's <i>Raidsay Share Macro</i> or <i>Groupsay
+Share Macro</i> context menu will create a triggers.txt file to
+either /raidsay or /groupsay, respectively, all of the valid triggers
+and their valid timers. Macros are limited to 16 lines.<br>
+<br>
+Following are some macro issues and any workaround:<br>
+<ul>
+<li>If the Category name contains any prohibited
+characters, trigger macro share is disabled. There is no workaround.</li>
+<li>If the trigger <i>Regular Expression</i>
+contains prohibited
+characters, it can often be rewritten to remove those characters. In
+many cases the offending characters can just be removed from the
+beginning or end of the trigger without affecting its usefulness.
+Example alternate approaches or when that's not
+feasable&nbsp;include:</li>
+<ul>
+<li><i>Praetorian K'Tikrn gets sick</i> : replace
+the apostrophe with a wild card period, becoming : <i>Praetorian
+K.Tikrn gets sick</i></li>
+<li><i>prepares to unleash a mighty barrage in
+(?&lt;player&gt;\w+)</i> : replace the named capture
+group with a numbered capture group, becoming : <i>prepares to
+unleash a mighty barrage in (\w+)</i></li>
+<li><i>You have infected your enemies
+with&nbsp;\\#FF0000Dark Incubation!</i>&nbsp;:
+replace&nbsp;the \\ with a wild card period, becoming : <i>You
+have infected your enemies with .#FF0000Dark Incubation!</i></li>
+<li><i>\\#FF9900You feel energized by Crystalline
+Destruction</i> : just remove the slashes, becoming : <i>#FF9900You
+feel energized by Crystalline Destruction</i></li>
+<li><i>&nbsp;says, ''Bring on the rocks</i><i>
+: </i>replace the double quote with a wild card period, becoming
+:<i> &nbsp;says, .Bring on the rocks</i><i><br>
+</i></li>
+</ul>
+<li>If the trigger <i>Alert</i> or <i>Timer
+or Tab name</i> contain prohibited
+characters, they can often be written differently to exclude those
+characters.</li>
+<li>If the timer name, sounds, or tool tip contain prohibited
+&nbsp;characters, they can often be written differently to exclude
+those characters.</li>
+<li>Note that if the timer Category contains prohibited
+characters,
+changing it may break functionality if the <i>Restrict to
+category zone or mob</i> checkbox is checked.</li>
+</ul>
+<button name="Close" style="float: right;">Close</button><br>
+</body></html>
