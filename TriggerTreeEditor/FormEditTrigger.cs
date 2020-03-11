@@ -34,9 +34,12 @@ namespace TriggerTreeEditor
 
         //set by owner
         public bool haveOriginal = true;    //set false by parent when creating a brand new trigger
-        public ConcurrentDictionary<int, CombatToggleEventArgs> encounters;
         int logMenuRow = -1;                //context menu location in the log line grid view
 
+        //encounter treeview scrolls inappropriately, use this to fix it
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        public static extern int SetScrollPos(IntPtr hWnd, int nBar, int nPos, bool bRedraw);
+        private const int SB_HORZ = 0x0;
 
         public FormEditTrigger()
         {
@@ -624,42 +627,6 @@ namespace TriggerTreeEditor
 
         #region Encounters
 
-        private async void listBoxEncounters_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            int index = listBoxEncounters.SelectedIndex;
-            CombatToggleEventArgs arg;
-            if(encounters.TryGetValue(index, out arg))
-            {
-                textBoxFindLine.Clear();
-                DataTable dt = null;
-                //disconnect the gridview while we update the table
-                dataGridViewLines.DataSource = new DataTable();
-                try
-                {
-                    //don't tie up the UI thread building the table (even though it's not that slow)
-                    await Task.Run(() =>
-                    {
-                        UseWaitCursor = true;
-                        dt = ToLineTable(arg.encounter.LogLines);
-                        UseWaitCursor = false;
-                    });
-                    if (dt != null)
-                    {
-                        dataGridViewLines.DataSource = dt;
-
-                        //mode fill = can't get a horizontal scroll bar
-                        //any auto size mode takes too much time on large encounters
-                        //so just set a pretty large width that should handle most everything we'd want to use to make a trigger
-                        dataGridViewLines.Columns["LogLine"].Width = 1200;
-                    }
-                }
-                catch(Exception dtx)
-                {
-                    MessageBox.Show(this, "Problem collecting the log lines:\n" + dtx.Message);
-                }
-            }
-        }
-
         private void textBoxFindLine_TextChanged(object sender, EventArgs e)
         {
             ApplyFilter();
@@ -721,14 +688,23 @@ namespace TriggerTreeEditor
             //make a DataTable of the log lines to make filtering easy
             DataTable dt = new DataTable();
             dt.Columns.Add("LogLine");
-            foreach(LogLineEntry line in list)
+            int lineCount = list.Count;
+            try
             {
-                dt.Rows.Add(line.LogLine);
+                for(int i=0; i<lineCount; i++)
+                {
+                    dt.Rows.Add(list[i].LogLine);
+                }
+            }
+            catch
+            {
+                //just in case there are any issues with accessing ACT's list,
+                //just ignore it
             }
             return dt;
         }
 
-        private void checkBoxLogLines_CheckedChanged(object sender, EventArgs e)
+        private async void checkBoxLogLines_CheckedChanged(object sender, EventArgs e)
         {
             //Use the minimum Sizes of the form and the panel (set in the designer)
             // to show/hide the encounters list.
@@ -738,23 +714,60 @@ namespace TriggerTreeEditor
             {
                 this.Height = this.MinimumSize.Height + panelTest.MinimumSize.Height;
                 labelGridHelp.Visible = true;
-                if (encounters != null)
+
+                treeViewEncounters.Nodes.Clear();
+                textBoxFindLine.Clear();
+                int zoneCount = ActGlobals.oFormActMain.ZoneList.Count;
+                TreeNode[] zones = new TreeNode[zoneCount];
+                //collect the nodes off of the UI thread
+                await Task.Run(() =>
                 {
-                    UseWaitCursor = true;
-                    listBoxEncounters.Items.Clear();
-                    dataGridViewLines.DataSource = new DataTable(); //clear it
-                    textBoxFindLine.Clear();
-                    for (int i = 0; i < encounters.Count; i++)
+                    try
                     {
-                        CombatToggleEventArgs arg;
-                        if (encounters.TryGetValue(i, out arg))
+                        UseWaitCursor = true;
+                        for (int i = 0; i < zoneCount; i++)
                         {
-                            listBoxEncounters.Items.Add(arg.encounter.ToString());
+                            ZoneData zonedata = ActGlobals.oFormActMain.ZoneList[i];
+                            TreeNode zone = new TreeNode(zonedata.ZoneName);
+                            zone.Tag = i;
+                            zones[i] = zone;
+                            int mobCount = zonedata.Items.Count;
+                            if (mobCount > 0)
+                            {
+                                TreeNode[] mobs = new TreeNode[mobCount];
+                                {
+                                    {
+                                        for (int j = 0; j < mobCount; j++)
+                                        {
+                                            EncounterData encounterData = zonedata.Items[j];
+                                            TreeNode mob = new TreeNode(encounterData.ToString());
+                                            mob.Tag = j;
+                                            mobs[j] = mob;
+                                        }
+                                    }
+                                }
+                                zone.Nodes.AddRange(mobs);
+                            }
                         }
                     }
-                    //scroll to the bottom (most recent)
-                    listBoxEncounters.TopIndex = listBoxEncounters.Items.Count - 1;
+                    catch { }
                     UseWaitCursor = false;
+                });
+                //populate the tree
+                treeViewEncounters.Nodes.AddRange(zones);
+                treeViewEncounters.ExpandAll();
+                //scroll to the last entry
+                int lastParent = treeViewEncounters.Nodes.Count - 1;
+                treeViewEncounters.Nodes[lastParent].EnsureVisible();
+                if (treeViewEncounters.Nodes[lastParent].IsExpanded)
+                {
+                    int lastChild = treeViewEncounters.Nodes[lastParent].Nodes.Count;
+                    if (lastChild > 0)
+                    {
+                        treeViewEncounters.Nodes[lastParent].Nodes[lastChild - 1].EnsureVisible();
+                        //scroll bar all the way left
+                        SetScrollPos((IntPtr)treeViewEncounters.Handle, SB_HORZ, 0, true);
+                    }
                 }
             }
             else
@@ -769,11 +782,11 @@ namespace TriggerTreeEditor
         private void pasteInRegularExpressionToolStripMenuItem_Click(object sender, EventArgs e)
         {
             //copy the zone to the Category / Zone
-            int index = listBoxEncounters.SelectedIndex;
-            CombatToggleEventArgs arg;
-            if (encounters.TryGetValue(index, out arg))
+            if(treeViewEncounters.SelectedNode.Parent != null)
             {
-                string zone = arg.encounter.ZoneName;
+                int zoneIndex = Int32.Parse(treeViewEncounters.SelectedNode.Parent.Tag.ToString());
+                ZoneData zoneData = ActGlobals.oFormActMain.ZoneList[zoneIndex];
+                string zone = zoneData.ZoneName;
                 if (!zone.Equals(textBoxCategory.Text))
                 {
                     textBoxCategory.Text = zone;
@@ -849,6 +862,47 @@ namespace TriggerTreeEditor
         {
             textBoxFindLine.Clear();
             textBoxFindLine.Focus();
+        }
+
+        private async void treeViewEncounters_AfterSelect(object sender, TreeViewEventArgs e)
+        {
+            if (e.Node.IsSelected)
+            {
+                //disconnect / clear the gridview while we update the table
+                dataGridViewLines.DataSource = new DataTable();
+
+                if (e.Node.Parent != null)
+                {
+                    int encounterIndex = Int32.Parse(e.Node.Tag.ToString());
+                    int zoneIndex = Int32.Parse(e.Node.Parent.Tag.ToString());
+                    ZoneData zoneData = ActGlobals.oFormActMain.ZoneList[zoneIndex];
+                    textBoxFindLine.Clear();
+                    DataTable dt = null;
+                    try
+                    {
+                        //don't tie up the UI thread building the table (even though it's fairly quick)
+                        await Task.Run(() =>
+                        {
+                            UseWaitCursor = true;
+                            dt = ToLineTable(zoneData.Items[encounterIndex].LogLines);
+                            UseWaitCursor = false;
+                        });
+                        if (dt != null)
+                        {
+                            dataGridViewLines.DataSource = dt;
+
+                            //mode fill = can't get a horizontal scroll bar
+                            //any auto size mode takes too much calculation time on large encounters
+                            //so just set a pretty large width that should handle most everything we'd want to use to make a trigger
+                            dataGridViewLines.Columns["LogLine"].Width = 1200;
+                        }
+                    }
+                    catch (Exception dtx)
+                    {
+                        MessageBox.Show(this, "Problem collecting the log lines:\n" + dtx.Message);
+                    }
+                }
+            }
         }
 
         #endregion Encounters

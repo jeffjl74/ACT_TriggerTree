@@ -78,7 +78,7 @@
             this.buttonX = new System.Windows.Forms.Button();
             this.panelTest = new System.Windows.Forms.Panel();
             this.splitContainerLog = new System.Windows.Forms.SplitContainer();
-            this.listBoxEncounters = new System.Windows.Forms.ListBox();
+            this.treeViewEncounters = new System.Windows.Forms.TreeView();
             this.panelLogLines = new System.Windows.Forms.Panel();
             this.panelLogFind = new System.Windows.Forms.Panel();
             this.label5 = new System.Windows.Forms.Label();
@@ -675,7 +675,7 @@
             // 
             // splitContainerLog.Panel1
             // 
-            this.splitContainerLog.Panel1.Controls.Add(this.listBoxEncounters);
+            this.splitContainerLog.Panel1.Controls.Add(this.treeViewEncounters);
             // 
             // splitContainerLog.Panel2
             // 
@@ -685,15 +685,18 @@
             this.splitContainerLog.SplitterDistance = 144;
             this.splitContainerLog.TabIndex = 1;
             // 
-            // listBoxEncounters
+            // treeViewEncounters
             // 
-            this.listBoxEncounters.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.listBoxEncounters.FormattingEnabled = true;
-            this.listBoxEncounters.Location = new System.Drawing.Point(0, 0);
-            this.listBoxEncounters.Name = "listBoxEncounters";
-            this.listBoxEncounters.Size = new System.Drawing.Size(144, 172);
-            this.listBoxEncounters.TabIndex = 0;
-            this.listBoxEncounters.SelectedIndexChanged += new System.EventHandler(this.listBoxEncounters_SelectedIndexChanged);
+            this.treeViewEncounters.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.helpProvider1.SetHelpString(this.treeViewEncounters, "Select an encouner to display its log lines");
+            this.treeViewEncounters.HideSelection = false;
+            this.treeViewEncounters.Indent = 10;
+            this.treeViewEncounters.Location = new System.Drawing.Point(0, 0);
+            this.treeViewEncounters.Name = "treeViewEncounters";
+            this.helpProvider1.SetShowHelp(this.treeViewEncounters, true);
+            this.treeViewEncounters.Size = new System.Drawing.Size(144, 172);
+            this.treeViewEncounters.TabIndex = 0;
+            this.treeViewEncounters.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.treeViewEncounters_AfterSelect);
             // 
             // panelLogLines
             // 
@@ -878,7 +881,6 @@
         private System.Windows.Forms.Panel panelTest;
         private System.Windows.Forms.Panel panelRegex;
         private System.Windows.Forms.Panel panel2;
-        private System.Windows.Forms.ListBox listBoxEncounters;
         private System.Windows.Forms.TextBox textBoxFindLine;
         private System.Windows.Forms.SplitContainer splitContainerLog;
         private System.Windows.Forms.Panel panelLogLines;
@@ -892,6 +894,7 @@
         private System.Windows.Forms.Label labelGridHelp;
         private System.Windows.Forms.Button buttonX;
         private System.Windows.Forms.ToolStripMenuItem MakeNumbered;
+        private System.Windows.Forms.TreeView treeViewEncounters;
     }
 }
 

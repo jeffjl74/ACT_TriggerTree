@@ -69,10 +69,6 @@ namespace ACT_Plugin
 
         bool initialVisible = true;                 //save the splitter location only if it has been initialized 
 
-        //keep encounter data for building triggers
-        //using a thread safe dictionary with an integer key to emulate a ConcurrentList<> since there is no such thing
-        ConcurrentDictionary<int, CombatToggleEventArgs> encounters = new ConcurrentDictionary<int, CombatToggleEventArgs>();
-
         //trigger macro file stuff
         string doFileName = "triggers.txt";         //macro file name
         //menu tooltips
@@ -657,7 +653,6 @@ namespace ACT_Plugin
 
             ActGlobals.oFormActMain.OnLogLineRead += OFormActMain_OnLogLineRead;        //for zone change
             ActGlobals.oFormActMain.XmlSnippetAdded += OFormActMain_XmlSnippetAdded;    //for incoming shared trigger
-            ActGlobals.oFormActMain.OnCombatEnd += OFormActMain_OnCombatEnd;            //to access encounter log lines
 
             if (ActGlobals.oFormActMain.GetAutomaticUpdatesAllowed())
             {
@@ -674,7 +669,6 @@ namespace ACT_Plugin
 			// Unsubscribe from any events you listen to when exiting!
             ActGlobals.oFormActMain.OnLogLineRead -= OFormActMain_OnLogLineRead;
             ActGlobals.oFormActMain.XmlSnippetAdded -= OFormActMain_XmlSnippetAdded;
-            ActGlobals.oFormActMain.OnCombatEnd -= OFormActMain_OnCombatEnd;
 
             SaveSettings();
 			lblStatus.Text = "Plugin Exited";
@@ -684,30 +678,30 @@ namespace ACT_Plugin
 
         void oFormActMain_UpdateCheckClicked()
         {
-            //int pluginId = 709;
-            //try
-            //{
-            //    DateTime localDate = ActGlobals.oFormActMain.PluginGetSelfDateUtc(this);
-            //    DateTime remoteDate = ActGlobals.oFormActMain.PluginGetRemoteDateUtc(pluginId);
-            //    if (localDate.AddHours(2) < remoteDate)
-            //    {
-            //        DialogResult result = MessageBox.Show("There is an updated version of the Trigger Tree Plugin.  Update it now?\n\n(If there is an update to ACT, you should click No and update ACT first.)", "New Version", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-            //        if (result == DialogResult.Yes)
-            //        {
-            //            FileInfo updatedFile = ActGlobals.oFormActMain.PluginDownload(pluginId);
-            //            ActPluginData pluginData = ActGlobals.oFormActMain.PluginGetSelfData(this);
-            //            pluginData.pluginFile.Delete();
-            //            updatedFile.MoveTo(pluginData.pluginFile.FullName);
-            //            ThreadInvokes.CheckboxSetChecked(ActGlobals.oFormActMain, pluginData.cbEnabled, false);
-            //            Application.DoEvents();
-            //            ThreadInvokes.CheckboxSetChecked(ActGlobals.oFormActMain, pluginData.cbEnabled, true);
-            //        }
-            //    }
-            //}
-            //catch (Exception ex)
-            //{
-            //    ActGlobals.oFormActMain.WriteExceptionLog(ex, "Plugin Update Check");
-            //}
+            int pluginId = 80;
+            try
+            {
+                DateTime localDate = ActGlobals.oFormActMain.PluginGetSelfDateUtc(this);
+                DateTime remoteDate = ActGlobals.oFormActMain.PluginGetRemoteDateUtc(pluginId);
+                if (localDate.AddHours(2) < remoteDate)
+                {
+                    DialogResult result = MessageBox.Show("There is an updated version of the Trigger Tree Plugin.  Update it now?\n\n(If there is an update to ACT, you should click No and update ACT first.)", "New Version", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    if (result == DialogResult.Yes)
+                    {
+                        FileInfo updatedFile = ActGlobals.oFormActMain.PluginDownload(pluginId);
+                        ActPluginData pluginData = ActGlobals.oFormActMain.PluginGetSelfData(this);
+                        pluginData.pluginFile.Delete();
+                        updatedFile.MoveTo(pluginData.pluginFile.FullName);
+                        ThreadInvokes.CheckboxSetChecked(ActGlobals.oFormActMain, pluginData.cbEnabled, false);
+                        Application.DoEvents();
+                        ThreadInvokes.CheckboxSetChecked(ActGlobals.oFormActMain, pluginData.cbEnabled, true);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ActGlobals.oFormActMain.WriteExceptionLog(ex, "Plugin Update Check");
+            }
         }
 
         private void OFormActMain_OnLogLineRead(bool isImport, LogLineEventArgs logInfo)
@@ -734,19 +728,6 @@ namespace ACT_Plugin
             {
                 //we need to rebuild if there is a new trigger share incoming
                 PopulateCatsTree();
-            }
-        }
-
-        private void OFormActMain_OnCombatEnd(bool isImport, CombatToggleEventArgs encounterInfo)
-        {
-            //keep a list of encounters for use when building a new trigger
-            if (encounterInfo.encounter.Parent.PopulateAll)
-            {
-                //since this is the only place we add to this dictionary, 
-                // for a key we can just use its current count
-                // which we can later use as an "index" for lookups
-                int count = encounters.Count;
-                encounters.TryAdd(count, encounterInfo);
             }
         }
 
@@ -1039,9 +1020,11 @@ category zone or mob</i> checkbox is checked.</li>
 
             treeDict = new Dictionary<string, List<CustomTrigger>>();
             treeViewCats.Nodes.Clear();
-            
-            foreach(string regex in ActGlobals.oFormActMain.CustomTriggers.Keys)
+
+            int keyCount = ActGlobals.oFormActMain.CustomTriggers.Keys.Count;
+            for(int i=0; i<keyCount; i++)
             {
+                string regex = ActGlobals.oFormActMain.CustomTriggers.Keys[i];
                 CustomTrigger trigger;
                 if(ActGlobals.oFormActMain.CustomTriggers.TryGetValue(regex, out trigger))
                 {
@@ -1882,8 +1865,6 @@ category zone or mob</i> checkbox is checked.</li>
                             break;
                         }
                     }
-                    //once we change the selected category,
-                    // cannot continue enumerating the ACT dictionary in the calling method
                     if(found == FindResult.NOT_FOUND)
                         found = FindResult.FIND_FAILED; //should not get here, but avoid an exception in case we do
                 }
@@ -1922,8 +1903,10 @@ category zone or mob</i> checkbox is checked.</li>
                 FindResult result = FindResult.NOT_FOUND;
                 try
                 {
-                    foreach (string key in ActGlobals.oFormActMain.CustomTriggers.Keys)
+                    int keyCount = ActGlobals.oFormActMain.CustomTriggers.Keys.Count;
+                    for(int i=0; i<keyCount; i++)
                     {
+                        string key = ActGlobals.oFormActMain.CustomTriggers.Keys[i];
                         if (resume && !foundPrevious)
                         {
                             if (key.Equals(keyLastFound))
@@ -1947,7 +1930,7 @@ category zone or mob</i> checkbox is checked.</li>
                         }
                     }
                 }
-                catch { } //dictionary may have changed, just quit this try
+                catch { } //just in case there's a problem accessing ACT's dictionary, just quit this try
 
                 UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
                 if (result == FindResult.NOT_FOUND)
@@ -2045,7 +2028,6 @@ category zone or mob</i> checkbox is checked.</li>
                     trigger.RestrictToCategoryZone = category.Contains("["); //set restrict if it kinda looks like a zone name
                     FormEditTrigger formEditTrigger = new FormEditTrigger(trigger, zoneName);
                     formEditTrigger.EditDoneEvent += Trigger_EditDoneEvent; //callback for when the edit is done
-                    formEditTrigger.encounters = encounters;
                     formEditTrigger.haveOriginal = false; //disable the replace button since there is nothing to replace
                     formEditTrigger.Show(this);
                     PositionChildForm(formEditTrigger, whereTrigMouseDown);
@@ -2081,7 +2063,6 @@ category zone or mob</i> checkbox is checked.</li>
                 {
                     FormEditTrigger formEditTrigger = new FormEditTrigger(selectedTriggerNode.Tag as CustomTrigger, zoneName);
                     formEditTrigger.EditDoneEvent += Trigger_EditDoneEvent; //callback for when the edit is done
-                    formEditTrigger.encounters = encounters;
                     formEditTrigger.Show(this);
                     PositionChildForm(formEditTrigger, whereTrigMouseDown);
                 }
@@ -2307,7 +2288,6 @@ category zone or mob</i> checkbox is checked.</li>
                         t = selectedTriggerNode.Parent.Tag as CustomTrigger;
                     FormEditTrigger formEditTrigger = new FormEditTrigger(t, zoneName);
                     formEditTrigger.EditDoneEvent += Trigger_EditDoneEvent; //callback for when the edit is done
-                    formEditTrigger.encounters = encounters;
                     formEditTrigger.Show(this);
                     PositionChildForm(formEditTrigger, whereTrigMouseDown);
                 }
@@ -2817,9 +2797,12 @@ category zone or mob</i> checkbox is checked.</li>
 
         //set by owner
         public bool haveOriginal = true;    //set false by parent when creating a brand new trigger
-        public ConcurrentDictionary<int, CombatToggleEventArgs> encounters;
         int logMenuRow = -1;                //context menu location in the log line grid view
 
+        //encounter treeview scrolls inappropriately, use this to fix it
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        public static extern int SetScrollPos(IntPtr hWnd, int nBar, int nPos, bool bRedraw);
+        private const int SB_HORZ = 0x0;
 
         public FormEditTrigger()
         {
@@ -3407,42 +3390,6 @@ category zone or mob</i> checkbox is checked.</li>
 
         #region Encounters
 
-        private async void listBoxEncounters_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            int index = listBoxEncounters.SelectedIndex;
-            CombatToggleEventArgs arg;
-            if (encounters.TryGetValue(index, out arg))
-            {
-                textBoxFindLine.Clear();
-                DataTable dt = null;
-                //disconnect the gridview while we update the table
-                dataGridViewLines.DataSource = new DataTable();
-                try
-                {
-                    //don't tie up the UI thread building the table (even though it's not that slow)
-                    await Task.Run(() =>
-                    {
-                        UseWaitCursor = true;
-                        dt = ToLineTable(arg.encounter.LogLines);
-                        UseWaitCursor = false;
-                    });
-                    if (dt != null)
-                    {
-                        dataGridViewLines.DataSource = dt;
-
-                        //mode fill = can't get a horizontal scroll bar
-                        //any auto size mode takes too much time on large encounters
-                        //so just set a pretty large width that should handle most everything we'd want to use to make a trigger
-                        dataGridViewLines.Columns["LogLine"].Width = 1200;
-                    }
-                }
-                catch (Exception dtx)
-                {
-                    MessageBox.Show(this, "Problem collecting the log lines:\n" + dtx.Message);
-                }
-            }
-        }
-
         private void textBoxFindLine_TextChanged(object sender, EventArgs e)
         {
             ApplyFilter();
@@ -3504,14 +3451,23 @@ category zone or mob</i> checkbox is checked.</li>
             //make a DataTable of the log lines to make filtering easy
             DataTable dt = new DataTable();
             dt.Columns.Add("LogLine");
-            foreach (LogLineEntry line in list)
+            int lineCount = list.Count;
+            try
             {
-                dt.Rows.Add(line.LogLine);
+                for (int i = 0; i < lineCount; i++)
+                {
+                    dt.Rows.Add(list[i].LogLine);
+                }
+            }
+            catch
+            {
+                //just in case there are any issues with accessing ACT's list,
+                //just ignore it
             }
             return dt;
         }
 
-        private void checkBoxLogLines_CheckedChanged(object sender, EventArgs e)
+        private async void checkBoxLogLines_CheckedChanged(object sender, EventArgs e)
         {
             //Use the minimum Sizes of the form and the panel (set in the designer)
             // to show/hide the encounters list.
@@ -3521,23 +3477,60 @@ category zone or mob</i> checkbox is checked.</li>
             {
                 this.Height = this.MinimumSize.Height + panelTest.MinimumSize.Height;
                 labelGridHelp.Visible = true;
-                if (encounters != null)
+
+                treeViewEncounters.Nodes.Clear();
+                textBoxFindLine.Clear();
+                int zoneCount = ActGlobals.oFormActMain.ZoneList.Count;
+                TreeNode[] zones = new TreeNode[zoneCount];
+                //collect the nodes off of the UI thread
+                await Task.Run(() =>
                 {
-                    UseWaitCursor = true;
-                    listBoxEncounters.Items.Clear();
-                    dataGridViewLines.DataSource = new DataTable(); //clear it
-                    textBoxFindLine.Clear();
-                    for (int i = 0; i < encounters.Count; i++)
+                    try
                     {
-                        CombatToggleEventArgs arg;
-                        if (encounters.TryGetValue(i, out arg))
+                        UseWaitCursor = true;
+                        for (int i = 0; i < zoneCount; i++)
                         {
-                            listBoxEncounters.Items.Add(arg.encounter.ToString());
+                            ZoneData zonedata = ActGlobals.oFormActMain.ZoneList[i];
+                            TreeNode zone = new TreeNode(zonedata.ZoneName);
+                            zone.Tag = i;
+                            zones[i] = zone;
+                            int mobCount = zonedata.Items.Count;
+                            if (mobCount > 0)
+                            {
+                                TreeNode[] mobs = new TreeNode[mobCount];
+                                {
+                                    {
+                                        for (int j = 0; j < mobCount; j++)
+                                        {
+                                            EncounterData encounterData = zonedata.Items[j];
+                                            TreeNode mob = new TreeNode(encounterData.ToString());
+                                            mob.Tag = j;
+                                            mobs[j] = mob;
+                                        }
+                                    }
+                                }
+                                zone.Nodes.AddRange(mobs);
+                            }
                         }
                     }
-                    //scroll to the bottom (most recent)
-                    listBoxEncounters.TopIndex = listBoxEncounters.Items.Count - 1;
+                    catch { }
                     UseWaitCursor = false;
+                });
+                //populate the tree
+                treeViewEncounters.Nodes.AddRange(zones);
+                treeViewEncounters.ExpandAll();
+                //scroll to the last entry
+                int lastParent = treeViewEncounters.Nodes.Count - 1;
+                treeViewEncounters.Nodes[lastParent].EnsureVisible();
+                if (treeViewEncounters.Nodes[lastParent].IsExpanded)
+                {
+                    int lastChild = treeViewEncounters.Nodes[lastParent].Nodes.Count;
+                    if (lastChild > 0)
+                    {
+                        treeViewEncounters.Nodes[lastParent].Nodes[lastChild - 1].EnsureVisible();
+                        //scroll bar all the way left
+                        SetScrollPos((IntPtr)treeViewEncounters.Handle, SB_HORZ, 0, true);
+                    }
                 }
             }
             else
@@ -3552,11 +3545,11 @@ category zone or mob</i> checkbox is checked.</li>
         private void pasteInRegularExpressionToolStripMenuItem_Click(object sender, EventArgs e)
         {
             //copy the zone to the Category / Zone
-            int index = listBoxEncounters.SelectedIndex;
-            CombatToggleEventArgs arg;
-            if (encounters.TryGetValue(index, out arg))
+            if (treeViewEncounters.SelectedNode.Parent != null)
             {
-                string zone = arg.encounter.ZoneName;
+                int zoneIndex = Int32.Parse(treeViewEncounters.SelectedNode.Parent.Tag.ToString());
+                ZoneData zoneData = ActGlobals.oFormActMain.ZoneList[zoneIndex];
+                string zone = zoneData.ZoneName;
                 if (!zone.Equals(textBoxCategory.Text))
                 {
                     textBoxCategory.Text = zone;
@@ -3632,6 +3625,47 @@ category zone or mob</i> checkbox is checked.</li>
         {
             textBoxFindLine.Clear();
             textBoxFindLine.Focus();
+        }
+
+        private async void treeViewEncounters_AfterSelect(object sender, TreeViewEventArgs e)
+        {
+            if (e.Node.IsSelected)
+            {
+                //disconnect / clear the gridview while we update the table
+                dataGridViewLines.DataSource = new DataTable();
+
+                if (e.Node.Parent != null)
+                {
+                    int encounterIndex = Int32.Parse(e.Node.Tag.ToString());
+                    int zoneIndex = Int32.Parse(e.Node.Parent.Tag.ToString());
+                    ZoneData zoneData = ActGlobals.oFormActMain.ZoneList[zoneIndex];
+                    textBoxFindLine.Clear();
+                    DataTable dt = null;
+                    try
+                    {
+                        //don't tie up the UI thread building the table (even though it's fairly quick)
+                        await Task.Run(() =>
+                        {
+                            UseWaitCursor = true;
+                            dt = ToLineTable(zoneData.Items[encounterIndex].LogLines);
+                            UseWaitCursor = false;
+                        });
+                        if (dt != null)
+                        {
+                            dataGridViewLines.DataSource = dt;
+
+                            //mode fill = can't get a horizontal scroll bar
+                            //any auto size mode takes too much calculation time on large encounters
+                            //so just set a pretty large width that should handle most everything we'd want to use to make a trigger
+                            dataGridViewLines.Columns["LogLine"].Width = 1200;
+                        }
+                    }
+                    catch (Exception dtx)
+                    {
+                        MessageBox.Show(this, "Problem collecting the log lines:\n" + dtx.Message);
+                    }
+                }
+            }
         }
 
         #endregion Encounters
@@ -3717,7 +3751,7 @@ category zone or mob</i> checkbox is checked.</li>
             this.buttonX = new System.Windows.Forms.Button();
             this.panelTest = new System.Windows.Forms.Panel();
             this.splitContainerLog = new System.Windows.Forms.SplitContainer();
-            this.listBoxEncounters = new System.Windows.Forms.ListBox();
+            this.treeViewEncounters = new System.Windows.Forms.TreeView();
             this.panelLogLines = new System.Windows.Forms.Panel();
             this.panelLogFind = new System.Windows.Forms.Panel();
             this.label5 = new System.Windows.Forms.Label();
@@ -4314,7 +4348,7 @@ category zone or mob</i> checkbox is checked.</li>
             // 
             // splitContainerLog.Panel1
             // 
-            this.splitContainerLog.Panel1.Controls.Add(this.listBoxEncounters);
+            this.splitContainerLog.Panel1.Controls.Add(this.treeViewEncounters);
             // 
             // splitContainerLog.Panel2
             // 
@@ -4324,15 +4358,18 @@ category zone or mob</i> checkbox is checked.</li>
             this.splitContainerLog.SplitterDistance = 144;
             this.splitContainerLog.TabIndex = 1;
             // 
-            // listBoxEncounters
+            // treeViewEncounters
             // 
-            this.listBoxEncounters.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.listBoxEncounters.FormattingEnabled = true;
-            this.listBoxEncounters.Location = new System.Drawing.Point(0, 0);
-            this.listBoxEncounters.Name = "listBoxEncounters";
-            this.listBoxEncounters.Size = new System.Drawing.Size(144, 172);
-            this.listBoxEncounters.TabIndex = 0;
-            this.listBoxEncounters.SelectedIndexChanged += new System.EventHandler(this.listBoxEncounters_SelectedIndexChanged);
+            this.treeViewEncounters.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.helpProvider1.SetHelpString(this.treeViewEncounters, "Select an encouner to display its log lines");
+            this.treeViewEncounters.HideSelection = false;
+            this.treeViewEncounters.Indent = 10;
+            this.treeViewEncounters.Location = new System.Drawing.Point(0, 0);
+            this.treeViewEncounters.Name = "treeViewEncounters";
+            this.helpProvider1.SetShowHelp(this.treeViewEncounters, true);
+            this.treeViewEncounters.Size = new System.Drawing.Size(144, 172);
+            this.treeViewEncounters.TabIndex = 0;
+            this.treeViewEncounters.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.treeViewEncounters_AfterSelect);
             // 
             // panelLogLines
             // 
@@ -4517,7 +4554,6 @@ category zone or mob</i> checkbox is checked.</li>
         private System.Windows.Forms.Panel panelTest;
         private System.Windows.Forms.Panel panelRegex;
         private System.Windows.Forms.Panel panel2;
-        private System.Windows.Forms.ListBox listBoxEncounters;
         private System.Windows.Forms.TextBox textBoxFindLine;
         private System.Windows.Forms.SplitContainer splitContainerLog;
         private System.Windows.Forms.Panel panelLogLines;
@@ -4531,6 +4567,7 @@ category zone or mob</i> checkbox is checked.</li>
         private System.Windows.Forms.Label labelGridHelp;
         private System.Windows.Forms.Button buttonX;
         private System.Windows.Forms.ToolStripMenuItem MakeNumbered;
+        private System.Windows.Forms.TreeView treeViewEncounters;
     }
 
     //logic
