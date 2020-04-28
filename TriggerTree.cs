@@ -19,7 +19,7 @@ using System.Collections.Concurrent;
 [assembly: AssemblyTitle("Tree view of Custom Triggers")]
 [assembly: AssemblyDescription("An alternate interface for managing Custom Triggers")]
 [assembly: AssemblyCompany("Mineeme of Maj'Dul")]
-[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.1.0.0")]
 
 namespace ACT_Plugin
 {
@@ -86,6 +86,8 @@ namespace ACT_Plugin
 
         string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\TriggerTree.config.xml");
         SettingsSerializer xmlSettings;
+        private ToolStripSeparator toolStripSeparator7;
+        private ToolStripMenuItem categorySpellTimersMenuItem;
 
         #region Designer Created Code (Avoid editing)
 
@@ -156,6 +158,8 @@ namespace ACT_Plugin
             this.label1 = new System.Windows.Forms.Label();
             this.panel1 = new System.Windows.Forms.Panel();
             this.label2 = new System.Windows.Forms.Label();
+            this.toolStripSeparator7 = new System.Windows.Forms.ToolStripSeparator();
+            this.categorySpellTimersMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -476,9 +480,11 @@ namespace ACT_Plugin
             this.deleteEntireCategoryToolStripMenuItem,
             this.toolStripSeparator4,
             this.raidShareCategoryMacroMenuItem,
-            this.groupShareCategoryMacroMenuItem});
+            this.groupShareCategoryMacroMenuItem,
+            this.toolStripSeparator7,
+            this.categorySpellTimersMenuItem});
             this.contextMenuStripCat.Name = "contextMenuStrip2";
-            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 98);
+            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 148);
             this.contextMenuStripCat.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripCat_Opening);
             // 
             // copyZoneNameToClipboardToolStripMenuItem
@@ -550,6 +556,17 @@ namespace ACT_Plugin
             this.label2.TabIndex = 1;
             this.label2.Text = "Double-click to edit trigger fields. Expand a trigger for checkbox and right-clic" +
     "k actions on sub-items.";
+            // 
+            // toolStripSeparator7
+            // 
+            this.toolStripSeparator7.Name = "toolStripSeparator7";
+            this.toolStripSeparator7.Size = new System.Drawing.Size(248, 6);
+            // 
+            // categorySpellTimersMenuItem
+            // 
+            this.categorySpellTimersMenuItem.Name = "categorySpellTimersMenuItem";
+            this.categorySpellTimersMenuItem.Size = new System.Drawing.Size(251, 22);
+            this.categorySpellTimersMenuItem.Text = "Category Spell Timers";
             // 
             // TriggerTree
             // 
@@ -1445,8 +1462,53 @@ category zone or mob</i> checkbox is checked.</li>
                             string.Format(invalidCategoryText, string.Join(" ", invalidMacroChars), string.Join(" ", invalidMacroStrings));
                     }
                 }
+
+                List<TimerData> timers = FindCategoryTimers(category);
+                if (timers.Count == 0)
+                {
+                    categorySpellTimersMenuItem.Enabled = false;
+                    categorySpellTimersMenuItem.DropDownItems.Clear();
+                }
+                else
+                {
+                    categorySpellTimersMenuItem.Enabled = true;
+                    categorySpellTimersMenuItem.DropDownItems.Clear();
+                    foreach (TimerData timer in timers)
+                    {
+                        ToolStripMenuItem timerMenuItem = new ToolStripMenuItem();
+                        timerMenuItem.Name = timer.Name;
+                        timerMenuItem.Text = timer.Name;
+                        timerMenuItem.Click += TimerMenuItem_Click;
+                        categorySpellTimersMenuItem.DropDownItems.Add(timerMenuItem);
+                    }
+                }
             }
         }
+
+        private void TimerMenuItem_Click(object sender, EventArgs e)
+        {
+            ToolStripItem item = sender as ToolStripMenuItem;
+            string timerName = item.Name.ToLower();
+            ActGlobals.oFormSpellTimers.SearchSpellTreeView(timerName);
+            ActGlobals.oFormSpellTimers.Visible = true;
+        }
+
+        private List<TimerData> FindCategoryTimers(string category)
+        {
+            List<TimerData> result = new List<TimerData>();
+            if (!string.IsNullOrEmpty(category))
+            {
+                string cat = category.ToLower();
+                // just search through everything for all matching names
+                foreach (TimerData timer in ActGlobals.oFormSpellTimers.TimerDefs.Values)
+                {
+                    if (timer.ActiveInList && timer.Category.ToLower().Equals(cat))
+                        result.Add(timer);
+                }
+            }
+            return result;
+        }
+
 
         #endregion Category Tree
 
