@@ -78,16 +78,17 @@ namespace ACT_Plugin
         string validCategoryText = "Make a triggers.txt macro file to share all enabled macro triggers with the ";
         string invalidTimerText = "Timer contains character(s) {0} or string {1} which are invalid in a macro file";
         string validTimerText = "Make a triggers.txt macro file to share timer with the ";
+        string catMacroText = "{0} Share Macro ({1}/{2})";
         //these are the characters and strings that make a macro file fail to work
         List<char> invalidMacroChars = new List<char> { '<', '>', '\'', '\"', ';' };
         List<string> invalidMacroStrings = new List<string> { @"\#" };
+
+        List<TimerData> categoryTimers;             //category context menu timers
 
         Label lblStatus;                            // The status label that appears in ACT's Plugin tab
 
         string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\TriggerTree.config.xml");
         SettingsSerializer xmlSettings;
-        private ToolStripSeparator toolStripSeparator7;
-        private ToolStripMenuItem categorySpellTimersMenuItem;
 
         #region Designer Created Code (Avoid editing)
 
@@ -636,6 +637,8 @@ namespace ACT_Plugin
         private Panel panelHelp;
         private WebBrowser webBrowser1;
         private ToolStripMenuItem helpToolStripMenuItem;
+        private ToolStripSeparator toolStripSeparator7;
+        private ToolStripMenuItem categorySpellTimersMenuItem;
 
         #endregion
 
@@ -846,13 +849,27 @@ performs a 'find next'.</li>
 <ul>
 <li>To support writing a new trigger after having left the
 zone, the
-context menu provides a 'Copy category name to clipboard'.</li><li>If the Cateogry contains any active triggers it has a green background.</li>
+context menu provides a 'Copy category name to clipboard'.</li>
+<li>If the Cateogry contains any active triggers it has a
+green background.</li>
 </ul>
 <ul>
 <li>If the Category name and triggers can be written to an
 EQII macro, the context menu allows saving all the triggers and spell
 timers in that Category to a macro for sharing in EQII. &nbsp;See
 the section on <a href='#macro_share'>macro limitations</a>.</li>
+<li>If there are spell timers whose Category or Custom
+Tooltip&nbsp;match the Category name, the context menu allows
+opening ACT's <i>Spell
+Timers (Options)</i> form for the selected timer. Spell timers
+that
+can be written to a macro file are indicated by the 'macro play' icon
+in the context menu.&nbsp;If any spell timers can be written to an
+EQII macro, the
+context menu allows saving&nbsp;the&nbsp;spell timer(s) to
+a macro for sharing in EQII.&nbsp;See
+the section on <a href='#macro_share'>macro
+limitations</a>.</li>
 </ul>
 <li>Trigger Panel</li>
 <ul>
@@ -869,8 +886,9 @@ limitations</a>.</li>
 or Tab Name</i> sub-items
 to open an edit dialog for just those settings.</li>
 <li>Double-click the&nbsp;<i>Trigger Timer</i>
-to open ACT's Spell
-Timers (Options) form and search for matching spell timer name.</li>
+to open ACT's <i>Spell
+Timers (Options)</i> form and search for matching spell timer
+name.</li>
 <li>Right-click the&nbsp;<i>Timer or Tab Name</i>
 to copy the timer to
 the clipboard for sharing. Note that this will copy the first spell
@@ -914,8 +932,8 @@ expression using the drop down list of capture names and the [Insert
 capture name] button.</li>
 </ul>
 <ul>
-<li>The [Search for spell timer] button will open ACT's Spell
-Timers (Options) form and search for
+<li>The [Search for spell timer] button will open ACT's <i>Spell
+Timers (Options)</i> form and search for
 matching spell timer name.<br>
 </li>
 </ul>
@@ -1019,6 +1037,16 @@ those characters.</li>
 characters,
 changing it may break functionality if the <i>Restrict to
 category zone or mob</i> checkbox is checked.</li>
+<li>The
+Category context menu for spell timers searches for timers with a
+matching Category or Custom Tooltip. When the Custom Tooltip property
+is used to provide a match, any apostrophes in the category name may be
+replaced with a period and match will still succeed. For example, a
+Custom Tooltip of<i> Ssraeshza's Hallowed Halls [Raid]</i>
+can be replaced with <i>Ssraeshza.s Hallowed Halls [Raid]</i>
+and the spell timer will still be added to the&nbsp;Category
+context menu for <i>Ssraeshza's Hallowed Halls [Raid]</i>.
+This can often allow the spell timer to be written to a macro.</li>
 </ul>
 <button value=""Close"" name=""Close"" style=""float: right;"" >Close</button ><br>
                 </body>
@@ -1435,6 +1463,7 @@ category zone or mob</i> checkbox is checked.</li>
                 List<CustomTrigger> triggers;
                 string category = clickedCategoryNode.Text;
                 int valid = 0;
+                int invalid = 0;
                 if (treeDict.TryGetValue(category, out triggers))
                 {
                     foreach (CustomTrigger trigger in triggers)
@@ -1448,47 +1477,130 @@ category zone or mob</i> checkbox is checked.</li>
                                 raidShareCategoryMacroMenuItem.Enabled = true;
                                 groupShareCategoryMacroMenuItem.ToolTipText = validCategoryText + "group";
                                 raidShareCategoryMacroMenuItem.ToolTipText = validCategoryText + "raid";
-                                break;
+                                //break;
                             }
+                            else
+                                invalid++;
                         }
                     }
                     if(valid == 0)
                     {
+                        groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", 0, valid + invalid);
                         groupShareCategoryMacroMenuItem.Enabled = false;
+                        raidShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Raidsay", 0, valid + invalid);
                         raidShareCategoryMacroMenuItem.Enabled = false;
                         groupShareCategoryMacroMenuItem.ToolTipText = 
                             string.Format(invalidCategoryText, string.Join(" ", invalidMacroChars), string.Join(" ", invalidMacroStrings));
                         raidShareCategoryMacroMenuItem.ToolTipText =
                             string.Format(invalidCategoryText, string.Join(" ", invalidMacroChars), string.Join(" ", invalidMacroStrings));
                     }
+                    else
+                    {
+                        groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", valid, valid + invalid);
+                        raidShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Raidsay", valid, valid + invalid);
+                    }
                 }
 
-                List<TimerData> timers = FindCategoryTimers(category);
-                if (timers.Count == 0)
+                //add any spell timers for the category
+                categorySpellTimersMenuItem.DropDownItems.Clear();
+                categoryTimers = FindCategoryTimers(category);
+                if (categoryTimers.Count == 0)
                 {
                     categorySpellTimersMenuItem.Enabled = false;
-                    categorySpellTimersMenuItem.DropDownItems.Clear();
+                    categorySpellTimersMenuItem.ToolTipText = "Found no Spell Timers with matching Category or Custom Tooltip";
                 }
                 else
                 {
                     categorySpellTimersMenuItem.Enabled = true;
-                    categorySpellTimersMenuItem.DropDownItems.Clear();
-                    foreach (TimerData timer in timers)
+                    categorySpellTimersMenuItem.ToolTipText = "";
+                    int canMacro = 0;
+                    int cantMacro = 0;
+                    foreach (TimerData timer in categoryTimers)
                     {
                         ToolStripMenuItem timerMenuItem = new ToolStripMenuItem();
                         timerMenuItem.Name = timer.Name;
                         timerMenuItem.Text = timer.Name;
                         timerMenuItem.Click += TimerMenuItem_Click;
+                        if (!IsInvalidMacroTimer(timer))
+                        {
+                            timerMenuItem.Image = triggerImages.Images[triggerCanMacro];
+                            canMacro++;
+                        }
+                        else
+                            cantMacro++;
                         categorySpellTimersMenuItem.DropDownItems.Add(timerMenuItem);
                     }
+                    if (canMacro > 0)
+                    {
+                        categorySpellTimersMenuItem.DropDownItems.Add(new ToolStripSeparator());
+                        ToolStripMenuItem timerRaidMacroItem = new ToolStripMenuItem();
+                        string txt = string.Format(catMacroText, "Raidsay", canMacro, canMacro + cantMacro);
+                        timerRaidMacroItem.Name = timerRaidMacroItem.Text = txt;
+                        timerRaidMacroItem.Click += TimerMacroItem_Click;
+                        categorySpellTimersMenuItem.DropDownItems.Add(timerRaidMacroItem);
+
+                        ToolStripMenuItem timerGroupMacroItem = new ToolStripMenuItem();
+                        txt = string.Format(catMacroText, "Groupsay", canMacro, canMacro+cantMacro);
+                        timerGroupMacroItem.Name = timerGroupMacroItem.Text = txt;
+                        timerGroupMacroItem.Click += TimerMacroItem_Click;
+                        categorySpellTimersMenuItem.DropDownItems.Add(timerGroupMacroItem);
+                    }
+                }
+            }
+        }
+
+        private void TimerMacroItem_Click(object sender, EventArgs e)
+        {
+            ToolStripItem menu = sender as ToolStripMenuItem;
+
+            //group or raid?
+            string chan;
+            if (menu.Text.StartsWith("R"))
+                chan = "r ";
+            else
+                chan = "g ";
+
+            StringBuilder sb = new StringBuilder();
+            int validTimers = 0;
+            int invalid = 0;
+            foreach (TimerData timer in categoryTimers)
+            {
+                if (!IsInvalidMacroTimer(timer))
+                {
+                    sb.Append(chan);
+                    sb.Append(SpellTimerToMacro(timer));
+                    sb.Append(Environment.NewLine);
+                    validTimers++;
+                    if (validTimers >= 16)
+                    {
+                        MessageBox.Show(this, "Only 16 lines are allowed in a macro. Stopping after the 16th line.");
+                        break;
+                    }
+                }
+                else
+                {
+                    invalid++;
+                }
+            }
+
+            if (validTimers > 0)
+            {
+                if (ActGlobals.oFormActMain.SendToMacroFile(doFileName, sb.ToString(), string.Empty))
+                {
+                    string m1 = string.Format("Wrote {0} timer{1}", validTimers, validTimers > 1 ? "s" : "");
+                    string m3 = invalid > 0 ? string.Format("\n\nCould not write {0} timer{1}.", invalid, invalid > 1 ? "s" : "") : string.Empty;
+                    string m4 = string.Format("\n\nIn EQII chat, enter:\n/do_file_commands {0}", doFileName);
+                    TraySlider traySlider = new TraySlider();
+                    traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
+                    traySlider.ShowTraySlider(m1 + m3 + m4, "Category Timers Macro");
                 }
             }
         }
 
         private void TimerMenuItem_Click(object sender, EventArgs e)
         {
-            ToolStripItem item = sender as ToolStripMenuItem;
-            string timerName = item.Name.ToLower();
+            ToolStripItem menu = sender as ToolStripMenuItem;
+            string timerName = menu.Name.ToLower();
             ActGlobals.oFormSpellTimers.SearchSpellTreeView(timerName);
             ActGlobals.oFormSpellTimers.Visible = true;
         }
@@ -1498,17 +1610,20 @@ category zone or mob</i> checkbox is checked.</li>
             List<TimerData> result = new List<TimerData>();
             if (!string.IsNullOrEmpty(category))
             {
-                string cat = category.ToLower();
-                // just search through everything for all matching names
+                string macroCat = category.Replace("'", ".");
+                // just search through all timers for a .Category or .Tooltip that matches the passed category
                 foreach (TimerData timer in ActGlobals.oFormSpellTimers.TimerDefs.Values)
                 {
-                    if (timer.ActiveInList && timer.Category.ToLower().Equals(cat))
-                        result.Add(timer);
+                    if (timer.ActiveInList &&
+                        (timer.Category.Equals(category) || timer.Tooltip.Equals(category) || timer.Tooltip.Equals(macroCat)))
+                    {
+                        if(!result.Exists(t => t.Name.Equals(timer.Name)))
+                            result.Add(timer);
+                    }
                 }
             }
             return result;
         }
-
 
         #endregion Category Tree
 

@@ -2,7 +2,8 @@
 <html><head>
 <meta content="text/html; charset=ISO-8859-1" http-equiv="content-type"><title>TriggerTree</title>
 
-</head><body>
+</head>
+<body>
 <button name="Close" style="float: right;">Close</button><br>
 <u>Trigger Tree Plugin</u><br>
 <br>
@@ -41,13 +42,27 @@ performs a 'find next'.</li>
 <ul>
 <li>To support writing a new trigger after having left the
 zone, the
-context menu provides a 'Copy category name to clipboard'.</li><li>If the Cateogry contains any active triggers it has a green background.</li>
+context menu provides a 'Copy category name to clipboard'.</li>
+<li>If the Cateogry contains any active triggers it has a
+green background.</li>
 </ul>
 <ul>
 <li>If the Category name and triggers can be written to an
 EQII macro, the context menu allows saving all the triggers and spell
 timers in that Category to a macro for sharing in EQII. &nbsp;See
 the section on <a href="#macro_share">macro limitations</a>.</li>
+<li>If there are spell timers whose Category or Custom
+Tooltip&nbsp;match the Category name, the context menu allows
+opening ACT's <i>Spell
+Timers (Options)</i> form for the selected timer. Spell timers
+that
+can be written to a macro file are indicated by the 'macro play' icon
+in the context menu.&nbsp;If any spell timers can be written to an
+EQII macro, the
+context menu allows saving&nbsp;the&nbsp;spell timer(s) to
+a macro for sharing in EQII.&nbsp;See
+the section on <a href="#macro_share">macro
+limitations</a>.</li>
 </ul>
 <li>Trigger Panel</li>
 <ul>
@@ -64,8 +79,9 @@ limitations</a>.</li>
 or Tab Name</i> sub-items
 to open an edit dialog for just those settings.</li>
 <li>Double-click the&nbsp;<i>Trigger Timer</i>
-to open ACT's Spell
-Timers (Options) form and search for matching spell timer name.</li>
+to open ACT's <i>Spell
+Timers (Options)</i> form and search for matching spell timer
+name.</li>
 <li>Right-click the&nbsp;<i>Timer or Tab Name</i>
 to copy the timer to
 the clipboard for sharing. Note that this will copy the first spell
@@ -109,8 +125,8 @@ expression using the drop down list of capture names and the [Insert
 capture name] button.</li>
 </ul>
 <ul>
-<li>The [Search for spell timer] button will open ACT's Spell
-Timers (Options) form and search for
+<li>The [Search for spell timer] button will open ACT's <i>Spell
+Timers (Options)</i> form and search for
 matching spell timer name.<br>
 </li>
 </ul>
@@ -214,6 +230,20 @@ those characters.</li>
 characters,
 changing it may break functionality if the <i>Restrict to
 category zone or mob</i> checkbox is checked.</li>
+<li>The
+Category context menu for spell timers searches for timers with a
+matching Category or Custom Tooltip. When the Custom Tooltip property
+is used to provide a match, any apostrophes in the category name may be
+replaced with a period and match will still succeed. For example, a
+Custom Tooltip of<i> Ssraeshza's Hallowed Halls [Raid]</i>
+can be replaced with <i>Ssraeshza.s Hallowed Halls [Raid]</i>
+and the spell timer will still be added to the&nbsp;Category
+context menu for <i>Ssraeshza's Hallowed Halls [Raid]</i>.
+This can often allow the spell timer to be written to a macro.</li>
 </ul>
-<button name="Close" style="float: right;">Close</button><br>
+<button name="Close" style="float: right;">Close</button>Change
+Log:<br>
+&nbsp;&nbsp;&nbsp; Version 1.1 - added category spell
+timers context menu<br>
+<br>
 </body></html>
