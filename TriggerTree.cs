@@ -1,29 +1,25 @@
-﻿using System;
+﻿using Advanced_Combat_Tracker;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
-using System.Data;
-using System.Text;
-using System.Windows.Forms;
-using Advanced_Combat_Tracker;
 using System.IO;
 using System.Reflection;
-using System.Xml;
-using System.Linq;
+using System.Text;
 using System.Threading;
-using System.Text.RegularExpressions;
-using System.Net;
-using System.Threading.Tasks;
-using System.Collections.Concurrent;
+using System.Windows.Forms;
+using System.Xml;
+// reference:System.Windows.Forms.DataVisualization.dll
+// reference:System.Core.dll
 
 [assembly: AssemblyTitle("Tree view of Custom Triggers")]
 [assembly: AssemblyDescription("An alternate interface for managing Custom Triggers")]
 [assembly: AssemblyCompany("Mineeme of Maj'Dul")]
-[assembly: AssemblyVersion("1.1.0.0")]
+[assembly: AssemblyVersion("1.2.0.0")]
 
-namespace ACT_Plugin
+namespace ACT_TriggerTree
 {
-	public class TriggerTree : UserControl, IActPluginV1
+    public class TriggerTree : UserControl, IActPluginV1
 	{
         const int logTimeStampLength = 39;          //# of chars in the timestamp
 
@@ -51,6 +47,7 @@ namespace ACT_Plugin
         int indexTimerName = 4;                     //child index for the Timer/Tab child
 
         Color activeBackground = Color.LightGreen;  //background for a category that contains active triggers
+        Brush activeBackgroundBrush = new SolidBrush(Color.LightGreen);
         Color inactiveBackground = Color.White;     //background for a category with only inactive triggers
         Color foundBackground = Color.Gold;         //background for a found trigger
         Color notFoundBackground = Color.White;     //background for triggers
@@ -62,6 +59,8 @@ namespace ACT_Plugin
         TreeNode clickedCategoryNode = null;
         Point whereTrigMouseDown;                   //screen location for the trigger tree context menu
         bool isDoubleClick = false;                 //to intercept the double click on a trigger
+        Point lastEditLoc = new Point();
+        Size lastEditSize = new Size();
 
         string keyLastFound = string.Empty;         //for Find Next trigger
         string catLastFound = string.Empty;         //for find next cat
@@ -79,16 +78,15 @@ namespace ACT_Plugin
         string invalidTimerText = "Timer contains character(s) {0} or string {1} which are invalid in a macro file";
         string validTimerText = "Make a triggers.txt macro file to share timer with the ";
         string catMacroText = "{0} Share Macro ({1}/{2})";
-        //these are the characters and strings that make a macro file fail to work
-        List<char> invalidMacroChars = new List<char> { '<', '>', '\'', '\"', ';' };
-        List<string> invalidMacroStrings = new List<string> { @"\#" };
 
         List<TimerData> categoryTimers;             //category context menu timers
+        MouseButtons lastSpellMenuButton;
 
         Label lblStatus;                            // The status label that appears in ACT's Plugin tab
 
         string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\TriggerTree.config.xml");
         SettingsSerializer xmlSettings;
+        private CheckBox checkBoxCurrentCategory;
 
         #region Designer Created Code (Avoid editing)
 
@@ -129,6 +127,7 @@ namespace ACT_Plugin
             this.webBrowser1 = new System.Windows.Forms.WebBrowser();
             this.treeViewTrigs = new System.Windows.Forms.TreeView();
             this.panel2 = new System.Windows.Forms.Panel();
+            this.checkBoxCurrentCategory = new System.Windows.Forms.CheckBox();
             this.label4 = new System.Windows.Forms.Label();
             this.buttonFindNext = new System.Windows.Forms.Button();
             this.textBoxTrigFind = new System.Windows.Forms.TextBox();
@@ -156,11 +155,11 @@ namespace ACT_Plugin
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.raidShareCategoryMacroMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.groupShareCategoryMacroMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator7 = new System.Windows.Forms.ToolStripSeparator();
+            this.categorySpellTimersMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.label1 = new System.Windows.Forms.Label();
             this.panel1 = new System.Windows.Forms.Panel();
             this.label2 = new System.Windows.Forms.Label();
-            this.toolStripSeparator7 = new System.Windows.Forms.ToolStripSeparator();
-            this.categorySpellTimersMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -189,18 +188,20 @@ namespace ACT_Plugin
             this.splitContainer1.Panel2.Controls.Add(this.panelHelp);
             this.splitContainer1.Panel2.Controls.Add(this.treeViewTrigs);
             this.splitContainer1.Panel2.Controls.Add(this.panel2);
-            this.splitContainer1.Size = new System.Drawing.Size(655, 560);
-            this.splitContainer1.SplitterDistance = 217;
+            this.splitContainer1.Size = new System.Drawing.Size(727, 560);
+            this.splitContainer1.SplitterDistance = 240;
             this.splitContainer1.TabIndex = 0;
             // 
             // treeViewCats
             // 
             this.treeViewCats.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.treeViewCats.DrawMode = System.Windows.Forms.TreeViewDrawMode.OwnerDrawText;
             this.treeViewCats.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.treeViewCats.Location = new System.Drawing.Point(0, 30);
             this.treeViewCats.Name = "treeViewCats";
-            this.treeViewCats.Size = new System.Drawing.Size(217, 530);
+            this.treeViewCats.Size = new System.Drawing.Size(240, 530);
             this.treeViewCats.TabIndex = 1;
+            this.treeViewCats.DrawNode += new System.Windows.Forms.DrawTreeNodeEventHandler(this.treeViewCats_DrawNode);
             this.treeViewCats.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.treeViewCats_AfterSelect);
             this.treeViewCats.MouseDown += new System.Windows.Forms.MouseEventHandler(this.treeViewCats_MouseDown);
             // 
@@ -213,7 +214,7 @@ namespace ACT_Plugin
             this.panel3.Dock = System.Windows.Forms.DockStyle.Top;
             this.panel3.Location = new System.Drawing.Point(0, 0);
             this.panel3.Name = "panel3";
-            this.panel3.Size = new System.Drawing.Size(217, 30);
+            this.panel3.Size = new System.Drawing.Size(240, 30);
             this.panel3.TabIndex = 0;
             // 
             // label3
@@ -230,7 +231,7 @@ namespace ACT_Plugin
             this.buttonCatFindNext.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.buttonCatFindNext.Enabled = false;
             this.buttonCatFindNext.Font = new System.Drawing.Font("Webdings", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
-            this.buttonCatFindNext.Location = new System.Drawing.Point(172, 2);
+            this.buttonCatFindNext.Location = new System.Drawing.Point(195, 2);
             this.buttonCatFindNext.Name = "buttonCatFindNext";
             this.buttonCatFindNext.Size = new System.Drawing.Size(38, 23);
             this.buttonCatFindNext.TabIndex = 1;
@@ -246,7 +247,7 @@ namespace ACT_Plugin
             | System.Windows.Forms.AnchorStyles.Right)));
             this.textBoxCatFind.Location = new System.Drawing.Point(40, 4);
             this.textBoxCatFind.Name = "textBoxCatFind";
-            this.textBoxCatFind.Size = new System.Drawing.Size(125, 20);
+            this.textBoxCatFind.Size = new System.Drawing.Size(148, 20);
             this.textBoxCatFind.TabIndex = 0;
             this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
             this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
@@ -256,7 +257,7 @@ namespace ACT_Plugin
             this.panelHelp.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
             this.panelHelp.Controls.Add(this.webBrowser1);
             this.panelHelp.Dock = System.Windows.Forms.DockStyle.Right;
-            this.panelHelp.Location = new System.Drawing.Point(130, 30);
+            this.panelHelp.Location = new System.Drawing.Point(179, 30);
             this.panelHelp.Name = "panelHelp";
             this.panelHelp.Size = new System.Drawing.Size(304, 530);
             this.panelHelp.TabIndex = 2;
@@ -281,7 +282,7 @@ namespace ACT_Plugin
             this.treeViewTrigs.Location = new System.Drawing.Point(0, 30);
             this.treeViewTrigs.Name = "treeViewTrigs";
             this.treeViewTrigs.ShowNodeToolTips = true;
-            this.treeViewTrigs.Size = new System.Drawing.Size(434, 530);
+            this.treeViewTrigs.Size = new System.Drawing.Size(483, 530);
             this.treeViewTrigs.TabIndex = 1;
             this.treeViewTrigs.BeforeCheck += new System.Windows.Forms.TreeViewCancelEventHandler(this.treeViewTrigs_BeforeCheck);
             this.treeViewTrigs.AfterCheck += new System.Windows.Forms.TreeViewEventHandler(this.treeViewTrigs_AfterCheck);
@@ -294,14 +295,28 @@ namespace ACT_Plugin
             // panel2
             // 
             this.panel2.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.panel2.Controls.Add(this.checkBoxCurrentCategory);
             this.panel2.Controls.Add(this.label4);
             this.panel2.Controls.Add(this.buttonFindNext);
             this.panel2.Controls.Add(this.textBoxTrigFind);
             this.panel2.Dock = System.Windows.Forms.DockStyle.Top;
             this.panel2.Location = new System.Drawing.Point(0, 0);
             this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(434, 30);
+            this.panel2.Size = new System.Drawing.Size(483, 30);
             this.panel2.TabIndex = 0;
+            // 
+            // checkBoxCurrentCategory
+            // 
+            this.checkBoxCurrentCategory.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.checkBoxCurrentCategory.AutoSize = true;
+            this.checkBoxCurrentCategory.Location = new System.Drawing.Point(372, 7);
+            this.checkBoxCurrentCategory.Name = "checkBoxCurrentCategory";
+            this.checkBoxCurrentCategory.Size = new System.Drawing.Size(59, 17);
+            this.checkBoxCurrentCategory.TabIndex = 3;
+            this.checkBoxCurrentCategory.Text = "current";
+            this.toolTip1.SetToolTip(this.checkBoxCurrentCategory, "Search only the current category");
+            this.checkBoxCurrentCategory.UseVisualStyleBackColor = true;
+            this.checkBoxCurrentCategory.CheckedChanged += new System.EventHandler(this.checkBoxCurrentCategory_CheckedChanged);
             // 
             // label4
             // 
@@ -317,7 +332,7 @@ namespace ACT_Plugin
             this.buttonFindNext.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.buttonFindNext.Enabled = false;
             this.buttonFindNext.Font = new System.Drawing.Font("Webdings", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
-            this.buttonFindNext.Location = new System.Drawing.Point(388, 2);
+            this.buttonFindNext.Location = new System.Drawing.Point(437, 2);
             this.buttonFindNext.Name = "buttonFindNext";
             this.buttonFindNext.Size = new System.Drawing.Size(38, 23);
             this.buttonFindNext.TabIndex = 1;
@@ -332,7 +347,7 @@ namespace ACT_Plugin
             | System.Windows.Forms.AnchorStyles.Right)));
             this.textBoxTrigFind.Location = new System.Drawing.Point(40, 4);
             this.textBoxTrigFind.Name = "textBoxTrigFind";
-            this.textBoxTrigFind.Size = new System.Drawing.Size(342, 20);
+            this.textBoxTrigFind.Size = new System.Drawing.Size(326, 20);
             this.textBoxTrigFind.TabIndex = 0;
             this.toolTip1.SetToolTip(this.textBoxTrigFind, "Incremental search for text in the trigger\'s regular expression, alert, or timer " +
         "name");
@@ -485,7 +500,7 @@ namespace ACT_Plugin
             this.toolStripSeparator7,
             this.categorySpellTimersMenuItem});
             this.contextMenuStripCat.Name = "contextMenuStrip2";
-            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 148);
+            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 126);
             this.contextMenuStripCat.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripCat_Opening);
             // 
             // copyZoneNameToClipboardToolStripMenuItem
@@ -525,6 +540,17 @@ namespace ACT_Plugin
             this.groupShareCategoryMacroMenuItem.ToolTipText = "Make a triggers.txt macro to share the category\'s triggers with the group";
             this.groupShareCategoryMacroMenuItem.Click += new System.EventHandler(this.groupShareCategoryMacroToolStripMenuItem_Click);
             // 
+            // toolStripSeparator7
+            // 
+            this.toolStripSeparator7.Name = "toolStripSeparator7";
+            this.toolStripSeparator7.Size = new System.Drawing.Size(248, 6);
+            // 
+            // categorySpellTimersMenuItem
+            // 
+            this.categorySpellTimersMenuItem.Name = "categorySpellTimersMenuItem";
+            this.categorySpellTimersMenuItem.Size = new System.Drawing.Size(251, 22);
+            this.categorySpellTimersMenuItem.Text = "Category Spell Timers";
+            // 
             // label1
             // 
             this.label1.AutoSize = true;
@@ -545,7 +571,7 @@ namespace ACT_Plugin
             this.panel1.Dock = System.Windows.Forms.DockStyle.Top;
             this.panel1.Location = new System.Drawing.Point(0, 0);
             this.panel1.Name = "panel1";
-            this.panel1.Size = new System.Drawing.Size(655, 38);
+            this.panel1.Size = new System.Drawing.Size(727, 38);
             this.panel1.TabIndex = 0;
             // 
             // label2
@@ -558,17 +584,6 @@ namespace ACT_Plugin
             this.label2.Text = "Double-click to edit trigger fields. Expand a trigger for checkbox and right-clic" +
     "k actions on sub-items.";
             // 
-            // toolStripSeparator7
-            // 
-            this.toolStripSeparator7.Name = "toolStripSeparator7";
-            this.toolStripSeparator7.Size = new System.Drawing.Size(248, 6);
-            // 
-            // categorySpellTimersMenuItem
-            // 
-            this.categorySpellTimersMenuItem.Name = "categorySpellTimersMenuItem";
-            this.categorySpellTimersMenuItem.Size = new System.Drawing.Size(251, 22);
-            this.categorySpellTimersMenuItem.Text = "Category Spell Timers";
-            // 
             // TriggerTree
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -576,7 +591,7 @@ namespace ACT_Plugin
             this.Controls.Add(this.splitContainer1);
             this.Controls.Add(this.panel1);
             this.Name = "TriggerTree";
-            this.Size = new System.Drawing.Size(655, 598);
+            this.Size = new System.Drawing.Size(727, 598);
             this.VisibleChanged += new System.EventHandler(this.TriggerTree_VisibleChanged);
             this.splitContainer1.Panel1.ResumeLayout(false);
             this.splitContainer1.Panel2.ResumeLayout(false);
@@ -644,12 +659,13 @@ namespace ACT_Plugin
 
         public TriggerTree()
 		{
-			InitializeComponent();
+            InitializeComponent();
 		}
 
-		#region IActPluginV1 Members
 
-		public void InitPlugin(TabPage pluginScreenSpace, Label pluginStatusText)
+        #region IActPluginV1 Members
+
+        public void InitPlugin(TabPage pluginScreenSpace, Label pluginStatusText)
 		{
 			lblStatus = pluginStatusText;	            // Hand the status label's reference to our local var
 			pluginScreenSpace.Controls.Add(this);	    // Add this UserControl to the tab ACT provides
@@ -663,7 +679,7 @@ namespace ACT_Plugin
             treeViewCats.ImageList = treeImages;
 
             //set images so that triggerCanMacro and triggerNoMacro show the appropirate image
-            triggerImages.Images.Add(GetActionBitmap());
+            triggerImages.Images.Add(Macros.GetActionBitmap());
             triggerBlankImage = triggerImages.Images.Count;
             treeViewTrigs.ImageList = triggerImages;
 
@@ -699,11 +715,24 @@ namespace ACT_Plugin
         void oFormActMain_UpdateCheckClicked()
         {
             int pluginId = 80;
+            bool updateAvailable = false;
+
+            // try github
             try
             {
-                DateTime localDate = ActGlobals.oFormActMain.PluginGetSelfDateUtc(this);
-                DateTime remoteDate = ActGlobals.oFormActMain.PluginGetRemoteDateUtc(pluginId);
-                if (localDate.AddHours(2) < remoteDate)
+                Version localVersion = this.GetType().Assembly.GetName().Version;
+                Version remoteVersion = new Version(ActGlobals.oFormActMain.PluginGetRemoteVersion(pluginId).TrimStart(new char[] { 'v' }));    // Strip any leading 'v' from the string before passing to the Version constructor
+                if (remoteVersion > localVersion)
+                    updateAvailable = true;
+            }
+            catch (Exception)
+            {
+                //ignore failure while we transition to github
+            }
+
+            if (updateAvailable)
+            {
+                try
                 {
                     DialogResult result = MessageBox.Show("There is an updated version of the Trigger Tree Plugin.  Update it now?\n\n(If there is an update to ACT, you should click No and update ACT first.)", "New Version", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                     if (result == DialogResult.Yes)
@@ -717,10 +746,10 @@ namespace ACT_Plugin
                         ThreadInvokes.CheckboxSetChecked(ActGlobals.oFormActMain, pluginData.cbEnabled, true);
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                ActGlobals.oFormActMain.WriteExceptionLog(ex, "Plugin Update Check");
+                catch (Exception ex)
+                {
+                    ActGlobals.oFormActMain.WriteExceptionLog(ex, "Plugin Update Download");
+                }
             }
         }
 
@@ -1151,6 +1180,7 @@ This can often allow the spell timer to be written to a macro.</li>
                 foreach (TreeNode category in treeViewCats.Nodes)
                 {
                     category.BackColor = inactiveBackground; //default
+                    category.Tag = false; //no active triggers
                     string key = category.Text;
                     List<CustomTrigger> list;
                     if(treeDict.TryGetValue(key, out list))
@@ -1163,6 +1193,7 @@ This can often allow the spell timer to be written to a macro.</li>
                                 if (trigger.RestrictToCategoryZone == false || key.Equals(zoneName))
                                 {
                                     category.BackColor = activeBackground;
+                                    category.Tag = true; //active triggers in this category, for drawing the color
                                     if(key.Equals(zoneName) && autoSelect)
                                     {
                                         treeViewCats.SelectedNode = category;
@@ -1173,6 +1204,37 @@ This can often allow the spell timer to be written to a macro.</li>
                         }
                     }
                 }
+            }
+        }
+
+        private void treeViewCats_DrawNode(object sender, DrawTreeNodeEventArgs e)
+        {
+            if (e.Node == null) return;
+
+            // if treeview's HideSelection property is "True", 
+            // this will always returns "False" on unfocused treeview
+            var selected = (e.State & TreeNodeStates.Selected) == TreeNodeStates.Selected;
+            var unfocused = !e.Node.TreeView.Focused;
+            bool green = (bool)e.Node.Tag;
+
+            // keep the focused highlight if selected and unfocused
+            // draw green background if not selected and triggers are active
+            // otherwise, default colors
+            if (selected && unfocused)
+            {
+                var font = e.Node.NodeFont ?? e.Node.TreeView.Font;
+                e.Graphics.FillRectangle(SystemBrushes.Highlight, e.Bounds);
+                TextRenderer.DrawText(e.Graphics, e.Node.Text, font, e.Bounds, SystemColors.HighlightText, TextFormatFlags.GlyphOverhangPadding);
+            }
+            else if (!selected && green)
+            {
+                var font = e.Node.NodeFont ?? e.Node.TreeView.Font;
+                e.Graphics.FillRectangle(activeBackgroundBrush, e.Bounds);
+                TextRenderer.DrawText(e.Graphics, e.Node.Text, font, e.Bounds, SystemColors.ControlText, TextFormatFlags.GlyphOverhangPadding);
+            }
+            else
+            {
+                e.DrawDefault = true;
             }
         }
 
@@ -1253,6 +1315,8 @@ This can often allow the spell timer to be written to a macro.</li>
                 string category = treeViewCats.SelectedNode.Text;
 
                 UpdateTriggerList(category);
+                //UpdateCategoryColors(ActGlobals.oFormActMain, treeViewCats, false);
+                treeViewCats.SelectedNode.BackColor = activeBackground;
             }
         }
 
@@ -1382,17 +1446,41 @@ This can often allow the spell timer to be written to a macro.</li>
                 int validTrigs = 0;
                 int validTimers = 0;
                 int invalid = 0;
-                bool tooLong = false;
+                int fileCount = 0;
                 if (treeDict.TryGetValue(category, out triggers))
                 {
                     try
                     {
                         StringBuilder sb = new StringBuilder();
+                        //start with timers for the category
+                        foreach (TimerData timer in categoryTimers)
+                        {
+                            if (!Macros.IsInvalidMacroTimer(timer))
+                            {
+                                sb.Append(sayCmd);
+                                sb.Append(SpellTimerToMacro(timer));
+                                sb.Append(Environment.NewLine);
+                                validTimers++;
+                                if (validTimers >= 16)
+                                {
+                                    MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs);
+                                    fileCount++;
+                                    sb.Clear();
+                                    invalid = 0;
+                                    validTimers = 0;
+                                }
+                            }
+                            else
+                            {
+                                invalid++;
+                            }
+                        }
+                        //then category triggers
                         foreach (CustomTrigger trigger in triggers)
                         {
                             if (trigger.Active)
                             {
-                                if (IsInvalidMacroTrigger(trigger))
+                                if (Macros.IsInvalidMacroTrigger(trigger))
                                 {
                                     invalid++;
                                 }
@@ -1404,13 +1492,20 @@ This can often allow the spell timer to be written to a macro.</li>
                                     validTrigs++;
                                 }
                                 if (validTrigs + validTimers >= 16)
-                                    tooLong = true;
-                                if (!tooLong)
                                 {
-                                    List<TimerData> timers = FindTimers(trigger);
-                                    foreach (TimerData timer in timers)
+                                    MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs);
+                                    fileCount++;
+                                    sb.Clear();
+                                    invalid = 0;
+                                    validTimers = 0;
+                                    validTrigs = 0;
+                                }
+                                List<TimerData> timers = FindTimers(trigger);
+                                foreach (TimerData timer in timers)
+                                {
+                                    if (!categoryTimers.Contains(timer))
                                     {
-                                        if (!IsInvalidMacroTimer(timer))
+                                        if (!Macros.IsInvalidMacroTimer(timer))
                                         {
                                             sb.Append(sayCmd);
                                             sb.Append(SpellTimerToMacro(timer));
@@ -1418,35 +1513,23 @@ This can often allow the spell timer to be written to a macro.</li>
                                             validTimers++;
                                             if (validTrigs + validTimers >= 16)
                                             {
-                                                tooLong = true;
-                                                break;
+                                                //tooLong = true;
+                                                MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs);
+                                                fileCount++;
+                                                sb.Clear();
+                                                invalid = 0;
+                                                validTimers = 0;
+                                                validTrigs = 0;
                                             }
                                         }
                                     }
-                                }
-
-                                if(tooLong)
-                                {
-                                    MessageBox.Show(this, "Only 16 lines are allowed in a macro. Stopping after the 16th line.");
-                                    break;
                                 }
                             }
                         }
                         if (validTrigs > 0)
                         {
-                            if (ActGlobals.oFormActMain.SendToMacroFile(doFileName, sb.ToString(), string.Empty))
-                            {
-                                string m1 = string.Format("For category\n'{0}'\nWrote {1} triggers", category, validTrigs);
-                                string m2 = validTimers > 0 ? string.Format(" and {0} timers", validTimers) : string.Empty;
-                                string m3 = invalid > 0 ? string.Format("\n\nCould not write {0} triggers.", invalid) : string.Empty;
-                                string m4 = string.Format("\n\nIn EQII chat, enter:\n/do_file_commands {0}", doFileName);
-                                TraySlider traySlider = new TraySlider();
-                                traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
-                                traySlider.ShowTraySlider(m1 + m2 + m3 + m4, "Category Triggers Macro");
-                            }
+                            MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs);
                         }
-                        else //should not get here since the menu should be disabled in this case
-                            MessageBox.Show(this, "No enabled valid triggers in this category", "Macro Not Created");
                     }
                     catch (Exception x)
                     {
@@ -1456,50 +1539,35 @@ This can often allow the spell timer to be written to a macro.</li>
             }
         }
 
+        private void MacroToFile(int fileCount, string category, string content, int invalid, int validTimers, int validTrigs)
+        {
+            string fileName = doFileName;
+            if (fileCount > 0)
+                fileName = Path.GetFileNameWithoutExtension(doFileName) + fileCount.ToString() + Path.GetExtension(doFileName);
+            if (ActGlobals.oFormActMain.SendToMacroFile(fileName, content, string.Empty))
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append(string.IsNullOrEmpty(category) ? string.Empty : string.Format("For category\n'{0}'\n", category));
+                sb.Append("Wrote ");
+                sb.Append(validTrigs > 0 ? string.Format("{0} trigger{1}", validTrigs, validTrigs > 1 ? "s" : string.Empty) : string.Empty);
+                sb.Append(validTrigs > 0 && validTimers > 0 ? " and " : string.Empty);
+                sb.Append(validTimers > 0 ? string.Format("{0} timer{1}", validTimers, validTimers > 1 ? "s" : string.Empty) : string.Empty);
+                sb.Append(invalid > 0 ? string.Format("\n\nCould not write {0} item{1}.", invalid, invalid > 1 ? "s" : string.Empty) : string.Empty);
+                sb.Append(string.Format("\n\nIn EQII chat, enter:\n/do_file_commands {0}", fileName));
+
+                TraySlider traySlider = new TraySlider();
+                traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
+                traySlider.ShowTraySlider(sb.ToString(), "Wrote Category Macro");
+            }
+        }
+
         private void contextMenuStripCat_Opening(object sender, CancelEventArgs e)
         {
             if (clickedCategoryNode != null)
             {
-                List<CustomTrigger> triggers;
                 string category = clickedCategoryNode.Text;
-                int valid = 0;
-                int invalid = 0;
-                if (treeDict.TryGetValue(category, out triggers))
-                {
-                    foreach (CustomTrigger trigger in triggers)
-                    {
-                        if (trigger.Active)
-                        {
-                            if (!IsInvalidMacroTrigger(trigger))
-                            {
-                                valid++;
-                                groupShareCategoryMacroMenuItem.Enabled = true;
-                                raidShareCategoryMacroMenuItem.Enabled = true;
-                                groupShareCategoryMacroMenuItem.ToolTipText = validCategoryText + "group";
-                                raidShareCategoryMacroMenuItem.ToolTipText = validCategoryText + "raid";
-                                //break;
-                            }
-                            else
-                                invalid++;
-                        }
-                    }
-                    if(valid == 0)
-                    {
-                        groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", 0, valid + invalid);
-                        groupShareCategoryMacroMenuItem.Enabled = false;
-                        raidShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Raidsay", 0, valid + invalid);
-                        raidShareCategoryMacroMenuItem.Enabled = false;
-                        groupShareCategoryMacroMenuItem.ToolTipText = 
-                            string.Format(invalidCategoryText, string.Join(" ", invalidMacroChars), string.Join(" ", invalidMacroStrings));
-                        raidShareCategoryMacroMenuItem.ToolTipText =
-                            string.Format(invalidCategoryText, string.Join(" ", invalidMacroChars), string.Join(" ", invalidMacroStrings));
-                    }
-                    else
-                    {
-                        groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", valid, valid + invalid);
-                        raidShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Raidsay", valid, valid + invalid);
-                    }
-                }
+                int canMacroTimer = 0;
+                int cannotMacroTimer = 0;
 
                 //add any spell timers for the category
                 categorySpellTimersMenuItem.DropDownItems.Clear();
@@ -1513,40 +1581,88 @@ This can often allow the spell timer to be written to a macro.</li>
                 {
                     categorySpellTimersMenuItem.Enabled = true;
                     categorySpellTimersMenuItem.ToolTipText = "";
-                    int canMacro = 0;
-                    int cantMacro = 0;
                     foreach (TimerData timer in categoryTimers)
                     {
                         ToolStripMenuItem timerMenuItem = new ToolStripMenuItem();
                         timerMenuItem.Name = timer.Name;
                         timerMenuItem.Text = timer.Name;
                         timerMenuItem.Click += TimerMenuItem_Click;
-                        if (!IsInvalidMacroTimer(timer))
+                        timerMenuItem.MouseDown += TimerMenuItem_MouseDown;
+                        timerMenuItem.ToolTipText = "Left-click to search.\nRight-click to copy as shareable XML.";
+                        timerMenuItem.Tag = timer;
+                        if (!Macros.IsInvalidMacroTimer(timer))
                         {
                             timerMenuItem.Image = triggerImages.Images[triggerCanMacro];
-                            canMacro++;
+                            canMacroTimer++;
                         }
                         else
-                            cantMacro++;
+                            cannotMacroTimer++;
                         categorySpellTimersMenuItem.DropDownItems.Add(timerMenuItem);
                     }
-                    if (canMacro > 0)
+                    if (canMacroTimer > 0)
                     {
                         categorySpellTimersMenuItem.DropDownItems.Add(new ToolStripSeparator());
                         ToolStripMenuItem timerRaidMacroItem = new ToolStripMenuItem();
-                        string txt = string.Format(catMacroText, "Raidsay", canMacro, canMacro + cantMacro);
+                        string txt = string.Format(catMacroText, "Raidsay", canMacroTimer, canMacroTimer + cannotMacroTimer);
                         timerRaidMacroItem.Name = timerRaidMacroItem.Text = txt;
                         timerRaidMacroItem.Click += TimerMacroItem_Click;
                         categorySpellTimersMenuItem.DropDownItems.Add(timerRaidMacroItem);
 
                         ToolStripMenuItem timerGroupMacroItem = new ToolStripMenuItem();
-                        txt = string.Format(catMacroText, "Groupsay", canMacro, canMacro+cantMacro);
+                        txt = string.Format(catMacroText, "Groupsay", canMacroTimer, canMacroTimer+cannotMacroTimer);
                         timerGroupMacroItem.Name = timerGroupMacroItem.Text = txt;
                         timerGroupMacroItem.Click += TimerMacroItem_Click;
                         categorySpellTimersMenuItem.DropDownItems.Add(timerGroupMacroItem);
                     }
                 }
+
+                //count triggers for the menu text
+                List<CustomTrigger> triggers;
+                int valid = 0;
+                int invalid = 0;
+                if (treeDict.TryGetValue(category, out triggers))
+                {
+                    foreach (CustomTrigger trigger in triggers)
+                    {
+                        if (trigger.Active)
+                        {
+                            if (!Macros.IsInvalidMacroTrigger(trigger))
+                            {
+                                valid++;
+                                groupShareCategoryMacroMenuItem.Enabled = true;
+                                raidShareCategoryMacroMenuItem.Enabled = true;
+                                groupShareCategoryMacroMenuItem.ToolTipText = validCategoryText + "group";
+                                raidShareCategoryMacroMenuItem.ToolTipText = validCategoryText + "raid";
+                                //break;
+                            }
+                            else
+                                invalid++;
+                        }
+                    }
+                    if (valid == 0)
+                    {
+                        groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", 0, valid + invalid);
+                        groupShareCategoryMacroMenuItem.Enabled = false;
+                        raidShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Raidsay", 0, valid + invalid);
+                        raidShareCategoryMacroMenuItem.Enabled = false;
+                        groupShareCategoryMacroMenuItem.ToolTipText =
+                            string.Format(invalidCategoryText, string.Join(" ", Macros.invalidMacroChars), string.Join(" ", Macros.invalidMacroStrings));
+                        raidShareCategoryMacroMenuItem.ToolTipText =
+                            string.Format(invalidCategoryText, string.Join(" ", Macros.invalidMacroChars), string.Join(" ", Macros.invalidMacroStrings));
+                    }
+                    else
+                    {
+                        groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", valid + canMacroTimer, valid + canMacroTimer + invalid + cannotMacroTimer);
+                        raidShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Raidsay", valid + canMacroTimer, valid + canMacroTimer + invalid + cannotMacroTimer);
+                    }
+                }
+
             }
+        }
+
+        private void TimerMenuItem_MouseDown(object sender, MouseEventArgs e)
+        {
+            lastSpellMenuButton = e.Button;
         }
 
         private void TimerMacroItem_Click(object sender, EventArgs e)
@@ -1563,9 +1679,11 @@ This can often allow the spell timer to be written to a macro.</li>
             StringBuilder sb = new StringBuilder();
             int validTimers = 0;
             int invalid = 0;
+            int fileCount = 0;
+            //categoryTimers was created when the context menu opened
             foreach (TimerData timer in categoryTimers)
             {
-                if (!IsInvalidMacroTimer(timer))
+                if (!Macros.IsInvalidMacroTimer(timer))
                 {
                     sb.Append(chan);
                     sb.Append(SpellTimerToMacro(timer));
@@ -1573,8 +1691,11 @@ This can often allow the spell timer to be written to a macro.</li>
                     validTimers++;
                     if (validTimers >= 16)
                     {
-                        MessageBox.Show(this, "Only 16 lines are allowed in a macro. Stopping after the 16th line.");
-                        break;
+                        MacroToFile(fileCount, string.Empty, sb.ToString(), invalid, validTimers, 0);
+                        fileCount++;
+                        sb.Clear();
+                        invalid = 0;
+                        validTimers = 0;
                     }
                 }
                 else
@@ -1585,24 +1706,39 @@ This can often allow the spell timer to be written to a macro.</li>
 
             if (validTimers > 0)
             {
-                if (ActGlobals.oFormActMain.SendToMacroFile(doFileName, sb.ToString(), string.Empty))
-                {
-                    string m1 = string.Format("Wrote {0} timer{1}", validTimers, validTimers > 1 ? "s" : "");
-                    string m3 = invalid > 0 ? string.Format("\n\nCould not write {0} timer{1}.", invalid, invalid > 1 ? "s" : "") : string.Empty;
-                    string m4 = string.Format("\n\nIn EQII chat, enter:\n/do_file_commands {0}", doFileName);
-                    TraySlider traySlider = new TraySlider();
-                    traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
-                    traySlider.ShowTraySlider(m1 + m3 + m4, "Category Timers Macro");
-                }
+                MacroToFile(fileCount, string.Empty, sb.ToString(), invalid, validTimers, 0);
             }
         }
 
         private void TimerMenuItem_Click(object sender, EventArgs e)
         {
             ToolStripItem menu = sender as ToolStripMenuItem;
-            string timerName = menu.Name.ToLower();
-            ActGlobals.oFormSpellTimers.SearchSpellTreeView(timerName);
-            ActGlobals.oFormSpellTimers.Visible = true;
+            if (lastSpellMenuButton == MouseButtons.Left)
+            {
+                //search for the timer in the ACT spell timers
+                string timerName = menu.Name.ToLower();
+                ActGlobals.oFormSpellTimers.SearchSpellTreeView(timerName);
+                ActGlobals.oFormSpellTimers.Visible = true;
+            }
+            else if(lastSpellMenuButton == MouseButtons.Right)
+            {
+                //copy the XML descriptoin of the timer to the clipboard
+                TimerData timer = menu.Tag as TimerData;
+                if(timer != null)
+                {
+                    string xml = SpellTimerToXML(timer);
+                    try
+                    {
+                        Clipboard.SetText(xml);
+                    }
+                    catch (Exception)
+                    {
+                        TraySlider slider = new TraySlider();
+                        slider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
+                        slider.ShowTraySlider("Problem with the clipboard. Try copying again.");
+                    }
+                }
+            }
         }
 
         private List<TimerData> FindCategoryTimers(string category)
@@ -1717,7 +1853,7 @@ This can often allow the spell timer to be written to a macro.</li>
                     TreeNode parent = new TreeNode(trigger.RegEx.ToString());
                     parent.Checked = trigger.Active;
                     parent.Tag = trigger;
-                    if (IsInvalidMacroTrigger(trigger))
+                    if (Macros.IsInvalidMacroTrigger(trigger))
                     {
                         parent.ImageIndex = triggerNoMacro;
                         parent.SelectedImageIndex = triggerNoMacro;
@@ -1790,7 +1926,7 @@ This can often allow the spell timer to be written to a macro.</li>
             //look for at least one macro-able timer
             foreach (TimerData timer in timers)
             {
-                if (!IsInvalidMacroTimer(timer))
+                if (!Macros.IsInvalidMacroTimer(timer))
                 {
                     return true;
                 }
@@ -1891,37 +2027,9 @@ This can often allow the spell timer to be written to a macro.</li>
 
         }
 
-        private Bitmap GetActionBitmap()
-        {
-            byte[] png_map = {
-                  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
-                  0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x10, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0xf3, 0xff,
-                  0x61, 0x00, 0x00, 0x00, 0x09, 0x70, 0x48, 0x59, 0x73, 0x00, 0x00, 0x0e, 0xc4, 0x00, 0x00, 0x0e,
-                  0xc4, 0x01, 0x95, 0x2b, 0x0e, 0x1b, 0x00, 0x00, 0x00, 0xae, 0x49, 0x44, 0x41, 0x54, 0x78, 0x5e,
-                  0xed, 0x93, 0xb1, 0x0a, 0xc2, 0x30, 0x10, 0x86, 0xaf, 0xe2, 0x92, 0x74, 0x74, 0xe9, 0x22, 0x38,
-                  0x38, 0x3a, 0x0a, 0xce, 0xad, 0x9b, 0xc4, 0x87, 0x28, 0x38, 0x88, 0xce, 0xa2, 0x8f, 0xa0, 0x2f,
-                  0x10, 0xdc, 0x7c, 0x08, 0x83, 0x5b, 0xeb, 0x0b, 0xb8, 0xe9, 0xe8, 0xe0, 0xe8, 0x03, 0x98, 0x64,
-                  0x8c, 0xd7, 0x45, 0x0e, 0x82, 0x1d, 0xea, 0x50, 0x0a, 0xfe, 0xf0, 0x0f, 0x3f, 0x3f, 0x39, 0x2e,
-                  0x7c, 0x5c, 0xe0, 0x9c, 0x83, 0x5f, 0xd4, 0x42, 0x37, 0x7c, 0x40, 0x9b, 0x06, 0x6b, 0xad, 0x23,
-                  0x71, 0x8f, 0x5e, 0x71, 0xce, 0x5f, 0x45, 0x30, 0xc6, 0x7c, 0x3a, 0xc6, 0x58, 0xf0, 0x75, 0x03,
-                  0x21, 0x04, 0x68, 0xad, 0x8b, 0x30, 0x47, 0x5f, 0xf1, 0x61, 0x4c, 0x3b, 0x7f, 0x83, 0x12, 0x4d,
-                  0x77, 0x79, 0x4f, 0xce, 0x46, 0x39, 0x0e, 0x91, 0x95, 0x28, 0x64, 0xb7, 0x27, 0x0c, 0x37, 0x27,
-                  0x38, 0x9c, 0xef, 0x8b, 0x7a, 0x28, 0x8c, 0x07, 0x11, 0x5c, 0xb6, 0x13, 0x48, 0xe3, 0x7e, 0xb5,
-                  0x2f, 0x1c, 0xd7, 0xc9, 0xa3, 0xdb, 0x09, 0x13, 0x24, 0xb1, 0x2c, 0xc5, 0x48, 0xa5, 0x94, 0xf2,
-                  0x30, 0x7a, 0x1d, 0xd1, 0xff, 0x16, 0x00, 0xde, 0x9a, 0x4e, 0x33, 0xe8, 0xe3, 0x56, 0xa1, 0x47,
-                  0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
-            };
-
-            Bitmap bmp;
-            using (var ms = new MemoryStream(png_map))
-            {
-                bmp = new Bitmap(ms);
-            }
-            return bmp;
-        }
-
         private void PositionChildForm(Form form, Point loc)
         {
+            //make sure it fits on screen
             if (loc.X + form.Width > SystemInformation.VirtualScreen.Right)
                 loc.X = SystemInformation.VirtualScreen.Right - form.Width;
             if (loc.Y + form.Height > SystemInformation.WorkingArea.Bottom)
@@ -1933,7 +2041,7 @@ This can often allow the spell timer to be written to a macro.</li>
         {
             //edit sound dialog callback
             //only gets called when [OK] is pressed in the dialog
-            // so the trigger was updated
+            // indicating that the trigger was updated
             FormEditSound.EditEventArgs arg = e as FormEditSound.EditEventArgs;
             if(arg != null)
             {
@@ -1946,7 +2054,7 @@ This can often allow the spell timer to be written to a macro.</li>
         {
             //edit timer name dialog callback
             //only gets called when [OK] is pressed in the dialog
-            // so the trigger was updated
+            // indicating that the trigger was updated
             FormEditTimer.EditEventArgs arg = e as FormEditTimer.EditEventArgs;
             if (arg != null)
             {
@@ -1960,6 +2068,8 @@ This can often allow the spell timer to be written to a macro.</li>
             //edit trigger dialog callback
 
             FormEditTrigger.EditEventArgs args = e as FormEditTrigger.EditEventArgs;
+            lastEditLoc = args.formLocation;
+            lastEditSize = args.formSize;
             if (args.result != FormEditTrigger.EventResult.CANCEL_EDIT)
             {
                 bool ok = true;
@@ -2105,15 +2215,26 @@ This can often allow the spell timer to be written to a macro.</li>
             if (!string.IsNullOrEmpty(find))
             {
                 bool foundPrevious = false;
+                bool foundCategory = false;
                 FindResult result = FindResult.NOT_FOUND;
                 try
                 {
                     int keyCount = ActGlobals.oFormActMain.CustomTriggers.Keys.Count;
-                    for(int i=0; i<keyCount; i++)
+                    string category = treeViewCats.SelectedNode.Text + "|";
+                    for (int i=0; i<keyCount; i++)
                     {
                         string key = ActGlobals.oFormActMain.CustomTriggers.Keys[i];
+                        if (checkBoxCurrentCategory.Checked && foundCategory == false)
+                        {
+                            //first, find the selected category
+                            if (key.StartsWith(category))
+                                foundCategory = true;
+                            else
+                                continue;
+                        }
                         if (resume && !foundPrevious)
                         {
+                            //move down the list to the previous find
                             if (key.Equals(keyLastFound))
                                 foundPrevious = true;
                         }
@@ -2127,8 +2248,12 @@ This can often allow the spell timer to be written to a macro.</li>
                                 if (result == FindResult.FOUND)
                                 {
                                     keyLastFound = key;
+                                    if (checkBoxCurrentCategory.Checked && !key.StartsWith(category))
+                                        result = FindResult.NOT_FOUND; //finished the category
                                     break;
                                 }
+                                else if (result == FindResult.NOT_FOUND && checkBoxCurrentCategory.Checked && !key.StartsWith(category))
+                                    break;
                                 else if (result == FindResult.FIND_FAILED)
                                     break;
                             }
@@ -2141,6 +2266,12 @@ This can often allow the spell timer to be written to a macro.</li>
                 if (result == FindResult.NOT_FOUND)
                     MessageBox.Show(this, "Not found");
             }
+        }
+
+        private void checkBoxCurrentCategory_CheckedChanged(object sender, EventArgs e)
+        {
+            if (checkBoxCurrentCategory.Checked)
+                textBoxTrigFind.Text = string.Empty;
         }
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -2184,7 +2315,7 @@ This can often allow the spell timer to be written to a macro.</li>
                         node.Nodes[indexTimer].ToolTipText = "Double-click to search for the timer\n(Use [Clear] btn in timer window to reset search)";
 
                     //set macro icons
-                    if (IsInvalidMacroTrigger(trigger))
+                    if (Macros.IsInvalidMacroTrigger(trigger))
                     {
                         node.ImageIndex = triggerNoMacro;
                         node.SelectedImageIndex = triggerNoMacro;
@@ -2235,7 +2366,13 @@ This can often allow the spell timer to be written to a macro.</li>
                     formEditTrigger.EditDoneEvent += Trigger_EditDoneEvent; //callback for when the edit is done
                     formEditTrigger.haveOriginal = false; //disable the replace button since there is nothing to replace
                     formEditTrigger.Show(this);
-                    PositionChildForm(formEditTrigger, whereTrigMouseDown);
+                    if (lastEditLoc.IsEmpty && lastEditSize.IsEmpty)
+                        PositionChildForm(formEditTrigger, whereTrigMouseDown);
+                    else
+                    {
+                        formEditTrigger.Size = lastEditSize;
+                        formEditTrigger.Location = lastEditLoc;
+                    }
                 }
             }
             else if (e.Button == MouseButtons.Left)
@@ -2269,7 +2406,13 @@ This can often allow the spell timer to be written to a macro.</li>
                     FormEditTrigger formEditTrigger = new FormEditTrigger(selectedTriggerNode.Tag as CustomTrigger, zoneName);
                     formEditTrigger.EditDoneEvent += Trigger_EditDoneEvent; //callback for when the edit is done
                     formEditTrigger.Show(this);
-                    PositionChildForm(formEditTrigger, whereTrigMouseDown);
+                    if(lastEditLoc.IsEmpty && lastEditSize.IsEmpty)
+                        PositionChildForm(formEditTrigger, whereTrigMouseDown);
+                    else
+                    {
+                        formEditTrigger.Size = lastEditSize;
+                        formEditTrigger.Location = lastEditLoc;
+                    }
                 }
                 else
                 {
@@ -2336,14 +2479,14 @@ This can often allow the spell timer to be written to a macro.</li>
                     //check for macro-able trigger
                     if (isParent)
                     {
-                        if (IsInvalidMacroTrigger(trigger))
+                        if (Macros.IsInvalidMacroTrigger(trigger))
                         {
                             raidsayShareMacroToolStripMenuItem.Enabled = false;
                             raidsayShareMacroToolStripMenuItem.ToolTipText =
-                                string.Format(invalidTriggerText, string.Join(" ", invalidMacroChars), string.Join(" ", invalidMacroStrings));
+                                string.Format(invalidTriggerText, string.Join(" ", Macros.invalidMacroChars), string.Join(" ", Macros.invalidMacroStrings));
                             groupsayShareMacroToolStripMenuItem.Enabled = false;
                             groupsayShareMacroToolStripMenuItem.ToolTipText =
-                                string.Format(invalidTriggerText, string.Join(" ", invalidMacroChars), string.Join(" ", invalidMacroStrings));
+                                string.Format(invalidTriggerText, string.Join(" ", Macros.invalidMacroChars), string.Join(" ", Macros.invalidMacroStrings));
                         }
                         else
                         {
@@ -2359,14 +2502,14 @@ This can often allow the spell timer to be written to a macro.</li>
                         List<TimerData> timers = FindTimers(trigger);
                         if (timers.Count > 0)
                         {
-                            if (IsInvalidMacroTimer(timers[0]))
+                            if (Macros.IsInvalidMacroTimer(timers[0]))
                             {
                                 raidsayShareMacroToolStripMenuItem.Enabled = false;
                                 raidsayShareMacroToolStripMenuItem.ToolTipText =
-                                    string.Format(invalidTimerText, string.Join(" ", invalidMacroChars), string.Join(" ", invalidMacroStrings));
+                                    string.Format(invalidTimerText, string.Join(" ", Macros.invalidMacroChars), string.Join(" ", Macros.invalidMacroStrings));
                                 groupsayShareMacroToolStripMenuItem.Enabled = false;
                                 groupsayShareMacroToolStripMenuItem.ToolTipText =
-                                    string.Format(invalidTimerText, string.Join(" ", invalidMacroChars), string.Join(" ", invalidMacroStrings));
+                                    string.Format(invalidTimerText, string.Join(" ", Macros.invalidMacroChars), string.Join(" ", Macros.invalidMacroStrings));
                             }
                             else
                             {
@@ -2494,7 +2637,13 @@ This can often allow the spell timer to be written to a macro.</li>
                     FormEditTrigger formEditTrigger = new FormEditTrigger(t, zoneName);
                     formEditTrigger.EditDoneEvent += Trigger_EditDoneEvent; //callback for when the edit is done
                     formEditTrigger.Show(this);
-                    PositionChildForm(formEditTrigger, whereTrigMouseDown);
+                    if (lastEditLoc.IsEmpty && lastEditSize.IsEmpty)
+                        PositionChildForm(formEditTrigger, whereTrigMouseDown);
+                    else
+                    {
+                        formEditTrigger.Size = lastEditSize;
+                        formEditTrigger.Location = lastEditLoc;
+                    }
                 }
             }
         }
@@ -2520,7 +2669,7 @@ This can often allow the spell timer to be written to a macro.</li>
                     trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
                 if (trigger != null)
                 {
-                    if (IsInvalidMacroTrigger(trigger))
+                    if (Macros.IsInvalidMacroTrigger(trigger))
                     {
                         //should not get here since the menu should be disabled
                         MessageBox.Show(this, "EQII does not allow certain characters in a macro.\nThis trigger cannot be saved to a macro.",
@@ -2542,7 +2691,7 @@ This can often allow the spell timer to be written to a macro.</li>
                             int timersCount = 0;
                             foreach (TimerData timer in timers)
                             {
-                                if (!IsInvalidMacroTimer(timer))
+                                if (!Macros.IsInvalidMacroTimer(timer))
                                 {
                                     sb.Append(sayCmd);
                                     sb.Append(SpellTimerToMacro(timer));
@@ -2783,51 +2932,6 @@ This can often allow the spell timer to be written to a macro.</li>
             return result;
         }
 
-        private bool IsInvalidMacro(List<string> strings)
-        {
-            foreach (char invalid in invalidMacroChars)
-            {
-                foreach(string s in strings)
-                {
-                    if (s.IndexOf(invalid) >= 0)
-                        return true;
-                }
-            }
-
-            foreach (string invalid in invalidMacroStrings)
-            {
-                foreach (string s in strings)
-                {
-                    if (s.Contains(invalid))
-                        return true;
-                }
-            }
-
-            return false; //all strings are valid in a macro
-        }
-
-        private bool IsInvalidMacroTrigger(CustomTrigger trigger)
-        {
-            List<string> strings = new List<string>();
-            strings.Add(trigger.ShortRegexString);
-            strings.Add(trigger.Category);
-            strings.Add(trigger.SoundData);
-            strings.Add(trigger.TimerName);
-            return IsInvalidMacro(strings);
-
-        }
-
-        private bool IsInvalidMacroTimer(TimerData timer)
-        {
-            List<string> strings = new List<string>();
-            strings.Add(timer.Category);
-            strings.Add(timer.Name);
-            strings.Add(timer.StartSoundData);
-            strings.Add(timer.Tooltip);
-            strings.Add(timer.WarningSoundData);
-            return IsInvalidMacro(strings);
-        }
-
         private string EncodeXml_ish(string text, bool encodeHash, bool encodePos, bool encodeSlashes)
         {
             if (text == null)
@@ -2973,2420 +3077,6 @@ This can often allow the spell timer to be written to a macro.</li>
         #endregion Context Menu
 
         #endregion Trigger Tree
-
     }
 
-    #region Edit Forms
-
-    //The FormEdit classes were developed as separate Visual Studio projects
-    // and copy/pasted into this source file.
-    //That allows visual editing of the form in the other project
-    // while still maintaining this one source file for ACT to load as a plugin.
-
-    //logic
-    partial class FormEditTrigger : Form
-    {
-        const int logTimeStampLength = 39;  //# of chars in the log file timestamp
-        const string logTimeStampRegexStr = @"^\(\d{10}\)\[.{24}\] ";
-        Regex parsePaste = new Regex(logTimeStampRegexStr + @"(?<expr>[^\r\n]*)", RegexOptions.Compiled);
-
-        CustomTrigger editingTrigger;       //a copy of the original trigger
-        CustomTrigger undoTrigger;          //a reference to the original trigger
-        string zoneCategory;
-        bool regexChanged = false;          //track for replace / create new
-        bool initializing = true;           //oncheck() methods do not need to do anything during shown()
-
-        //color the regex depending on restricted status / matching
-        Color activeColor = Color.Green;
-        Color inactiveColor = Color.Black;
-
-        //set by owner
-        public bool haveOriginal = true;    //set false by parent when creating a brand new trigger
-        int logMenuRow = -1;                //context menu location in the log line grid view
-
-        //encounter treeview scrolls inappropriately, use this to fix it
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        public static extern int SetScrollPos(IntPtr hWnd, int nBar, int nPos, bool bRedraw);
-        private const int SB_HORZ = 0x0;
-
-        public FormEditTrigger()
-        {
-            //for stand alone testing
-            InitializeComponent();
-        }
-
-        public FormEditTrigger(CustomTrigger trigger, string category)
-        {
-            InitializeComponent();
-
-            zoneCategory = category;
-            undoTrigger = trigger;
-            //make a new trigger that we can modify without changing the original trigger
-            editingTrigger = new CustomTrigger(trigger.RegEx.ToString(), trigger.SoundType, trigger.SoundData, trigger.Timer, trigger.TimerName, trigger.Tabbed);
-            editingTrigger.Category = trigger.Category;
-            editingTrigger.RestrictToCategoryZone = trigger.RestrictToCategoryZone;
-        }
-
-        private void FormEditTrigger_Shown(object sender, EventArgs e)
-        {
-            //hide encounters, initially
-            this.Height = this.MinimumSize.Height;
-
-            if (editingTrigger != null)
-            {
-                textBoxRegex.Text = editingTrigger.ShortRegexString;
-                textBoxCategory.Text = editingTrigger.Category;
-                textBoxSound.Text = editingTrigger.SoundData;
-                switch (editingTrigger.SoundType)
-                {
-                    case (int)CustomTriggerSoundTypeEnum.Beep:
-                        radioButtonBeep.Checked = true;
-                        buttonPlay.Enabled = true;
-                        buttonFileOpen.Enabled = false;
-                        textBoxSound.Enabled = false;
-                        buttonInsert.Enabled = false;
-                        comboBoxGroups.Enabled = false;
-                        break;
-                    case (int)CustomTriggerSoundTypeEnum.WAV:
-                        radioButtonWav.Checked = true;
-                        buttonPlay.Enabled = true;
-                        buttonFileOpen.Enabled = true;
-                        textBoxSound.Enabled = true;
-                        buttonInsert.Enabled = false;
-                        comboBoxGroups.Enabled = false;
-                        break;
-                    case (int)CustomTriggerSoundTypeEnum.TTS:
-                        radioButtonTts.Checked = true;
-                        buttonPlay.Enabled = true;
-                        buttonFileOpen.Enabled = false;
-                        textBoxSound.Enabled = true;
-                        buttonInsert.Enabled = false;
-                        comboBoxGroups.Enabled = false;
-                        break;
-                    default:
-                        radioButtonNone.Checked = true;
-                        buttonPlay.Enabled = false;
-                        buttonFileOpen.Enabled = false;
-                        textBoxSound.Enabled = false;
-                        buttonInsert.Enabled = false;
-                        comboBoxGroups.Enabled = false;
-                        break;
-                }
-                textBoxTimer.Text = editingTrigger.TimerName;
-                checkBoxRestrict.Checked = editingTrigger.RestrictToCategoryZone;
-                checkBoxResultsTab.Checked = editingTrigger.Tabbed;
-                checkBoxTimer.Checked = editingTrigger.Timer;
-
-                if (!haveOriginal)
-                    buttonUpdateCreate.Text = "Create New";
-                else
-                    buttonUpdateCreate.Enabled = false; //until something changes
-
-                PopulateGroupList();
-            }
-            initializing = false;
-        }
-
-        private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
-        {
-            System.Diagnostics.Process.Start("https://regex101.com/r/cC7jP5/1");
-        }
-
-        #region Owner Callback support
-
-        public event EventHandler EditDoneEvent; //callback
-
-        //callback reasons
-        public enum EventResult { CANCEL_EDIT, REPLACE_TRIGGER, CREATE_NEW };
-
-        //callback event argument
-        public class EditEventArgs : EventArgs
-        {
-            public EventResult result;
-            public CustomTrigger editedTrigger;
-            public CustomTrigger orignalTrigger;
-
-            public EditEventArgs(CustomTrigger newTrigger, CustomTrigger origTrigger, EventResult result)
-            {
-                editedTrigger = newTrigger;
-                orignalTrigger = origTrigger;
-                this.result = result;
-            }
-        }
-
-        protected void OnEditDoneEvent(EditEventArgs e)
-        {
-            if (EditDoneEvent != null)
-            {
-                EventHandler handler = EditDoneEvent;
-                handler.Invoke(null, e);
-            }
-        }
-
-        private void DoEventAndClose(EventResult result)
-        {
-            if (result != EventResult.CANCEL_EDIT)
-            {
-                if (string.IsNullOrEmpty(textBoxCategory.Text.Trim()))
-                {
-                    MessageBox.Show(this, "Category / Zone cannot be empty");
-                    return;
-                }
-
-                if (regexChanged)
-                {
-                    if (string.IsNullOrEmpty(textBoxRegex.Text.Trim()))
-                    {
-                        MessageBox.Show(this, "Regular Expression cannot be empty");
-                        return;
-                    }
-
-                    try
-                    {
-                        //test for valid regex
-                        Regex testregex = new Regex(textBoxRegex.Text);
-                    }
-                    catch (ArgumentException aex)
-                    {
-                        ActGlobals.oFormActMain.NotificationAdd("Improper Custom Trigger Regular Expression", aex.Message);
-                        MessageBox.Show(this, "Improper Regular Expression:\n" + aex.Message);
-                        return;
-                    }
-                    string category = editingTrigger.Category;
-                    bool restrict = editingTrigger.RestrictToCategoryZone;
-                    editingTrigger = new CustomTrigger(textBoxRegex.Text,
-                        editingTrigger.SoundType, editingTrigger.SoundData, editingTrigger.Timer, editingTrigger.TimerName, editingTrigger.Tabbed);
-                    editingTrigger.Category = category;
-                    editingTrigger.RestrictToCategoryZone = restrict;
-                }
-
-                if (radioButtonWav.Checked)
-                {
-                    if (!File.Exists(textBoxSound.Text))
-                    {
-                        MessageBox.Show(this, "WAV file does not exist");
-                        return;
-                    }
-                }
-
-                if ((editingTrigger.Timer || editingTrigger.Tabbed)
-                    && string.IsNullOrEmpty(editingTrigger.TimerName))
-                {
-                    if (MessageBox.Show(this, "Timer or Tab enabled without a Timer/Tab Name. Return to fix?", "Inconsistent Settings",
-                        MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1) == DialogResult.Yes)
-                        return;
-                }
-            }
-            EditEventArgs args = new EditEventArgs(editingTrigger, undoTrigger, result);
-            OnEditDoneEvent(args);
-            this.Close();
-        }
-
-        #endregion Owner Callback
-
-        #region Button Clicks
-
-        private void buttonCancel_Click(object sender, EventArgs e)
-        {
-            EditEventArgs args = new EditEventArgs(editingTrigger, undoTrigger, EventResult.CANCEL_EDIT);
-            OnEditDoneEvent(args);
-            this.Close();
-        }
-
-        private void buttonZone_Click(object sender, EventArgs e)
-        {
-            if (!string.IsNullOrEmpty(zoneCategory.Trim()))
-            {
-                textBoxCategory.Text = zoneCategory;
-                //set the restricted checkbox if the string kinda looks like an EQII zone name
-                checkBoxRestrict.Checked = zoneCategory.Contains("[");
-            }
-        }
-
-        private void buttonPlay_Click(object sender, EventArgs e)
-        {
-            if (radioButtonTts.Checked)
-                ActGlobals.oFormActMain.TTS(textBoxSound.Text);
-            else if (radioButtonWav.Checked)
-            {
-                if (File.Exists(textBoxSound.Text))
-                    ActGlobals.oFormActMain.PlaySoundWinApi(textBoxSound.Text, 100);
-            }
-            else if (radioButtonBeep.Checked)
-                System.Media.SystemSounds.Beep.Play();
-        }
-
-        private void buttonFileOpen_Click(object sender, EventArgs e)
-        {
-            string dir = Environment.GetEnvironmentVariable("SYSTEMROOT");
-            openFileDialog1.InitialDirectory = dir + @"\Media";
-            if (openFileDialog1.ShowDialog() == DialogResult.OK)
-            {
-                textBoxSound.Text = openFileDialog1.FileName;
-            }
-        }
-
-        private void buttonUpdateCreate_Click(object sender, EventArgs e)
-        {
-            DoEventAndClose(EventResult.CREATE_NEW);
-        }
-
-        private void buttonReplace_Click(object sender, EventArgs e)
-        {
-            DoEventAndClose(EventResult.REPLACE_TRIGGER);
-        }
-
-        private void buttonInsert_Click(object sender, EventArgs e)
-        {
-            string group = comboBoxGroups.Text;
-            if (!string.IsNullOrEmpty(group))
-            {
-                //insert $1 if un-named, ${name} if named
-                int i = 0;
-                bool result = int.TryParse(group, out i);
-                if (!result)
-                    group = "{" + group + "}";
-                string insert = "$" + group;
-
-                textBoxSound.Text = textBoxSound.Text.Insert(textBoxSound.SelectionStart, insert);
-            }
-        }
-
-        private void buttonPaste_Click(object sender, EventArgs e)
-        {
-            string text = Clipboard.GetText();
-            PasteRegEx(text);
-        }
-
-        private void PasteRegEx(string text)
-        {
-            if (!string.IsNullOrEmpty(text))
-            {
-                Match match = parsePaste.Match(text);
-                if (match.Success)
-                {
-                    // a \\ in the log is not an escaped \, it is two backslashes. fix it
-                    text = match.Groups["expr"].Value.Replace("\\", "\\\\");
-                }
-                textBoxRegex.Text = text;
-                textBoxRegex.Focus();
-                textBoxRegex.SelectAll();
-            }
-        }
-
-        private void buttonFindTimer_Click(object sender, EventArgs e)
-        {
-            string name = textBoxTimer.Text.ToLower();
-            if (!string.IsNullOrEmpty(name))
-            {
-                if (!string.IsNullOrEmpty(name))
-                {
-                    ActGlobals.oFormSpellTimers.SearchSpellTreeView(name);
-                    ActGlobals.oFormSpellTimers.Visible = true;
-                }
-            }
-            else
-                MessageBox.Show(this, "Enter a spell timer name to search");
-        }
-
-        #endregion Button Clicks
-
-        #region Changes
-
-        private void radioButtonNone_CheckedChanged(object sender, EventArgs e)
-        {
-            if (!initializing)
-            {
-                editingTrigger.SoundType = (int)CustomTriggerSoundTypeEnum.None;
-                buttonPlay.Enabled = false;
-                buttonFileOpen.Enabled = false;
-                textBoxSound.Enabled = false;
-                buttonUpdateCreate.Enabled = true;
-                buttonInsert.Enabled = false;
-                comboBoxGroups.Enabled = false;
-            }
-        }
-
-        private void radioButtonBeep_CheckedChanged(object sender, EventArgs e)
-        {
-            if (!initializing)
-            {
-                editingTrigger.SoundType = (int)CustomTriggerSoundTypeEnum.Beep;
-                buttonPlay.Enabled = true;
-                buttonFileOpen.Enabled = false;
-                textBoxSound.Enabled = false;
-                buttonUpdateCreate.Enabled = true;
-                buttonInsert.Enabled = false;
-                comboBoxGroups.Enabled = false;
-            }
-        }
-
-        private void radioButtonWav_CheckedChanged(object sender, EventArgs e)
-        {
-            if (!initializing)
-            {
-                editingTrigger.SoundType = (int)CustomTriggerSoundTypeEnum.WAV;
-                buttonPlay.Enabled = true;
-                buttonFileOpen.Enabled = true;
-                textBoxSound.Enabled = true;
-                buttonUpdateCreate.Enabled = true;
-                buttonInsert.Enabled = false;
-                comboBoxGroups.Enabled = false;
-            }
-        }
-
-        private void radioButtonTts_CheckedChanged(object sender, EventArgs e)
-        {
-            if (!initializing)
-            {
-                editingTrigger.SoundType = (int)CustomTriggerSoundTypeEnum.TTS;
-                buttonPlay.Enabled = true;
-                buttonFileOpen.Enabled = false;
-                textBoxSound.Enabled = true;
-                buttonUpdateCreate.Enabled = true;
-                PopulateGroupList();
-            }
-        }
-
-        private void textBoxSound_TextChanged(object sender, EventArgs e)
-        {
-            if (!initializing)
-            {
-                if (editingTrigger != null) //avoid crash when stand-alone testing
-                    editingTrigger.SoundData = textBoxSound.Text;
-                buttonUpdateCreate.Enabled = true;
-            }
-        }
-
-        private void textBoxCategory_TextChanged(object sender, EventArgs e)
-        {
-            if (!initializing)
-            {
-                editingTrigger.Category = textBoxCategory.Text;
-                buttonReplace.Enabled = true;
-                buttonUpdateCreate.Text = "Create New";
-                buttonUpdateCreate.Enabled = true;
-                buttonReplace.Enabled = haveOriginal;
-            }
-        }
-
-        private void textBoxTimer_TextChanged(object sender, EventArgs e)
-        {
-            if (!initializing)
-            {
-                editingTrigger.TimerName = textBoxTimer.Text;
-                buttonUpdateCreate.Enabled = true;
-            }
-        }
-
-        private void checkBoxRestrict_CheckedChanged(object sender, EventArgs e)
-        {
-            if (!initializing)
-            {
-                editingTrigger.RestrictToCategoryZone = checkBoxRestrict.Checked;
-                buttonUpdateCreate.Enabled = true;
-            }
-            if (!editingTrigger.RestrictToCategoryZone || zoneCategory.Equals(editingTrigger.Category))
-                textBoxRegex.ForeColor = activeColor;
-            else
-                textBoxRegex.ForeColor = inactiveColor;
-        }
-
-        private void checkBoxTimer_CheckedChanged(object sender, EventArgs e)
-        {
-            if (!initializing)
-            {
-                editingTrigger.Timer = checkBoxTimer.Checked;
-                buttonUpdateCreate.Enabled = true;
-            }
-        }
-
-        private void checkBoxResultsTab_CheckedChanged(object sender, EventArgs e)
-        {
-            if (!initializing)
-            {
-                editingTrigger.Tabbed = checkBoxResultsTab.Checked;
-                buttonUpdateCreate.Enabled = true;
-            }
-        }
-
-        private void textBoxRegex_TextChanged(object sender, EventArgs e)
-        {
-            if (!initializing)
-            {
-                regexChanged = true;
-                buttonReplace.Enabled = haveOriginal;
-                buttonUpdateCreate.Enabled = true;
-                buttonUpdateCreate.Text = "Create New";
-                PopulateGroupList();
-
-                bool ok = false;
-                try
-                {
-                    //test for valid regex
-                    Regex testregex = new Regex(textBoxRegex.Text);
-                    ok = true;
-                }
-                catch
-                {
-                    textBoxRegex.ForeColor = Color.Red;
-                }
-                if (ok)
-                {
-                    if (!editingTrigger.RestrictToCategoryZone || zoneCategory.Equals(editingTrigger.Category))
-                        textBoxRegex.ForeColor = activeColor;
-                    else
-                        textBoxRegex.ForeColor = inactiveColor;
-                }
-            }
-        }
-
-        private void PopulateGroupList()
-        {
-            comboBoxGroups.Items.Clear();
-            comboBoxGroups.Enabled = false;
-            buttonInsert.Enabled = false;
-
-            try
-            {
-                Regex re = new Regex(textBoxRegex.Text);
-                string[] groups = re.GetGroupNames();
-                if (groups.Length > 1)
-                {
-                    comboBoxGroups.Enabled = true;
-                    buttonInsert.Enabled = true;
-                    for (int i = 1; i < groups.Length; i++) //skip group[0], it is the entire expression
-                    {
-                        comboBoxGroups.Items.Add(groups[i]);
-                    }
-                }
-            }
-            catch { } //not a valid regex, just don't crash
-        }
-
-        #endregion Changes
-
-        #region Regular Expression Context Menu
-
-        private void contextMenuStrip1_Opening(object sender, CancelEventArgs e)
-        {
-            if (textBoxRegex.CanUndo)
-                contextMenuRegex.Items["Undo"].Enabled = true;
-            else
-                contextMenuRegex.Items["Undo"].Enabled = false;
-
-            //can't make capture, cut, copy, paste, or delete if nothing is selected
-            if (textBoxRegex.SelectedText.Length == 0)
-            {
-                contextMenuRegex.Items["Cut"].Enabled = false;
-                contextMenuRegex.Items["Copy"].Enabled = false;
-                contextMenuRegex.Items["Delete"].Enabled = false;
-                contextMenuRegex.Items["MakeNumbered"].Enabled = false;
-                contextMenuRegex.Items["MakePlayer"].Enabled = false;
-                contextMenuRegex.Items["MakeAttacker"].Enabled = false;
-            }
-            else
-            {
-                contextMenuRegex.Items["Cut"].Enabled = true;
-                contextMenuRegex.Items["Copy"].Enabled = true;
-                contextMenuRegex.Items["Delete"].Enabled = true;
-                contextMenuRegex.Items["MakeNumbered"].Enabled = true;
-                contextMenuRegex.Items["MakePlayer"].Enabled = true;
-                contextMenuRegex.Items["MakeAttacker"].Enabled = true;
-            }
-
-            //can't paste if there is nothing in the clipboard
-            if (Clipboard.ContainsText())
-                contextMenuRegex.Items["Paste"].Enabled = true;
-            else
-                contextMenuRegex.Items["Paste"].Enabled = false;
-
-            //can't select all if there is no text
-            if (textBoxRegex.Text.Length == 0)
-                contextMenuRegex.Items["SelectAll"].Enabled = false;
-            else
-                contextMenuRegex.Items["SelectAll"].Enabled = true;
-
-        }
-
-        private void Undo_Click(object sender, EventArgs e)
-        {
-            textBoxRegex.Undo();
-        }
-
-        private void Cut_Click(object sender, EventArgs e)
-        {
-            textBoxRegex.Cut();
-        }
-
-        private void Copy_Click(object sender, EventArgs e)
-        {
-            textBoxRegex.Copy();
-        }
-
-        private void Paste_Click(object sender, EventArgs e)
-        {
-            textBoxRegex.Paste();
-        }
-
-        private void Delete_Click(object sender, EventArgs e)
-        {
-            //use Paste() so it can be undone
-            textBoxRegex.Paste("");
-        }
-
-        private void SelectAll_Click(object sender, EventArgs e)
-        {
-            textBoxRegex.SelectAll();
-        }
-
-        private void MakewNumbered_Click(object sender, EventArgs e)
-        {
-            //use .Paste() to enable Undo
-            textBoxRegex.Paste(@"(\w+)");
-        }
-
-        private void MakePlayer_Click(object sender, EventArgs e)
-        {
-            //use .Paste() to enable Undo
-            textBoxRegex.Paste(@"(?<player>\w+)");
-        }
-
-        private void MakeAttacker_Click(object sender, EventArgs e)
-        {
-            //use .Paste() to enable Undo
-            textBoxRegex.Paste(@"(?<attacker>\w+)");
-        }
-
-        private void textBoxRegex_MouseDoubleClick(object sender, MouseEventArgs e)
-        {
-            //This double-click-select replacement is easy, but the tradeoff is it's visually distracting.
-            //By the time we get here the textbox has already made its "word" selection.
-            //But it delimits strictly by spaces, and includes the trailing space.
-            //We want to delimit by letters a-z, which is way more likely to be what we want to replace.
-            //The user will see the seleciton change if we end up adjusting it.
-
-            string text = textBoxRegex.Text;
-            int starts = textBoxRegex.SelectionStart;
-
-            //take any non-letters off the beginning
-            for (; starts < text.Length; starts++)
-            {
-                if (Char.IsLetter(text[starts]))
-                    break;
-            }
-
-            //take any non-letters off of the end
-            int ends = starts;
-            for (; ends < text.Length; ends++)
-            {
-                if (!Char.IsLetter(text[ends]))
-                    break;
-            }
-
-            if (ends > starts)
-            {
-                textBoxRegex.SelectionStart = starts;
-                textBoxRegex.SelectionLength = ends - starts;
-            }
-        }
-
-        #endregion Regex Context Menu
-
-        #region Encounters
-
-        private void textBoxFindLine_TextChanged(object sender, EventArgs e)
-        {
-            ApplyFilter();
-        }
-
-        private void ApplyFilter()
-        {
-            try
-            {
-                DataTable dt = dataGridViewLines.DataSource as DataTable;
-                if (dt != null)
-                {
-                    if (dt.Rows.Count > 0)
-                    {
-                        string filter = textBoxFindLine.Text;
-                        if (!string.IsNullOrEmpty(filter))
-                        {
-                            //use a simple filter, fix special chars and add LIKE syntax
-                            filter = "LogLine LIKE '%" + EscapeLikeValue(filter) + "%'";
-                        }
-                        UseWaitCursor = true;
-                        DataView view = dt.DefaultView;
-                        string apply = string.IsNullOrEmpty(filter) ? string.Empty : filter;
-                        if (view != null)
-                        {
-                            //this can take a second on a large encounter
-                            //can't put it on another thread since it affects the UI
-                            view.RowFilter = apply;
-                        }
-                        UseWaitCursor = false;
-                    }
-                }
-            }
-            catch (Exception exc)
-            {
-                UseWaitCursor = false;
-                MessageBox.Show(this, exc.Message);
-            }
-        }
-
-        private static string EscapeLikeValue(string valueWithoutWildcards)
-        {
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < valueWithoutWildcards.Length; i++)
-            {
-                char c = valueWithoutWildcards[i];
-                if (c == '*' || c == '%' || c == '[' || c == ']')
-                    sb.Append("[").Append(c).Append("]");
-                else if (c == '\'')
-                    sb.Append("''");
-                else
-                    sb.Append(c);
-            }
-            return sb.ToString();
-        }
-
-        private static DataTable ToLineTable(List<LogLineEntry> list)
-        {
-            //make a DataTable of the log lines to make filtering easy
-            DataTable dt = new DataTable();
-            dt.Columns.Add("LogLine");
-            int lineCount = list.Count;
-            try
-            {
-                for (int i = 0; i < lineCount; i++)
-                {
-                    dt.Rows.Add(list[i].LogLine);
-                }
-            }
-            catch
-            {
-                //just in case there are any issues with accessing ACT's list,
-                //just ignore it
-            }
-            return dt;
-        }
-
-        private async void checkBoxLogLines_CheckedChanged(object sender, EventArgs e)
-        {
-            //Use the minimum Sizes of the form and the panel (set in the designer)
-            // to show/hide the encounters list.
-            //If shown, populate it
-            panelTest.Visible = checkBoxLogLines.Checked;
-            if (panelTest.Visible)
-            {
-                this.Height = this.MinimumSize.Height + panelTest.MinimumSize.Height;
-                labelGridHelp.Visible = true;
-
-                treeViewEncounters.Nodes.Clear();
-                textBoxFindLine.Clear();
-                int zoneCount = ActGlobals.oFormActMain.ZoneList.Count;
-                TreeNode[] zones = new TreeNode[zoneCount];
-                //collect the nodes off of the UI thread
-                await Task.Run(() =>
-                {
-                    try
-                    {
-                        UseWaitCursor = true;
-                        for (int i = 0; i < zoneCount; i++)
-                        {
-                            ZoneData zonedata = ActGlobals.oFormActMain.ZoneList[i];
-                            TreeNode zone = new TreeNode(zonedata.ZoneName);
-                            zone.Tag = i;
-                            zones[i] = zone;
-                            int mobCount = zonedata.Items.Count;
-                            if (mobCount > 0)
-                            {
-                                TreeNode[] mobs = new TreeNode[mobCount];
-                                {
-                                    {
-                                        for (int j = 0; j < mobCount; j++)
-                                        {
-                                            EncounterData encounterData = zonedata.Items[j];
-                                            TreeNode mob = new TreeNode(encounterData.ToString());
-                                            mob.Tag = j;
-                                            mobs[j] = mob;
-                                        }
-                                    }
-                                }
-                                zone.Nodes.AddRange(mobs);
-                            }
-                        }
-                    }
-                    catch { }
-                    UseWaitCursor = false;
-                });
-                //populate the tree
-                treeViewEncounters.Nodes.AddRange(zones);
-                treeViewEncounters.ExpandAll();
-                //scroll to the last entry
-                int lastParent = treeViewEncounters.Nodes.Count - 1;
-                treeViewEncounters.Nodes[lastParent].EnsureVisible();
-                if (treeViewEncounters.Nodes[lastParent].IsExpanded)
-                {
-                    int lastChild = treeViewEncounters.Nodes[lastParent].Nodes.Count;
-                    if (lastChild > 0)
-                    {
-                        treeViewEncounters.Nodes[lastParent].Nodes[lastChild - 1].EnsureVisible();
-                        //scroll bar all the way left
-                        SetScrollPos((IntPtr)treeViewEncounters.Handle, SB_HORZ, 0, true);
-                    }
-                }
-            }
-            else
-            {
-                //hide the panel
-                this.Height = this.MinimumSize.Height;
-                labelGridHelp.Visible = false;
-                dataGridViewLines.DataSource = new DataTable(); //clear it, allow garbage collection
-            }
-        }
-
-        private void pasteInRegularExpressionToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            //copy the zone to the Category / Zone
-            if (treeViewEncounters.SelectedNode.Parent != null)
-            {
-                int zoneIndex = Int32.Parse(treeViewEncounters.SelectedNode.Parent.Tag.ToString());
-                ZoneData zoneData = ActGlobals.oFormActMain.ZoneList[zoneIndex];
-                string zone = zoneData.ZoneName;
-                if (!zone.Equals(textBoxCategory.Text))
-                {
-                    textBoxCategory.Text = zone;
-                    checkBoxRestrict.Checked = zoneCategory.Contains("[");
-                }
-            }
-
-            //copy the log line to the regex with reformatting
-            string line = dataGridViewLines.Rows[logMenuRow].Cells["LogLine"].Value.ToString();
-            if (!string.IsNullOrEmpty(line))
-                PasteRegEx(line);
-        }
-
-        private void testWithRegularExpressionToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                //use the regex on the log line selected by the right click
-                string line = dataGridViewLines.Rows[logMenuRow].Cells["LogLine"].Value.ToString();
-                Regex re = new Regex(textBoxRegex.Text);
-                Match match = re.Match(line);
-                if (match.Success)
-                {
-                    if (radioButtonTts.Checked)
-                    {
-                        string alert = textBoxSound.Text;
-                        string[] groups = re.GetGroupNames();
-                        //group 0 is always the whole line
-                        if (groups.Length > 1)
-                        {
-                            for (int i = 1; i < groups.Length; i++)
-                            {
-                                int cap = 0;
-                                bool result = int.TryParse(groups[i], out cap);
-                                if (result)
-                                    alert = alert.Replace("$" + groups[i], match.Groups[i].Value);
-                                else
-                                    alert = alert.Replace("${" + groups[i] + "}", match.Groups[i].Value);
-                            }
-                        }
-                        ActGlobals.oFormActMain.TTS(alert);
-                    }
-                    else if (radioButtonWav.Checked)
-                    {
-                        if (File.Exists(textBoxSound.Text))
-                            ActGlobals.oFormActMain.PlaySoundWinApi(textBoxSound.Text, 100);
-                    }
-                    else if (radioButtonBeep.Checked)
-                        System.Media.SystemSounds.Beep.Play();
-                }
-                else
-                {
-                    MessageBox.Show(this, "Regular Expression does not match the log line");
-                }
-            }
-            catch (Exception rex)
-            {
-                MessageBox.Show(this, "Invalid regular expression:\n" + rex.Message);
-            }
-        }
-
-        private void dataGridViewLines_CellContextMenuStripNeeded(object sender, DataGridViewCellContextMenuStripNeededEventArgs e)
-        {
-            if (e.RowIndex >= 0)
-            {
-                e.ContextMenuStrip = contextMenuLog;
-                //save where the mouse clicked
-                logMenuRow = e.RowIndex;
-            }
-        }
-
-        private void buttonX_Click(object sender, EventArgs e)
-        {
-            textBoxFindLine.Clear();
-            textBoxFindLine.Focus();
-        }
-
-        private async void treeViewEncounters_AfterSelect(object sender, TreeViewEventArgs e)
-        {
-            if (e.Node.IsSelected)
-            {
-                //disconnect / clear the gridview while we update the table
-                dataGridViewLines.DataSource = new DataTable();
-
-                if (e.Node.Parent != null)
-                {
-                    int encounterIndex = Int32.Parse(e.Node.Tag.ToString());
-                    int zoneIndex = Int32.Parse(e.Node.Parent.Tag.ToString());
-                    ZoneData zoneData = ActGlobals.oFormActMain.ZoneList[zoneIndex];
-                    textBoxFindLine.Clear();
-                    DataTable dt = null;
-                    try
-                    {
-                        //don't tie up the UI thread building the table (even though it's fairly quick)
-                        await Task.Run(() =>
-                        {
-                            UseWaitCursor = true;
-                            dt = ToLineTable(zoneData.Items[encounterIndex].LogLines);
-                            UseWaitCursor = false;
-                        });
-                        if (dt != null)
-                        {
-                            dataGridViewLines.DataSource = dt;
-
-                            //mode fill = can't get a horizontal scroll bar
-                            //any auto size mode takes too much calculation time on large encounters
-                            //so just set a pretty large width that should handle most everything we'd want to use to make a trigger
-                            dataGridViewLines.Columns["LogLine"].Width = 1200;
-                        }
-                    }
-                    catch (Exception dtx)
-                    {
-                        MessageBox.Show(this, "Problem collecting the log lines:\n" + dtx.Message);
-                    }
-                }
-            }
-        }
-
-        #endregion Encounters
-
-    }
-
-    //designer
-    partial class FormEditTrigger
-    {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
-        private System.ComponentModel.IContainer components = null;
-
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing && (components != null))
-            {
-                components.Dispose();
-            }
-            base.Dispose(disposing);
-        }
-
-        #region Windows Form Designer generated code
-
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
-        private void InitializeComponent()
-        {
-            this.components = new System.ComponentModel.Container();
-            this.textBoxRegex = new System.Windows.Forms.TextBox();
-            this.contextMenuRegex = new System.Windows.Forms.ContextMenuStrip(this.components);
-            this.Undo = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
-            this.Cut = new System.Windows.Forms.ToolStripMenuItem();
-            this.Copy = new System.Windows.Forms.ToolStripMenuItem();
-            this.Paste = new System.Windows.Forms.ToolStripMenuItem();
-            this.Delete = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
-            this.SelectAll = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
-            this.MakeNumbered = new System.Windows.Forms.ToolStripMenuItem();
-            this.MakePlayer = new System.Windows.Forms.ToolStripMenuItem();
-            this.MakeAttacker = new System.Windows.Forms.ToolStripMenuItem();
-            this.buttonUpdateCreate = new System.Windows.Forms.Button();
-            this.buttonReplace = new System.Windows.Forms.Button();
-            this.buttonCancel = new System.Windows.Forms.Button();
-            this.radioButtonNone = new System.Windows.Forms.RadioButton();
-            this.radioButtonBeep = new System.Windows.Forms.RadioButton();
-            this.radioButtonWav = new System.Windows.Forms.RadioButton();
-            this.radioButtonTts = new System.Windows.Forms.RadioButton();
-            this.textBoxSound = new System.Windows.Forms.TextBox();
-            this.buttonFileOpen = new System.Windows.Forms.Button();
-            this.buttonPlay = new System.Windows.Forms.Button();
-            this.textBoxCategory = new System.Windows.Forms.TextBox();
-            this.label3 = new System.Windows.Forms.Label();
-            this.textBoxTimer = new System.Windows.Forms.TextBox();
-            this.checkBoxRestrict = new System.Windows.Forms.CheckBox();
-            this.checkBoxTimer = new System.Windows.Forms.CheckBox();
-            this.checkBoxResultsTab = new System.Windows.Forms.CheckBox();
-            this.buttonZone = new System.Windows.Forms.Button();
-            this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
-            this.label2 = new System.Windows.Forms.Label();
-            this.linkLabel1 = new System.Windows.Forms.LinkLabel();
-            this.helpProvider1 = new System.Windows.Forms.HelpProvider();
-            this.comboBoxGroups = new System.Windows.Forms.ComboBox();
-            this.buttonInsert = new System.Windows.Forms.Button();
-            this.buttonPaste = new System.Windows.Forms.Button();
-            this.buttonFindTimer = new System.Windows.Forms.Button();
-            this.dataGridViewLines = new System.Windows.Forms.DataGridView();
-            this.textBoxFindLine = new System.Windows.Forms.TextBox();
-            this.checkBoxLogLines = new System.Windows.Forms.CheckBox();
-            this.groupBox1 = new System.Windows.Forms.GroupBox();
-            this.label4 = new System.Windows.Forms.Label();
-            this.label1 = new System.Windows.Forms.Label();
-            this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
-            this.buttonX = new System.Windows.Forms.Button();
-            this.panelTest = new System.Windows.Forms.Panel();
-            this.splitContainerLog = new System.Windows.Forms.SplitContainer();
-            this.treeViewEncounters = new System.Windows.Forms.TreeView();
-            this.panelLogLines = new System.Windows.Forms.Panel();
-            this.panelLogFind = new System.Windows.Forms.Panel();
-            this.label5 = new System.Windows.Forms.Label();
-            this.panelRegex = new System.Windows.Forms.Panel();
-            this.labelGridHelp = new System.Windows.Forms.Label();
-            this.panel2 = new System.Windows.Forms.Panel();
-            this.contextMenuLog = new System.Windows.Forms.ContextMenuStrip(this.components);
-            this.pasteInRegularExpressionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.testWithRegularExpressionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.contextMenuRegex.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewLines)).BeginInit();
-            this.groupBox1.SuspendLayout();
-            this.panelTest.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.splitContainerLog)).BeginInit();
-            this.splitContainerLog.Panel1.SuspendLayout();
-            this.splitContainerLog.Panel2.SuspendLayout();
-            this.splitContainerLog.SuspendLayout();
-            this.panelLogLines.SuspendLayout();
-            this.panelLogFind.SuspendLayout();
-            this.panelRegex.SuspendLayout();
-            this.panel2.SuspendLayout();
-            this.contextMenuLog.SuspendLayout();
-            this.SuspendLayout();
-            // 
-            // textBoxRegex
-            // 
-            this.textBoxRegex.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxRegex.ContextMenuStrip = this.contextMenuRegex;
-            this.helpProvider1.SetHelpString(this.textBoxRegex, "The expression to match in the EQII log file");
-            this.textBoxRegex.Location = new System.Drawing.Point(127, 44);
-            this.textBoxRegex.Name = "textBoxRegex";
-            this.helpProvider1.SetShowHelp(this.textBoxRegex, true);
-            this.textBoxRegex.Size = new System.Drawing.Size(461, 20);
-            this.textBoxRegex.TabIndex = 0;
-            this.textBoxRegex.TextChanged += new System.EventHandler(this.textBoxRegex_TextChanged);
-            this.textBoxRegex.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.textBoxRegex_MouseDoubleClick);
-            // 
-            // contextMenuRegex
-            // 
-            this.contextMenuRegex.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.Undo,
-            this.toolStripSeparator1,
-            this.Cut,
-            this.Copy,
-            this.Paste,
-            this.Delete,
-            this.toolStripSeparator2,
-            this.SelectAll,
-            this.toolStripSeparator3,
-            this.MakeNumbered,
-            this.MakePlayer,
-            this.MakeAttacker});
-            this.contextMenuRegex.Name = "contextMenuStrip1";
-            this.contextMenuRegex.Size = new System.Drawing.Size(278, 220);
-            this.contextMenuRegex.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStrip1_Opening);
-            // 
-            // Undo
-            // 
-            this.Undo.Name = "Undo";
-            this.Undo.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Z)));
-            this.Undo.ShowShortcutKeys = false;
-            this.Undo.Size = new System.Drawing.Size(277, 22);
-            this.Undo.Text = "Undo";
-            this.Undo.Click += new System.EventHandler(this.Undo_Click);
-            // 
-            // toolStripSeparator1
-            // 
-            this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(274, 6);
-            // 
-            // Cut
-            // 
-            this.Cut.Name = "Cut";
-            this.Cut.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.X)));
-            this.Cut.ShowShortcutKeys = false;
-            this.Cut.Size = new System.Drawing.Size(277, 22);
-            this.Cut.Text = "Cut";
-            this.Cut.Click += new System.EventHandler(this.Cut_Click);
-            // 
-            // Copy
-            // 
-            this.Copy.Name = "Copy";
-            this.Copy.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.C)));
-            this.Copy.ShowShortcutKeys = false;
-            this.Copy.Size = new System.Drawing.Size(277, 22);
-            this.Copy.Text = "Copy";
-            this.Copy.Click += new System.EventHandler(this.Copy_Click);
-            // 
-            // Paste
-            // 
-            this.Paste.Name = "Paste";
-            this.Paste.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.V)));
-            this.Paste.ShowShortcutKeys = false;
-            this.Paste.Size = new System.Drawing.Size(277, 22);
-            this.Paste.Text = "Paste";
-            this.Paste.Click += new System.EventHandler(this.Paste_Click);
-            // 
-            // Delete
-            // 
-            this.Delete.Name = "Delete";
-            this.Delete.Size = new System.Drawing.Size(277, 22);
-            this.Delete.Text = "Delete";
-            this.Delete.Click += new System.EventHandler(this.Delete_Click);
-            // 
-            // toolStripSeparator2
-            // 
-            this.toolStripSeparator2.Name = "toolStripSeparator2";
-            this.toolStripSeparator2.Size = new System.Drawing.Size(274, 6);
-            // 
-            // SelectAll
-            // 
-            this.SelectAll.Name = "SelectAll";
-            this.SelectAll.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.A)));
-            this.SelectAll.ShowShortcutKeys = false;
-            this.SelectAll.Size = new System.Drawing.Size(277, 22);
-            this.SelectAll.Text = "Select All";
-            this.SelectAll.Click += new System.EventHandler(this.SelectAll_Click);
-            // 
-            // toolStripSeparator3
-            // 
-            this.toolStripSeparator3.Name = "toolStripSeparator3";
-            this.toolStripSeparator3.Size = new System.Drawing.Size(274, 6);
-            // 
-            // MakeNumbered
-            // 
-            this.MakeNumbered.Name = "MakeNumbered";
-            this.MakeNumbered.Size = new System.Drawing.Size(277, 22);
-            this.MakeNumbered.Text = "Make (\\w+) numbered capture group";
-            this.MakeNumbered.ToolTipText = "Numbered capture groups can be shared in a macro";
-            this.MakeNumbered.Click += new System.EventHandler(this.MakewNumbered_Click);
-            // 
-            // MakePlayer
-            // 
-            this.MakePlayer.Name = "MakePlayer";
-            this.MakePlayer.Size = new System.Drawing.Size(277, 22);
-            this.MakePlayer.Text = "Make (?<player>\\w+) capture group";
-            this.MakePlayer.ToolTipText = "Optionally replace \'player\' with any valid capture name afer pasting";
-            this.MakePlayer.Click += new System.EventHandler(this.MakePlayer_Click);
-            // 
-            // MakeAttacker
-            // 
-            this.MakeAttacker.Name = "MakeAttacker";
-            this.MakeAttacker.Size = new System.Drawing.Size(277, 22);
-            this.MakeAttacker.Text = "Make (?<attacker>\\w+) capture group";
-            this.MakeAttacker.ToolTipText = "${attacker} is automatically recognized in Spell Timers";
-            this.MakeAttacker.Click += new System.EventHandler(this.MakeAttacker_Click);
-            // 
-            // buttonUpdateCreate
-            // 
-            this.buttonUpdateCreate.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.helpProvider1.SetHelpString(this.buttonUpdateCreate, "Update current trigger. Or if the Regular Expression or Category / Zone has chang" +
-        "ed, create New trigger.");
-            this.buttonUpdateCreate.Location = new System.Drawing.Point(191, 11);
-            this.buttonUpdateCreate.Name = "buttonUpdateCreate";
-            this.helpProvider1.SetShowHelp(this.buttonUpdateCreate, true);
-            this.buttonUpdateCreate.Size = new System.Drawing.Size(75, 23);
-            this.buttonUpdateCreate.TabIndex = 19;
-            this.buttonUpdateCreate.Text = "Update";
-            this.toolTip1.SetToolTip(this.buttonUpdateCreate, "Update or Create trigger");
-            this.buttonUpdateCreate.UseVisualStyleBackColor = true;
-            this.buttonUpdateCreate.Click += new System.EventHandler(this.buttonUpdateCreate_Click);
-            // 
-            // buttonReplace
-            // 
-            this.buttonReplace.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.buttonReplace.Enabled = false;
-            this.helpProvider1.SetHelpString(this.buttonReplace, "If the Regular Expression or Category / Zone has changed, replace the original tr" +
-        "igger with this trigger.");
-            this.buttonReplace.Location = new System.Drawing.Point(280, 11);
-            this.buttonReplace.Name = "buttonReplace";
-            this.helpProvider1.SetShowHelp(this.buttonReplace, true);
-            this.buttonReplace.Size = new System.Drawing.Size(75, 23);
-            this.buttonReplace.TabIndex = 20;
-            this.buttonReplace.Text = "Replace";
-            this.toolTip1.SetToolTip(this.buttonReplace, "Replace original trigger");
-            this.buttonReplace.UseVisualStyleBackColor = true;
-            this.buttonReplace.Click += new System.EventHandler(this.buttonReplace_Click);
-            // 
-            // buttonCancel
-            // 
-            this.buttonCancel.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.buttonCancel.Location = new System.Drawing.Point(369, 11);
-            this.buttonCancel.Name = "buttonCancel";
-            this.buttonCancel.Size = new System.Drawing.Size(75, 23);
-            this.buttonCancel.TabIndex = 21;
-            this.buttonCancel.Text = "Cancel";
-            this.buttonCancel.UseVisualStyleBackColor = true;
-            this.buttonCancel.Click += new System.EventHandler(this.buttonCancel_Click);
-            // 
-            // radioButtonNone
-            // 
-            this.radioButtonNone.AutoSize = true;
-            this.helpProvider1.SetHelpString(this.radioButtonNone, "Select for no alert sound");
-            this.radioButtonNone.Location = new System.Drawing.Point(6, 19);
-            this.radioButtonNone.Name = "radioButtonNone";
-            this.helpProvider1.SetShowHelp(this.radioButtonNone, true);
-            this.radioButtonNone.Size = new System.Drawing.Size(51, 17);
-            this.radioButtonNone.TabIndex = 6;
-            this.radioButtonNone.TabStop = true;
-            this.radioButtonNone.Text = "None";
-            this.radioButtonNone.UseVisualStyleBackColor = true;
-            this.radioButtonNone.CheckedChanged += new System.EventHandler(this.radioButtonNone_CheckedChanged);
-            // 
-            // radioButtonBeep
-            // 
-            this.radioButtonBeep.AutoSize = true;
-            this.helpProvider1.SetHelpString(this.radioButtonBeep, "Select for a system beep alert sound");
-            this.radioButtonBeep.Location = new System.Drawing.Point(6, 46);
-            this.radioButtonBeep.Name = "radioButtonBeep";
-            this.helpProvider1.SetShowHelp(this.radioButtonBeep, true);
-            this.radioButtonBeep.Size = new System.Drawing.Size(50, 17);
-            this.radioButtonBeep.TabIndex = 7;
-            this.radioButtonBeep.TabStop = true;
-            this.radioButtonBeep.Text = "Beep";
-            this.radioButtonBeep.UseVisualStyleBackColor = true;
-            this.radioButtonBeep.CheckedChanged += new System.EventHandler(this.radioButtonBeep_CheckedChanged);
-            // 
-            // radioButtonWav
-            // 
-            this.radioButtonWav.AutoSize = true;
-            this.helpProvider1.SetHelpString(this.radioButtonWav, "Select and set the wav file to use as alert sound");
-            this.radioButtonWav.Location = new System.Drawing.Point(61, 19);
-            this.radioButtonWav.Name = "radioButtonWav";
-            this.helpProvider1.SetShowHelp(this.radioButtonWav, true);
-            this.radioButtonWav.Size = new System.Drawing.Size(53, 17);
-            this.radioButtonWav.TabIndex = 8;
-            this.radioButtonWav.TabStop = true;
-            this.radioButtonWav.Text = "WAV:";
-            this.radioButtonWav.UseVisualStyleBackColor = true;
-            this.radioButtonWav.CheckedChanged += new System.EventHandler(this.radioButtonWav_CheckedChanged);
-            // 
-            // radioButtonTts
-            // 
-            this.radioButtonTts.AutoSize = true;
-            this.helpProvider1.SetHelpString(this.radioButtonTts, "Select and enter text for speech alert");
-            this.radioButtonTts.Location = new System.Drawing.Point(60, 46);
-            this.radioButtonTts.Name = "radioButtonTts";
-            this.helpProvider1.SetShowHelp(this.radioButtonTts, true);
-            this.radioButtonTts.Size = new System.Drawing.Size(49, 17);
-            this.radioButtonTts.TabIndex = 9;
-            this.radioButtonTts.TabStop = true;
-            this.radioButtonTts.Text = "TTS:";
-            this.radioButtonTts.UseVisualStyleBackColor = true;
-            this.radioButtonTts.CheckedChanged += new System.EventHandler(this.radioButtonTts_CheckedChanged);
-            // 
-            // textBoxSound
-            // 
-            this.textBoxSound.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.helpProvider1.SetHelpString(this.textBoxSound, "The file name for the wav file or text for speech");
-            this.textBoxSound.Location = new System.Drawing.Point(124, 15);
-            this.textBoxSound.Name = "textBoxSound";
-            this.helpProvider1.SetShowHelp(this.textBoxSound, true);
-            this.textBoxSound.Size = new System.Drawing.Size(343, 20);
-            this.textBoxSound.TabIndex = 10;
-            this.textBoxSound.TextChanged += new System.EventHandler(this.textBoxSound_TextChanged);
-            // 
-            // buttonFileOpen
-            // 
-            this.buttonFileOpen.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.helpProvider1.SetHelpString(this.buttonFileOpen, "Browse for wav files");
-            this.buttonFileOpen.Location = new System.Drawing.Point(473, 15);
-            this.buttonFileOpen.Name = "buttonFileOpen";
-            this.helpProvider1.SetShowHelp(this.buttonFileOpen, true);
-            this.buttonFileOpen.Size = new System.Drawing.Size(25, 23);
-            this.buttonFileOpen.TabIndex = 11;
-            this.buttonFileOpen.Text = "...";
-            this.toolTip1.SetToolTip(this.buttonFileOpen, "Browse for file");
-            this.buttonFileOpen.UseVisualStyleBackColor = true;
-            this.buttonFileOpen.Click += new System.EventHandler(this.buttonFileOpen_Click);
-            // 
-            // buttonPlay
-            // 
-            this.buttonPlay.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonPlay.Enabled = false;
-            this.buttonPlay.Font = new System.Drawing.Font("Webdings", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
-            this.helpProvider1.SetHelpString(this.buttonPlay, "Play the WAV or TTS");
-            this.buttonPlay.Location = new System.Drawing.Point(505, 15);
-            this.buttonPlay.Name = "buttonPlay";
-            this.helpProvider1.SetShowHelp(this.buttonPlay, true);
-            this.buttonPlay.Size = new System.Drawing.Size(25, 23);
-            this.buttonPlay.TabIndex = 12;
-            this.buttonPlay.Text = "4";
-            this.buttonPlay.TextAlign = System.Drawing.ContentAlignment.TopCenter;
-            this.toolTip1.SetToolTip(this.buttonPlay, "Play alert");
-            this.buttonPlay.UseVisualStyleBackColor = true;
-            this.buttonPlay.Click += new System.EventHandler(this.buttonPlay_Click);
-            // 
-            // textBoxCategory
-            // 
-            this.textBoxCategory.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.helpProvider1.SetHelpString(this.textBoxCategory, "The zone or category for the trigger");
-            this.textBoxCategory.Location = new System.Drawing.Point(127, 69);
-            this.textBoxCategory.Name = "textBoxCategory";
-            this.helpProvider1.SetShowHelp(this.textBoxCategory, true);
-            this.textBoxCategory.Size = new System.Drawing.Size(336, 20);
-            this.textBoxCategory.TabIndex = 3;
-            this.textBoxCategory.TextChanged += new System.EventHandler(this.textBoxCategory_TextChanged);
-            // 
-            // label3
-            // 
-            this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(17, 183);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(97, 13);
-            this.label3.TabIndex = 15;
-            this.label3.Text = "Timer / Tab Name:";
-            // 
-            // textBoxTimer
-            // 
-            this.textBoxTimer.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.helpProvider1.SetHelpString(this.textBoxTimer, "If Trigger Timer and/or Add Results tab is checked, the name of the timer and/or " +
-        "tab");
-            this.textBoxTimer.Location = new System.Drawing.Point(126, 179);
-            this.textBoxTimer.Name = "textBoxTimer";
-            this.helpProvider1.SetShowHelp(this.textBoxTimer, true);
-            this.textBoxTimer.Size = new System.Drawing.Size(149, 20);
-            this.textBoxTimer.TabIndex = 16;
-            this.textBoxTimer.TextChanged += new System.EventHandler(this.textBoxTimer_TextChanged);
-            // 
-            // checkBoxRestrict
-            // 
-            this.checkBoxRestrict.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.checkBoxRestrict.AutoSize = true;
-            this.helpProvider1.SetHelpString(this.checkBoxRestrict, "Check to restrict matching the regular expression only when in the specified zone" +
-        "");
-            this.checkBoxRestrict.Location = new System.Drawing.Point(472, 72);
-            this.checkBoxRestrict.Name = "checkBoxRestrict";
-            this.helpProvider1.SetShowHelp(this.checkBoxRestrict, true);
-            this.checkBoxRestrict.Size = new System.Drawing.Size(155, 17);
-            this.checkBoxRestrict.TabIndex = 4;
-            this.checkBoxRestrict.Text = "Restrict to Category / Zone";
-            this.checkBoxRestrict.UseVisualStyleBackColor = true;
-            this.checkBoxRestrict.CheckedChanged += new System.EventHandler(this.checkBoxRestrict_CheckedChanged);
-            // 
-            // checkBoxTimer
-            // 
-            this.checkBoxTimer.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.checkBoxTimer.AutoSize = true;
-            this.helpProvider1.SetHelpString(this.checkBoxTimer, "Check to trigger a spell timer");
-            this.checkBoxTimer.Location = new System.Drawing.Point(388, 181);
-            this.checkBoxTimer.Name = "checkBoxTimer";
-            this.helpProvider1.SetShowHelp(this.checkBoxTimer, true);
-            this.checkBoxTimer.Size = new System.Drawing.Size(88, 17);
-            this.checkBoxTimer.TabIndex = 17;
-            this.checkBoxTimer.Text = "Trigger Timer";
-            this.checkBoxTimer.UseVisualStyleBackColor = true;
-            this.checkBoxTimer.CheckedChanged += new System.EventHandler(this.checkBoxTimer_CheckedChanged);
-            // 
-            // checkBoxResultsTab
-            // 
-            this.checkBoxResultsTab.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.checkBoxResultsTab.AutoSize = true;
-            this.helpProvider1.SetHelpString(this.checkBoxResultsTab, "Check to add a Results Tab");
-            this.checkBoxResultsTab.Location = new System.Drawing.Point(281, 181);
-            this.checkBoxResultsTab.Name = "checkBoxResultsTab";
-            this.helpProvider1.SetShowHelp(this.checkBoxResultsTab, true);
-            this.checkBoxResultsTab.Size = new System.Drawing.Size(101, 17);
-            this.checkBoxResultsTab.TabIndex = 18;
-            this.checkBoxResultsTab.Text = "Add Results tab";
-            this.checkBoxResultsTab.UseVisualStyleBackColor = true;
-            this.checkBoxResultsTab.CheckedChanged += new System.EventHandler(this.checkBoxResultsTab_CheckedChanged);
-            // 
-            // buttonZone
-            // 
-            this.buttonZone.Font = new System.Drawing.Font("Segoe UI Symbol", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.helpProvider1.SetHelpString(this.buttonZone, "Click to copy the current zone to the Categoy / Zone setting and set Restrict to " +
-        "Category / Zone");
-            this.buttonZone.Location = new System.Drawing.Point(3, 67);
-            this.buttonZone.Name = "buttonZone";
-            this.helpProvider1.SetShowHelp(this.buttonZone, true);
-            this.buttonZone.Size = new System.Drawing.Size(114, 23);
-            this.buttonZone.TabIndex = 2;
-            this.buttonZone.Text = "Category / Zone ⏩";
-            this.toolTip1.SetToolTip(this.buttonZone, "Paste zone");
-            this.buttonZone.UseVisualStyleBackColor = true;
-            this.buttonZone.Click += new System.EventHandler(this.buttonZone_Click);
-            // 
-            // openFileDialog1
-            // 
-            this.openFileDialog1.Filter = "wave files|*.wav";
-            this.openFileDialog1.InitialDirectory = "%SYSTEMROOT%\\Media";
-            // 
-            // label2
-            // 
-            this.label2.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.label2.ForeColor = System.Drawing.SystemColors.ControlText;
-            this.label2.Location = new System.Drawing.Point(3, 10);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(629, 15);
-            this.label2.TabIndex = 22;
-            this.label2.Text = "Changing the Regular Expression or the Category / Zone requires replacing the ori" +
-    "ginal trigger or creating a new trigger.";
-            this.label2.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // linkLabel1
-            // 
-            this.linkLabel1.AutoSize = true;
-            this.linkLabel1.Location = new System.Drawing.Point(16, 46);
-            this.linkLabel1.Name = "linkLabel1";
-            this.linkLabel1.Size = new System.Drawing.Size(101, 13);
-            this.linkLabel1.TabIndex = 24;
-            this.linkLabel1.TabStop = true;
-            this.linkLabel1.Text = "Regular Expression:";
-            this.linkLabel1.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel1_LinkClicked);
-            // 
-            // comboBoxGroups
-            // 
-            this.comboBoxGroups.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.comboBoxGroups.FormattingEnabled = true;
-            this.helpProvider1.SetHelpString(this.comboBoxGroups, "Captures from the Regular Expression available for use in the TTS alert.");
-            this.comboBoxGroups.Location = new System.Drawing.Point(124, 44);
-            this.comboBoxGroups.Name = "comboBoxGroups";
-            this.helpProvider1.SetShowHelp(this.comboBoxGroups, true);
-            this.comboBoxGroups.Size = new System.Drawing.Size(148, 21);
-            this.comboBoxGroups.TabIndex = 13;
-            this.toolTip1.SetToolTip(this.comboBoxGroups, "Available capture names");
-            // 
-            // buttonInsert
-            // 
-            this.buttonInsert.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonInsert.Font = new System.Drawing.Font("Segoe UI Symbol", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.helpProvider1.SetHelpString(this.buttonInsert, "Insert selected capture name into TTS expression");
-            this.buttonInsert.Location = new System.Drawing.Point(278, 43);
-            this.buttonInsert.Name = "buttonInsert";
-            this.helpProvider1.SetShowHelp(this.buttonInsert, true);
-            this.buttonInsert.Size = new System.Drawing.Size(25, 23);
-            this.buttonInsert.TabIndex = 14;
-            this.buttonInsert.Text = "⏫";
-            this.toolTip1.SetToolTip(this.buttonInsert, "Insert capture name");
-            this.buttonInsert.UseVisualStyleBackColor = true;
-            this.buttonInsert.Click += new System.EventHandler(this.buttonInsert_Click);
-            // 
-            // buttonPaste
-            // 
-            this.buttonPaste.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonPaste.Font = new System.Drawing.Font("Webdings", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
-            this.helpProvider1.SetHelpString(this.buttonPaste, "Paste from clipboard. If pasting a View Logs line, escapes backslashes, removes t" +
-        "imestamp and removes end-of-line");
-            this.buttonPaste.Location = new System.Drawing.Point(590, 41);
-            this.buttonPaste.Name = "buttonPaste";
-            this.helpProvider1.SetShowHelp(this.buttonPaste, true);
-            this.buttonPaste.Size = new System.Drawing.Size(42, 23);
-            this.buttonPaste.TabIndex = 1;
-            this.buttonPaste.Text = "7¤";
-            this.buttonPaste.TextAlign = System.Drawing.ContentAlignment.TopCenter;
-            this.toolTip1.SetToolTip(this.buttonPaste, "Paste clipboard");
-            this.buttonPaste.UseVisualStyleBackColor = true;
-            this.buttonPaste.Click += new System.EventHandler(this.buttonPaste_Click);
-            // 
-            // buttonFindTimer
-            // 
-            this.buttonFindTimer.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonFindTimer.Font = new System.Drawing.Font("Segoe UI Symbol", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.helpProvider1.SetHelpString(this.buttonFindTimer, "Search for Timer Name in Spell Timers. Use the [Clear] button in the Spell Timers" +
-        " window to reset the search.");
-            this.buttonFindTimer.Location = new System.Drawing.Point(482, 177);
-            this.buttonFindTimer.Name = "buttonFindTimer";
-            this.helpProvider1.SetShowHelp(this.buttonFindTimer, true);
-            this.buttonFindTimer.Size = new System.Drawing.Size(25, 23);
-            this.buttonFindTimer.TabIndex = 25;
-            this.buttonFindTimer.Text = "⌕";
-            this.buttonFindTimer.TextAlign = System.Drawing.ContentAlignment.TopCenter;
-            this.toolTip1.SetToolTip(this.buttonFindTimer, "Search for spell timer. [Clear] to reset.");
-            this.buttonFindTimer.UseVisualStyleBackColor = true;
-            this.buttonFindTimer.Click += new System.EventHandler(this.buttonFindTimer_Click);
-            // 
-            // dataGridViewLines
-            // 
-            this.dataGridViewLines.AllowUserToAddRows = false;
-            this.dataGridViewLines.AllowUserToDeleteRows = false;
-            this.dataGridViewLines.AllowUserToResizeColumns = false;
-            this.dataGridViewLines.CellBorderStyle = System.Windows.Forms.DataGridViewCellBorderStyle.None;
-            this.dataGridViewLines.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dataGridViewLines.ColumnHeadersVisible = false;
-            this.dataGridViewLines.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.helpProvider1.SetHelpString(this.dataGridViewLines, "Right click a log line for an option menu");
-            this.dataGridViewLines.Location = new System.Drawing.Point(0, 0);
-            this.dataGridViewLines.Name = "dataGridViewLines";
-            this.dataGridViewLines.ReadOnly = true;
-            this.dataGridViewLines.RowHeadersVisible = false;
-            this.dataGridViewLines.RowTemplate.Height = 18;
-            this.helpProvider1.SetShowHelp(this.dataGridViewLines, true);
-            this.dataGridViewLines.Size = new System.Drawing.Size(487, 145);
-            this.dataGridViewLines.TabIndex = 0;
-            this.dataGridViewLines.CellContextMenuStripNeeded += new System.Windows.Forms.DataGridViewCellContextMenuStripNeededEventHandler(this.dataGridViewLines_CellContextMenuStripNeeded);
-            // 
-            // textBoxFindLine
-            // 
-            this.textBoxFindLine.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.helpProvider1.SetHelpString(this.textBoxFindLine, "Filter log lines to show only those containing this text (no wildcards). For exam" +
-        "ple: \'#\' to show colored lines. \'says,\' (include the comma) to show mob dialog.");
-            this.textBoxFindLine.Location = new System.Drawing.Point(40, 2);
-            this.textBoxFindLine.Name = "textBoxFindLine";
-            this.helpProvider1.SetShowHelp(this.textBoxFindLine, true);
-            this.textBoxFindLine.Size = new System.Drawing.Size(433, 20);
-            this.textBoxFindLine.TabIndex = 1;
-            this.toolTip1.SetToolTip(this.textBoxFindLine, "Show lines containing text. Examples: \'#\' for colored lines. \'says,\' for mob dial" +
-        "og.");
-            this.textBoxFindLine.TextChanged += new System.EventHandler(this.textBoxFindLine_TextChanged);
-            // 
-            // checkBoxLogLines
-            // 
-            this.checkBoxLogLines.AutoSize = true;
-            this.helpProvider1.SetHelpString(this.checkBoxLogLines, "Check to show the list of encounters and log lines. Useful for creating and testi" +
-        "ng new triggers.");
-            this.checkBoxLogLines.Location = new System.Drawing.Point(12, 208);
-            this.checkBoxLogLines.Name = "checkBoxLogLines";
-            this.helpProvider1.SetShowHelp(this.checkBoxLogLines, true);
-            this.checkBoxLogLines.Size = new System.Drawing.Size(110, 17);
-            this.checkBoxLogLines.TabIndex = 26;
-            this.checkBoxLogLines.Text = "Show Encounters";
-            this.toolTip1.SetToolTip(this.checkBoxLogLines, "Show / Hide encounter list");
-            this.checkBoxLogLines.UseVisualStyleBackColor = true;
-            this.checkBoxLogLines.CheckedChanged += new System.EventHandler(this.checkBoxLogLines_CheckedChanged);
-            // 
-            // groupBox1
-            // 
-            this.groupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.groupBox1.Controls.Add(this.label4);
-            this.groupBox1.Controls.Add(this.radioButtonNone);
-            this.groupBox1.Controls.Add(this.radioButtonWav);
-            this.groupBox1.Controls.Add(this.radioButtonBeep);
-            this.groupBox1.Controls.Add(this.buttonInsert);
-            this.groupBox1.Controls.Add(this.radioButtonTts);
-            this.groupBox1.Controls.Add(this.comboBoxGroups);
-            this.groupBox1.Controls.Add(this.textBoxSound);
-            this.groupBox1.Controls.Add(this.buttonFileOpen);
-            this.groupBox1.Controls.Add(this.buttonPlay);
-            this.groupBox1.Location = new System.Drawing.Point(5, 96);
-            this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(627, 74);
-            this.groupBox1.TabIndex = 5;
-            this.groupBox1.TabStop = false;
-            this.groupBox1.Text = "Audio Alert";
-            // 
-            // label4
-            // 
-            this.label4.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(309, 49);
-            this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(274, 13);
-            this.label4.TabIndex = 0;
-            this.label4.Text = "Shortcut: Select Reg. Expr. text and right-click to name it";
-            // 
-            // label1
-            // 
-            this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.label1.Location = new System.Drawing.Point(-5, 25);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(637, 13);
-            this.label1.TabIndex = 23;
-            this.label1.Text = "Changing any other field simply updates the existing trigger.";
-            this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // buttonX
-            // 
-            this.buttonX.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonX.Location = new System.Drawing.Point(457, 2);
-            this.buttonX.Name = "buttonX";
-            this.buttonX.Size = new System.Drawing.Size(16, 20);
-            this.buttonX.TabIndex = 28;
-            this.buttonX.Text = "x";
-            this.buttonX.TextAlign = System.Drawing.ContentAlignment.TopCenter;
-            this.toolTip1.SetToolTip(this.buttonX, "Clear Filter:");
-            this.buttonX.UseVisualStyleBackColor = true;
-            this.buttonX.Click += new System.EventHandler(this.buttonX_Click);
-            // 
-            // panelTest
-            // 
-            this.panelTest.Controls.Add(this.splitContainerLog);
-            this.panelTest.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panelTest.Location = new System.Drawing.Point(0, 228);
-            this.panelTest.MinimumSize = new System.Drawing.Size(630, 170);
-            this.panelTest.Name = "panelTest";
-            this.panelTest.Size = new System.Drawing.Size(635, 172);
-            this.panelTest.TabIndex = 26;
-            this.panelTest.Visible = false;
-            // 
-            // splitContainerLog
-            // 
-            this.splitContainerLog.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.splitContainerLog.Location = new System.Drawing.Point(0, 0);
-            this.splitContainerLog.Name = "splitContainerLog";
-            // 
-            // splitContainerLog.Panel1
-            // 
-            this.splitContainerLog.Panel1.Controls.Add(this.treeViewEncounters);
-            // 
-            // splitContainerLog.Panel2
-            // 
-            this.splitContainerLog.Panel2.Controls.Add(this.panelLogLines);
-            this.splitContainerLog.Panel2.Controls.Add(this.panelLogFind);
-            this.splitContainerLog.Size = new System.Drawing.Size(635, 172);
-            this.splitContainerLog.SplitterDistance = 144;
-            this.splitContainerLog.TabIndex = 1;
-            // 
-            // treeViewEncounters
-            // 
-            this.treeViewEncounters.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.helpProvider1.SetHelpString(this.treeViewEncounters, "Select an encouner to display its log lines");
-            this.treeViewEncounters.HideSelection = false;
-            this.treeViewEncounters.Indent = 10;
-            this.treeViewEncounters.Location = new System.Drawing.Point(0, 0);
-            this.treeViewEncounters.Name = "treeViewEncounters";
-            this.helpProvider1.SetShowHelp(this.treeViewEncounters, true);
-            this.treeViewEncounters.Size = new System.Drawing.Size(144, 172);
-            this.treeViewEncounters.TabIndex = 0;
-            this.treeViewEncounters.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.treeViewEncounters_AfterSelect);
-            // 
-            // panelLogLines
-            // 
-            this.panelLogLines.Controls.Add(this.dataGridViewLines);
-            this.panelLogLines.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panelLogLines.Location = new System.Drawing.Point(0, 27);
-            this.panelLogLines.Name = "panelLogLines";
-            this.panelLogLines.Size = new System.Drawing.Size(487, 145);
-            this.panelLogLines.TabIndex = 4;
-            // 
-            // panelLogFind
-            // 
-            this.panelLogFind.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.panelLogFind.Controls.Add(this.buttonX);
-            this.panelLogFind.Controls.Add(this.label5);
-            this.panelLogFind.Controls.Add(this.textBoxFindLine);
-            this.panelLogFind.Dock = System.Windows.Forms.DockStyle.Top;
-            this.panelLogFind.Location = new System.Drawing.Point(0, 0);
-            this.panelLogFind.Name = "panelLogFind";
-            this.panelLogFind.Size = new System.Drawing.Size(487, 27);
-            this.panelLogFind.TabIndex = 3;
-            // 
-            // label5
-            // 
-            this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(4, 5);
-            this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(32, 13);
-            this.label5.TabIndex = 2;
-            this.label5.Text = "Filter:";
-            // 
-            // panelRegex
-            // 
-            this.panelRegex.Controls.Add(this.labelGridHelp);
-            this.panelRegex.Controls.Add(this.checkBoxLogLines);
-            this.panelRegex.Controls.Add(this.groupBox1);
-            this.panelRegex.Controls.Add(this.label3);
-            this.panelRegex.Controls.Add(this.checkBoxRestrict);
-            this.panelRegex.Controls.Add(this.textBoxCategory);
-            this.panelRegex.Controls.Add(this.buttonPaste);
-            this.panelRegex.Controls.Add(this.buttonFindTimer);
-            this.panelRegex.Controls.Add(this.label1);
-            this.panelRegex.Controls.Add(this.textBoxTimer);
-            this.panelRegex.Controls.Add(this.label2);
-            this.panelRegex.Controls.Add(this.linkLabel1);
-            this.panelRegex.Controls.Add(this.checkBoxResultsTab);
-            this.panelRegex.Controls.Add(this.textBoxRegex);
-            this.panelRegex.Controls.Add(this.checkBoxTimer);
-            this.panelRegex.Controls.Add(this.buttonZone);
-            this.panelRegex.Dock = System.Windows.Forms.DockStyle.Top;
-            this.panelRegex.Location = new System.Drawing.Point(0, 0);
-            this.panelRegex.Name = "panelRegex";
-            this.panelRegex.Size = new System.Drawing.Size(635, 228);
-            this.panelRegex.TabIndex = 27;
-            // 
-            // labelGridHelp
-            // 
-            this.labelGridHelp.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.labelGridHelp.AutoSize = true;
-            this.labelGridHelp.Location = new System.Drawing.Point(157, 209);
-            this.labelGridHelp.Name = "labelGridHelp";
-            this.labelGridHelp.Size = new System.Drawing.Size(196, 13);
-            this.labelGridHelp.TabIndex = 27;
-            this.labelGridHelp.Text = "Right-click a log line for the option menu";
-            this.labelGridHelp.Visible = false;
-            // 
-            // panel2
-            // 
-            this.panel2.Controls.Add(this.buttonUpdateCreate);
-            this.panel2.Controls.Add(this.buttonReplace);
-            this.panel2.Controls.Add(this.buttonCancel);
-            this.panel2.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.panel2.Location = new System.Drawing.Point(0, 400);
-            this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(635, 37);
-            this.panel2.TabIndex = 28;
-            // 
-            // contextMenuLog
-            // 
-            this.contextMenuLog.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.pasteInRegularExpressionToolStripMenuItem,
-            this.testWithRegularExpressionToolStripMenuItem});
-            this.contextMenuLog.Name = "contextMenuLog";
-            this.contextMenuLog.Size = new System.Drawing.Size(223, 48);
-            // 
-            // pasteInRegularExpressionToolStripMenuItem
-            // 
-            this.pasteInRegularExpressionToolStripMenuItem.Name = "pasteInRegularExpressionToolStripMenuItem";
-            this.pasteInRegularExpressionToolStripMenuItem.Size = new System.Drawing.Size(222, 22);
-            this.pasteInRegularExpressionToolStripMenuItem.Text = "Paste in Regular Expression";
-            this.pasteInRegularExpressionToolStripMenuItem.ToolTipText = "Paste this log line into the Regular Expression";
-            this.pasteInRegularExpressionToolStripMenuItem.Click += new System.EventHandler(this.pasteInRegularExpressionToolStripMenuItem_Click);
-            // 
-            // testWithRegularExpressionToolStripMenuItem
-            // 
-            this.testWithRegularExpressionToolStripMenuItem.Name = "testWithRegularExpressionToolStripMenuItem";
-            this.testWithRegularExpressionToolStripMenuItem.Size = new System.Drawing.Size(222, 22);
-            this.testWithRegularExpressionToolStripMenuItem.Text = "Test with Regular Expression";
-            this.testWithRegularExpressionToolStripMenuItem.ToolTipText = "Run the Regular Expression against this log line";
-            this.testWithRegularExpressionToolStripMenuItem.Click += new System.EventHandler(this.testWithRegularExpressionToolStripMenuItem_Click);
-            // 
-            // FormEditTrigger
-            // 
-            this.AcceptButton = this.buttonUpdateCreate;
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(635, 437);
-            this.Controls.Add(this.panelTest);
-            this.Controls.Add(this.panelRegex);
-            this.Controls.Add(this.panel2);
-            this.HelpButton = true;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.MinimumSize = new System.Drawing.Size(640, 310);
-            this.Name = "FormEditTrigger";
-            this.ShowIcon = false;
-            this.Text = "Edit Trigger";
-            this.Shown += new System.EventHandler(this.FormEditTrigger_Shown);
-            this.contextMenuRegex.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.dataGridViewLines)).EndInit();
-            this.groupBox1.ResumeLayout(false);
-            this.groupBox1.PerformLayout();
-            this.panelTest.ResumeLayout(false);
-            this.splitContainerLog.Panel1.ResumeLayout(false);
-            this.splitContainerLog.Panel2.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.splitContainerLog)).EndInit();
-            this.splitContainerLog.ResumeLayout(false);
-            this.panelLogLines.ResumeLayout(false);
-            this.panelLogFind.ResumeLayout(false);
-            this.panelLogFind.PerformLayout();
-            this.panelRegex.ResumeLayout(false);
-            this.panelRegex.PerformLayout();
-            this.panel2.ResumeLayout(false);
-            this.contextMenuLog.ResumeLayout(false);
-            this.ResumeLayout(false);
-
-        }
-
-        #endregion
-        private System.Windows.Forms.TextBox textBoxRegex;
-        private System.Windows.Forms.Button buttonUpdateCreate;
-        private System.Windows.Forms.Button buttonReplace;
-        private System.Windows.Forms.Button buttonCancel;
-        private System.Windows.Forms.RadioButton radioButtonNone;
-        private System.Windows.Forms.RadioButton radioButtonBeep;
-        private System.Windows.Forms.RadioButton radioButtonWav;
-        private System.Windows.Forms.RadioButton radioButtonTts;
-        private System.Windows.Forms.TextBox textBoxSound;
-        private System.Windows.Forms.Button buttonFileOpen;
-        private System.Windows.Forms.Button buttonPlay;
-        private System.Windows.Forms.TextBox textBoxCategory;
-        private System.Windows.Forms.Label label3;
-        private System.Windows.Forms.TextBox textBoxTimer;
-        private System.Windows.Forms.CheckBox checkBoxRestrict;
-        private System.Windows.Forms.CheckBox checkBoxTimer;
-        private System.Windows.Forms.CheckBox checkBoxResultsTab;
-        private System.Windows.Forms.Button buttonZone;
-        private System.Windows.Forms.OpenFileDialog openFileDialog1;
-        private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.LinkLabel linkLabel1;
-        private System.Windows.Forms.HelpProvider helpProvider1;
-        private System.Windows.Forms.ComboBox comboBoxGroups;
-        private System.Windows.Forms.Button buttonInsert;
-        private System.Windows.Forms.GroupBox groupBox1;
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.Button buttonPaste;
-        private System.Windows.Forms.Label label4;
-        private System.Windows.Forms.ContextMenuStrip contextMenuRegex;
-        private System.Windows.Forms.ToolStripMenuItem MakePlayer;
-        private System.Windows.Forms.ToolStripMenuItem MakeAttacker;
-        private System.Windows.Forms.ToolStripMenuItem Undo;
-        private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
-        private System.Windows.Forms.ToolStripMenuItem Cut;
-        private System.Windows.Forms.ToolStripMenuItem Copy;
-        private System.Windows.Forms.ToolStripMenuItem Paste;
-        private System.Windows.Forms.ToolStripMenuItem Delete;
-        private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
-        private System.Windows.Forms.ToolStripMenuItem SelectAll;
-        private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
-        private System.Windows.Forms.Button buttonFindTimer;
-        private System.Windows.Forms.ToolTip toolTip1;
-        private System.Windows.Forms.Panel panelTest;
-        private System.Windows.Forms.Panel panelRegex;
-        private System.Windows.Forms.Panel panel2;
-        private System.Windows.Forms.TextBox textBoxFindLine;
-        private System.Windows.Forms.SplitContainer splitContainerLog;
-        private System.Windows.Forms.Panel panelLogLines;
-        private System.Windows.Forms.Panel panelLogFind;
-        private System.Windows.Forms.Label label5;
-        private System.Windows.Forms.DataGridView dataGridViewLines;
-        private System.Windows.Forms.CheckBox checkBoxLogLines;
-        private System.Windows.Forms.ContextMenuStrip contextMenuLog;
-        private System.Windows.Forms.ToolStripMenuItem pasteInRegularExpressionToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem testWithRegularExpressionToolStripMenuItem;
-        private System.Windows.Forms.Label labelGridHelp;
-        private System.Windows.Forms.Button buttonX;
-        private System.Windows.Forms.ToolStripMenuItem MakeNumbered;
-        private System.Windows.Forms.TreeView treeViewEncounters;
-    }
-
-    //logic
-    public partial class FormEditSound : Form
-    {
-        CustomTrigger editingTrigger;               //a reference to the original trigger
-
-        public event EventHandler EditDoneEvent;    //callback
-        //callback event argument
-        public class EditEventArgs : EventArgs
-        {
-            public CustomTrigger editedTrigger;
-
-            public EditEventArgs(CustomTrigger trigger)
-            {
-                editedTrigger = trigger;
-            }
-        }
-
-        public FormEditSound()
-        {
-            InitializeComponent();
-        }
-
-        public FormEditSound(CustomTrigger trig, EventHandler eventHandler)
-        {
-            InitializeComponent();
-
-            editingTrigger = trig;
-            EditDoneEvent = eventHandler;
-        }
-
-        protected void OnEditDoneEvent(EventArgs e)
-        {
-            if (EditDoneEvent != null)
-            {
-                EventHandler handler = EditDoneEvent;
-                handler.Invoke(this, e);
-            }
-        }
-
-        private void buttonOk_Click(object sender, EventArgs e)
-        {
-            editingTrigger.SoundData = textBoxSound.Text;
-            if (radioButtonNone.Checked)
-                editingTrigger.SoundType = (int)CustomTriggerSoundTypeEnum.None;
-            else if (radioButtonBeep.Checked)
-                editingTrigger.SoundType = (int)CustomTriggerSoundTypeEnum.Beep;
-            if (radioButtonWav.Checked)
-            {
-                editingTrigger.SoundType = (int)CustomTriggerSoundTypeEnum.WAV;
-                if (!File.Exists(textBoxSound.Text))
-                {
-                    MessageBox.Show(this, "No such file");
-                    return;
-                }
-            }
-            if (radioButtonTts.Checked)
-                editingTrigger.SoundType = (int)CustomTriggerSoundTypeEnum.TTS;
-
-            EditEventArgs arg = new EditEventArgs(editingTrigger);
-            OnEditDoneEvent(arg);
-            this.Close();
-        }
-
-        private void buttonCancel_Click(object sender, EventArgs e)
-        {
-            this.Close();
-        }
-
-        private void FormEditSound_Shown(object sender, EventArgs e)
-        {
-            if (editingTrigger != null) //so the form can come up for standalone testing
-            {
-                textBoxSound.Text = editingTrigger.SoundData;
-                this.Text = "Edit Alert Sound: " + editingTrigger.ShortRegexString;
-
-                switch (editingTrigger.SoundType)
-                {
-                    case (int)CustomTriggerSoundTypeEnum.TTS:
-                        radioButtonTts.Checked = true;
-                        buttonPlay.Enabled = true;
-                        buttonInsCapture.Enabled = true;
-                        textBoxSound.Focus();
-                        textBoxSound.SelectAll();
-                        break;
-                    case (int)CustomTriggerSoundTypeEnum.Beep:
-                        radioButtonBeep.Checked = true;
-                        buttonPlay.Enabled = true;
-                        textBoxSound.Enabled = false;
-                        break;
-                    case (int)CustomTriggerSoundTypeEnum.WAV:
-                        radioButtonWav.Checked = true;
-                        buttonPlay.Enabled = true;
-                        buttonBrowse.Enabled = true;
-                        textBoxSound.Focus();
-                        textBoxSound.SelectAll();
-                        break;
-                    default:
-                        radioButtonNone.Checked = true;
-                        textBoxSound.Enabled = false;
-                        break;
-                }
-
-                string[] groups = editingTrigger.RegEx.GetGroupNames();
-                for (int i = 1; i < groups.Length; i++) //skip group[0], it is the entire expression
-                {
-                    comboBoxGroups.Items.Add(groups[i]);
-                }
-            }
-        }
-
-        private void buttonInsCapture_Click(object sender, EventArgs e)
-        {
-            string group = comboBoxGroups.Text;
-            if (!string.IsNullOrEmpty(group))
-            {
-                int i = 0;
-                bool result = int.TryParse(group, out i);
-                if (!result)
-                    group = "{" + group + "}";
-                string insert = "$" + group;
-
-                textBoxSound.Text = textBoxSound.Text.Insert(textBoxSound.SelectionStart, insert);
-            }
-        }
-
-        private void buttonBrowse_Click(object sender, EventArgs e)
-        {
-            string dir = Environment.GetEnvironmentVariable("SYSTEMROOT");
-            openFileDialog1.InitialDirectory = dir + @"\Media";
-            if (openFileDialog1.ShowDialog() == DialogResult.OK)
-            {
-                textBoxSound.Text = openFileDialog1.FileName;
-            }
-        }
-
-        private void buttonPlay_Click(object sender, EventArgs e)
-        {
-            if (radioButtonTts.Checked)
-                ActGlobals.oFormActMain.TTS(textBoxSound.Text);
-            else if (radioButtonWav.Checked)
-            {
-                if (File.Exists(textBoxSound.Text))
-                    ActGlobals.oFormActMain.PlaySoundWinApi(textBoxSound.Text, 100);
-                else
-                    MessageBox.Show(this, "No such file");
-            }
-            else if (radioButtonBeep.Checked)
-                System.Media.SystemSounds.Beep.Play();
-        }
-
-        private void radioButtonNone_CheckedChanged(object sender, EventArgs e)
-        {
-            buttonBrowse.Enabled = false;
-            buttonPlay.Enabled = false;
-            textBoxSound.Enabled = false;
-            buttonInsCapture.Enabled = false;
-        }
-
-        private void radioButtonBeep_CheckedChanged(object sender, EventArgs e)
-        {
-            buttonBrowse.Enabled = false;
-            buttonPlay.Enabled = true;
-            textBoxSound.Enabled = false;
-            buttonInsCapture.Enabled = false;
-        }
-
-        private void radioButtonWav_CheckedChanged(object sender, EventArgs e)
-        {
-            buttonBrowse.Enabled = true;
-            buttonPlay.Enabled = true;
-            textBoxSound.Enabled = true;
-            buttonInsCapture.Enabled = false;
-        }
-
-        private void radioButtonTts_CheckedChanged(object sender, EventArgs e)
-        {
-            buttonBrowse.Enabled = false;
-            buttonPlay.Enabled = true;
-            textBoxSound.Enabled = true;
-            buttonInsCapture.Enabled = true;
-        }
-    }
-
-    //designer
-    partial class FormEditSound
-    {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
-        private System.ComponentModel.IContainer components = null;
-
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing && (components != null))
-            {
-                components.Dispose();
-            }
-            base.Dispose(disposing);
-        }
-
-        #region Windows Form Designer generated code
-
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
-        private void InitializeComponent()
-        {
-            this.radioButtonNone = new System.Windows.Forms.RadioButton();
-            this.radioButtonBeep = new System.Windows.Forms.RadioButton();
-            this.radioButtonWav = new System.Windows.Forms.RadioButton();
-            this.radioButtonTts = new System.Windows.Forms.RadioButton();
-            this.textBoxSound = new System.Windows.Forms.TextBox();
-            this.buttonInsCapture = new System.Windows.Forms.Button();
-            this.comboBoxGroups = new System.Windows.Forms.ComboBox();
-            this.buttonOk = new System.Windows.Forms.Button();
-            this.buttonCancel = new System.Windows.Forms.Button();
-            this.buttonBrowse = new System.Windows.Forms.Button();
-            this.buttonPlay = new System.Windows.Forms.Button();
-            this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
-            this.helpProvider1 = new System.Windows.Forms.HelpProvider();
-            this.SuspendLayout();
-            // 
-            // radioButtonNone
-            // 
-            this.radioButtonNone.AutoSize = true;
-            this.radioButtonNone.Location = new System.Drawing.Point(13, 13);
-            this.radioButtonNone.Name = "radioButtonNone";
-            this.radioButtonNone.Size = new System.Drawing.Size(51, 17);
-            this.radioButtonNone.TabIndex = 3;
-            this.radioButtonNone.TabStop = true;
-            this.radioButtonNone.Text = "None";
-            this.radioButtonNone.UseVisualStyleBackColor = true;
-            this.radioButtonNone.CheckedChanged += new System.EventHandler(this.radioButtonNone_CheckedChanged);
-            // 
-            // radioButtonBeep
-            // 
-            this.radioButtonBeep.AutoSize = true;
-            this.radioButtonBeep.Location = new System.Drawing.Point(13, 37);
-            this.radioButtonBeep.Name = "radioButtonBeep";
-            this.radioButtonBeep.Size = new System.Drawing.Size(50, 17);
-            this.radioButtonBeep.TabIndex = 4;
-            this.radioButtonBeep.TabStop = true;
-            this.radioButtonBeep.Text = "Beep";
-            this.radioButtonBeep.UseVisualStyleBackColor = true;
-            this.radioButtonBeep.CheckedChanged += new System.EventHandler(this.radioButtonBeep_CheckedChanged);
-            // 
-            // radioButtonWav
-            // 
-            this.radioButtonWav.AutoSize = true;
-            this.radioButtonWav.Location = new System.Drawing.Point(71, 13);
-            this.radioButtonWav.Name = "radioButtonWav";
-            this.radioButtonWav.Size = new System.Drawing.Size(53, 17);
-            this.radioButtonWav.TabIndex = 5;
-            this.radioButtonWav.TabStop = true;
-            this.radioButtonWav.Text = "WAV:";
-            this.radioButtonWav.UseVisualStyleBackColor = true;
-            this.radioButtonWav.CheckedChanged += new System.EventHandler(this.radioButtonWav_CheckedChanged);
-            // 
-            // radioButtonTts
-            // 
-            this.radioButtonTts.AutoSize = true;
-            this.radioButtonTts.Location = new System.Drawing.Point(71, 37);
-            this.radioButtonTts.Name = "radioButtonTts";
-            this.radioButtonTts.Size = new System.Drawing.Size(49, 17);
-            this.radioButtonTts.TabIndex = 6;
-            this.radioButtonTts.TabStop = true;
-            this.radioButtonTts.Text = "TTS:";
-            this.radioButtonTts.UseVisualStyleBackColor = true;
-            this.radioButtonTts.CheckedChanged += new System.EventHandler(this.radioButtonTts_CheckedChanged);
-            // 
-            // textBoxSound
-            // 
-            this.textBoxSound.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.helpProvider1.SetHelpString(this.textBoxSound, "Text to speech expression or wav file name");
-            this.textBoxSound.Location = new System.Drawing.Point(130, 13);
-            this.textBoxSound.Name = "textBoxSound";
-            this.helpProvider1.SetShowHelp(this.textBoxSound, true);
-            this.textBoxSound.Size = new System.Drawing.Size(248, 20);
-            this.textBoxSound.TabIndex = 0;
-            // 
-            // buttonInsCapture
-            // 
-            this.buttonInsCapture.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonInsCapture.Enabled = false;
-            this.buttonInsCapture.Font = new System.Drawing.Font("Wingdings 3", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
-            this.helpProvider1.SetHelpString(this.buttonInsCapture, "Insert the selected capture into the alert sound");
-            this.buttonInsCapture.Location = new System.Drawing.Point(253, 37);
-            this.buttonInsCapture.Name = "buttonInsCapture";
-            this.helpProvider1.SetShowHelp(this.buttonInsCapture, true);
-            this.buttonInsCapture.Size = new System.Drawing.Size(32, 23);
-            this.buttonInsCapture.TabIndex = 8;
-            this.buttonInsCapture.Text = "£";
-            this.buttonInsCapture.UseVisualStyleBackColor = true;
-            this.buttonInsCapture.Click += new System.EventHandler(this.buttonInsCapture_Click);
-            // 
-            // comboBoxGroups
-            // 
-            this.comboBoxGroups.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.comboBoxGroups.FormattingEnabled = true;
-            this.helpProvider1.SetHelpString(this.comboBoxGroups, "Available capture names from the regular expression");
-            this.comboBoxGroups.Location = new System.Drawing.Point(130, 39);
-            this.comboBoxGroups.Name = "comboBoxGroups";
-            this.helpProvider1.SetShowHelp(this.comboBoxGroups, true);
-            this.comboBoxGroups.Size = new System.Drawing.Size(117, 21);
-            this.comboBoxGroups.TabIndex = 7;
-            // 
-            // buttonOk
-            // 
-            this.buttonOk.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.buttonOk.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.buttonOk.Location = new System.Drawing.Point(148, 71);
-            this.buttonOk.Name = "buttonOk";
-            this.buttonOk.Size = new System.Drawing.Size(70, 23);
-            this.buttonOk.TabIndex = 9;
-            this.buttonOk.Text = "OK";
-            this.buttonOk.UseVisualStyleBackColor = true;
-            this.buttonOk.Click += new System.EventHandler(this.buttonOk_Click);
-            // 
-            // buttonCancel
-            // 
-            this.buttonCancel.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.buttonCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.buttonCancel.Location = new System.Drawing.Point(230, 71);
-            this.buttonCancel.Name = "buttonCancel";
-            this.buttonCancel.Size = new System.Drawing.Size(75, 23);
-            this.buttonCancel.TabIndex = 10;
-            this.buttonCancel.Text = "Cancel";
-            this.buttonCancel.UseVisualStyleBackColor = true;
-            this.buttonCancel.Click += new System.EventHandler(this.buttonCancel_Click);
-            // 
-            // buttonBrowse
-            // 
-            this.buttonBrowse.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.helpProvider1.SetHelpString(this.buttonBrowse, "Browse for wav file");
-            this.buttonBrowse.Location = new System.Drawing.Point(384, 11);
-            this.buttonBrowse.Name = "buttonBrowse";
-            this.helpProvider1.SetShowHelp(this.buttonBrowse, true);
-            this.buttonBrowse.Size = new System.Drawing.Size(25, 23);
-            this.buttonBrowse.TabIndex = 1;
-            this.buttonBrowse.Text = "...";
-            this.buttonBrowse.UseVisualStyleBackColor = true;
-            this.buttonBrowse.Click += new System.EventHandler(this.buttonBrowse_Click);
-            // 
-            // buttonPlay
-            // 
-            this.buttonPlay.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonPlay.Enabled = false;
-            this.buttonPlay.Font = new System.Drawing.Font("Wingdings 3", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
-            this.helpProvider1.SetHelpString(this.buttonPlay, "Play the alert sound");
-            this.buttonPlay.Location = new System.Drawing.Point(415, 11);
-            this.buttonPlay.Name = "buttonPlay";
-            this.helpProvider1.SetShowHelp(this.buttonPlay, true);
-            this.buttonPlay.Size = new System.Drawing.Size(25, 23);
-            this.buttonPlay.TabIndex = 2;
-            this.buttonPlay.Text = "u";
-            this.buttonPlay.UseVisualStyleBackColor = true;
-            this.buttonPlay.Click += new System.EventHandler(this.buttonPlay_Click);
-            // 
-            // openFileDialog1
-            // 
-            this.openFileDialog1.Filter = "wav files|*.wav";
-            // 
-            // FormEditSound
-            // 
-            this.AcceptButton = this.buttonOk;
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(452, 106);
-            this.Controls.Add(this.buttonPlay);
-            this.Controls.Add(this.buttonBrowse);
-            this.Controls.Add(this.buttonCancel);
-            this.Controls.Add(this.buttonOk);
-            this.Controls.Add(this.comboBoxGroups);
-            this.Controls.Add(this.buttonInsCapture);
-            this.Controls.Add(this.textBoxSound);
-            this.Controls.Add(this.radioButtonTts);
-            this.Controls.Add(this.radioButtonWav);
-            this.Controls.Add(this.radioButtonBeep);
-            this.Controls.Add(this.radioButtonNone);
-            this.HelpButton = true;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.MinimumSize = new System.Drawing.Size(415, 145);
-            this.Name = "FormEditSound";
-            this.helpProvider1.SetShowHelp(this, true);
-            this.ShowIcon = false;
-            this.Text = "Edit Alert Sound";
-            this.Shown += new System.EventHandler(this.FormEditSound_Shown);
-            this.ResumeLayout(false);
-            this.PerformLayout();
-
-        }
-
-        #endregion
-
-        private System.Windows.Forms.RadioButton radioButtonNone;
-        private System.Windows.Forms.RadioButton radioButtonBeep;
-        private System.Windows.Forms.RadioButton radioButtonWav;
-        private System.Windows.Forms.RadioButton radioButtonTts;
-        private System.Windows.Forms.TextBox textBoxSound;
-        private System.Windows.Forms.Button buttonInsCapture;
-        private System.Windows.Forms.ComboBox comboBoxGroups;
-        private System.Windows.Forms.Button buttonOk;
-        private System.Windows.Forms.Button buttonCancel;
-        private System.Windows.Forms.Button buttonBrowse;
-        private System.Windows.Forms.Button buttonPlay;
-        private System.Windows.Forms.OpenFileDialog openFileDialog1;
-        private System.Windows.Forms.HelpProvider helpProvider1;
-    }
-
-    //logic
-    partial class FormEditTimer : Form
-    {
-        CustomTrigger editingTrigger;
-        public event EventHandler EditDoneEvent; //callback
-
-        //callback event argument
-        public class EditEventArgs : EventArgs
-        {
-            public CustomTrigger editedTrigger;
-
-            public EditEventArgs(CustomTrigger trigger)
-            {
-                editedTrigger = trigger;
-            }
-        }
-
-        public FormEditTimer()
-        {
-            InitializeComponent();
-        }
-
-        public FormEditTimer(CustomTrigger trigger, EventHandler handler)
-        {
-            InitializeComponent();
-
-            EditDoneEvent = handler;
-            editingTrigger = trigger;
-        }
-
-        private void buttonOk_Click(object sender, EventArgs e)
-        {
-            editingTrigger.TimerName = textBoxName.Text;
-            EditEventArgs arg = new EditEventArgs(editingTrigger);
-            OnEditDoneEvent(arg);
-            this.Close();
-        }
-
-        protected void OnEditDoneEvent(EditEventArgs e)
-        {
-            if (EditDoneEvent != null)
-            {
-                EventHandler handler = EditDoneEvent;
-                handler.Invoke(null, e);
-            }
-        }
-
-        private void buttonCancel_Click(object sender, EventArgs e)
-        {
-            this.Close();
-        }
-
-        private void FormEditTimer_Shown(object sender, EventArgs e)
-        {
-            if (editingTrigger != null)
-            {
-                this.Text = "Edit Timer / Tab Name: " + editingTrigger.ShortRegexString;
-                textBoxName.Text = editingTrigger.TimerName;
-            }
-            textBoxName.Focus();
-            textBoxName.SelectAll();
-        }
-
-        private void buttonFind_Click(object sender, EventArgs e)
-        {
-            string name = textBoxName.Text.ToLower();
-            if (!string.IsNullOrEmpty(name))
-            {
-                if (!string.IsNullOrEmpty(name))
-                {
-                    ActGlobals.oFormSpellTimers.SearchSpellTreeView(name);
-                    ActGlobals.oFormSpellTimers.Visible = true;
-                }
-            }
-            else
-                MessageBox.Show(this, "Enter a spell timer name to search");
-        }
-    }
-
-    //designer
-    partial class FormEditTimer
-    {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
-        private System.ComponentModel.IContainer components = null;
-
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing && (components != null))
-            {
-                components.Dispose();
-            }
-            base.Dispose(disposing);
-        }
-
-        #region Windows Form Designer generated code
-
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
-        private void InitializeComponent()
-        {
-            this.buttonOk = new System.Windows.Forms.Button();
-            this.buttonCancel = new System.Windows.Forms.Button();
-            this.label1 = new System.Windows.Forms.Label();
-            this.textBoxName = new System.Windows.Forms.TextBox();
-            this.buttonFind = new System.Windows.Forms.Button();
-            this.SuspendLayout();
-            // 
-            // buttonOk
-            // 
-            this.buttonOk.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.buttonOk.Location = new System.Drawing.Point(71, 54);
-            this.buttonOk.Name = "buttonOk";
-            this.buttonOk.Size = new System.Drawing.Size(75, 23);
-            this.buttonOk.TabIndex = 2;
-            this.buttonOk.Text = "OK";
-            this.buttonOk.UseVisualStyleBackColor = true;
-            this.buttonOk.Click += new System.EventHandler(this.buttonOk_Click);
-            // 
-            // buttonCancel
-            // 
-            this.buttonCancel.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.buttonCancel.Location = new System.Drawing.Point(153, 53);
-            this.buttonCancel.Name = "buttonCancel";
-            this.buttonCancel.Size = new System.Drawing.Size(75, 23);
-            this.buttonCancel.TabIndex = 3;
-            this.buttonCancel.Text = "Cancel";
-            this.buttonCancel.UseVisualStyleBackColor = true;
-            this.buttonCancel.Click += new System.EventHandler(this.buttonCancel_Click);
-            // 
-            // label1
-            // 
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(13, 17);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(97, 13);
-            this.label1.TabIndex = 0;
-            this.label1.Text = "Timer / Tab Name:";
-            // 
-            // textBoxName
-            // 
-            this.textBoxName.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxName.Location = new System.Drawing.Point(117, 13);
-            this.textBoxName.Name = "textBoxName";
-            this.textBoxName.Size = new System.Drawing.Size(108, 20);
-            this.textBoxName.TabIndex = 1;
-            // 
-            // buttonFind
-            // 
-            this.buttonFind.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonFind.Location = new System.Drawing.Point(232, 11);
-            this.buttonFind.Name = "buttonFind";
-            this.buttonFind.Size = new System.Drawing.Size(54, 23);
-            this.buttonFind.TabIndex = 4;
-            this.buttonFind.Text = "Find";
-            this.buttonFind.UseVisualStyleBackColor = true;
-            this.buttonFind.Click += new System.EventHandler(this.buttonFind_Click);
-            // 
-            // FormEditTimer
-            // 
-            this.AcceptButton = this.buttonOk;
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(298, 91);
-            this.ControlBox = false;
-            this.Controls.Add(this.buttonFind);
-            this.Controls.Add(this.textBoxName);
-            this.Controls.Add(this.label1);
-            this.Controls.Add(this.buttonCancel);
-            this.Controls.Add(this.buttonOk);
-            this.MinimumSize = new System.Drawing.Size(222, 127);
-            this.Name = "FormEditTimer";
-            this.Text = "Edit Timer / Tab Name";
-            this.Shown += new System.EventHandler(this.FormEditTimer_Shown);
-            this.ResumeLayout(false);
-            this.PerformLayout();
-
-        }
-
-        #endregion
-
-        private System.Windows.Forms.Button buttonOk;
-        private System.Windows.Forms.Button buttonCancel;
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.TextBox textBoxName;
-        private System.Windows.Forms.Button buttonFind;
-    }
-
-    #endregion Edit Forms
 }

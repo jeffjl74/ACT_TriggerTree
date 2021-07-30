@@ -7,8 +7,8 @@
     <SchemaVersion>2.0</SchemaVersion>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>ACT_Plugin</RootNamespace>
-    <AssemblyName>ACT_Plugin</AssemblyName>
+    <RootNamespace>ACT_TriggerTree</RootNamespace>
+    <AssemblyName>TriggerTree</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <StartupObject>
@@ -61,16 +61,68 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Windows.Forms.DataVisualization" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="FormEditSound.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormEditSound.Designer.cs">
+      <DependentUpon>FormEditSound.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormEditTimer.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormEditTimer.Designer.cs">
+      <DependentUpon>FormEditTimer.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormEditTrigger.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormEditTrigger.Designer.cs">
+      <DependentUpon>FormEditTrigger.cs</DependentUpon>
+    </Compile>
+    <Compile Include="FormHistogram.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormHistogram.Designer.cs">
+      <DependentUpon>FormHistogram.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Macros.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
     <Compile Include="TriggerTree.cs">
       <SubType>UserControl</SubType>
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="FormEditSound.resx">
+      <DependentUpon>FormEditSound.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormEditTimer.resx">
+      <DependentUpon>FormEditTimer.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormEditTrigger.resx">
+      <DependentUpon>FormEditTrigger.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormHistogram.resx">
+      <DependentUpon>FormHistogram.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
     <EmbeddedResource Include="TriggerTree.resx">
       <DependentUpon>TriggerTree.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
+  <PropertyGroup>
+    <PostBuildEvent>cd ..\..
+py merge_sources.py
+</PostBuildEvent>
+  </PropertyGroup>
 </Project>

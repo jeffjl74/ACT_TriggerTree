@@ -2,10 +2,4 @@
 .vs
 bin
 obj
-FormEditSound/bin
-FormEditSound/obj
-FormEditTimer/bin
-FormEditTimer/obj
-TriggerTreeEditor/bin
-TriggerTreeEditor/obj
 *.act
