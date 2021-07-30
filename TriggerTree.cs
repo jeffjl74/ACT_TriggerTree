@@ -684,24 +684,12 @@ namespace ACT_TriggerTree
         void oFormActMain_UpdateCheckClicked()
         {
             int pluginId = 80;
-            bool updateAvailable = false;
 
-            // try github
             try
             {
                 Version localVersion = this.GetType().Assembly.GetName().Version;
                 Version remoteVersion = new Version(ActGlobals.oFormActMain.PluginGetRemoteVersion(pluginId).TrimStart(new char[] { 'v' }));    // Strip any leading 'v' from the string before passing to the Version constructor
                 if (remoteVersion > localVersion)
-                    updateAvailable = true;
-            }
-            catch (Exception)
-            {
-                //ignore failure while we transition to github
-            }
-
-            if (updateAvailable)
-            {
-                try
                 {
                     DialogResult result = MessageBox.Show("There is an updated version of the Trigger Tree Plugin.  Update it now?\n\n(If there is an update to ACT, you should click No and update ACT first.)", "New Version", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                     if (result == DialogResult.Yes)
@@ -715,10 +703,10 @@ namespace ACT_TriggerTree
                         ThreadInvokes.CheckboxSetChecked(ActGlobals.oFormActMain, pluginData.cbEnabled, true);
                     }
                 }
-                catch (Exception ex)
-                {
-                    ActGlobals.oFormActMain.WriteExceptionLog(ex, "Plugin Update Download");
-                }
+            }
+            catch (Exception ex)
+            {
+                ActGlobals.oFormActMain.WriteExceptionLog(ex, "Trigger Tree Plugin Update Download");
             }
         }
 
