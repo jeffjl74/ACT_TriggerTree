@@ -14,16 +14,11 @@ Additional features of the plugin:
 * When entering a zone in game, if there is a Category that matches the zone name, that Category is automatically selected.
 * The __Find__ boxes at the top of the Category and Trigger panes provide incremental searches.
 
-Version 1.2 Changes:
-* Added the __current__ checkbox by the trigger __Find__ box to limit the find to the currently selected category.
-* Added color code parsing of log lines in the [Show Encounters](#show-encounters) list.
-* Added the [Show Time Differences](#show-time-differences) context menu for [Show Encounters](#show-encounters) log lines.
-* Now starts an associated spell timer from the _Test with Regular Expression_ context menu for [Show Encounters](#show-encounters) log lines.
-* Added indicators for fields that prevent saving to an [EQII Macro](#share-via-eqii-macros).
-* Added writing multiple EQII macro files if there are more than 16 items.
-* Added category spell timers to the macro when the Category _Raidsay Share Macro_ and _Groupsay Share Macro_ context menu is used.
-* Added left-click and right-click options to the spell timers listed via the _Category Spell Timers_ context menu to search for, or XML copy the spell timer, respectively.
-* Moved the code and help to github.
+### Version 1.3.0 Changes:
+* Added the __By Regex__ checkbox in [Show Encounters](#show-encounters) to list log lines that match the regular expression.
+* [Show Encounters](#show-encounters) __Paste in Regular Expression__ now escapes ( ) and ?
+* Moved the link-to-help from the context menu to the upper right corner.
+* Some cosmetic changes.
 
 ## Editing Triggers
 Trigger details are available by clicking the + next to the trigger.  A context menu is provided via a right-click on a trigger, as shown below.
@@ -60,7 +55,8 @@ Features of the edit trigger dialog:
 ### Show Encounters
 The [Edit All screenshot](#edit-all-fields) above also has the __Show Encounters__ checkbox checked.
 * When the __Show Encounters__ checkbox is checked, the dialog expands to show a list of encounters on the left. Selecting an encounter displays a list of log lines for that encounter.
-* To help find a potential trigger line, the log lines can be filtered by entering text in the __Filter:__ box.  The screenshot example has a filter of '#', which shows lines with a color code.
+* To help find a potential trigger line, the log lines can be filtered by entering text in the __Filter:__ area.  The screenshot example has a filter of '#', which shows lines with a color code.
+* Check the __By Regex__ box to only show log lines that match the regular expression. 
 * The context menu for a log line allows the following:
 	* Pasting it into the __Regular Expression__ text box after formatting it as a valid regular expression.
 	* Testing it against the __Regular Expression__. When testing, any capture groups are appropriately replaced in a TTS expression and the spell timer (if set) is triggered.
@@ -89,9 +85,15 @@ Left-click the spell timer name to open ACT's __Spell Timers (Options)__ window 
 ## Share via EQII Macros
 Ideally, it would be possible to make a macro containing all of the zone's triggers and spell timers for sharing with the group (or raid) in a single step. 
 
-Unfortunately this won't always work since macros won't handle certain characters and character sequences. The problem characters are `' " ; < >`. The problem character sequence is `\#`.
+Unfortunately this won't always work since macros won't handle certain characters and character sequences. 
+* The problem characters are:
+    > ' " ; < >
+* The problem character sequence is:
+  > \\#
 
-The trigger pane shows which triggers and spell timers can be shared via macro by displaying the 'macro play' icon next to the checkbox for the regular expression and timer name. In the [Category](#category-pane) screenshot above, all of the spell timers can go in a macro except ones that contain an apostrophe. Therefore those timers lack the 'macro play' icon.
+The trigger pane shows which triggers and spell timers can be shared via macro by displaying the 'macro play' icon 
+next to the checkbox for the regular expression and timer name. 
+In the [Category](#category-pane) screenshot above, all of the spell timers can go in a macro except ones that contain an apostrophe. Therefore those timers lack the 'macro play' icon.
 
 When editing a trigger, the problem fields are indicated by the red circled 'macro play' icon, as shown below:
 
@@ -102,11 +104,21 @@ In the cases where the zone name contains an apostrophe, there's not much recour
 
 But in many cases, it is possible to work around the problem characters by changing the trigger.
 * If the trigger __Regular Expression__ contains prohibited characters, it can often be rewritten to remove those characters. In many cases the offending characters can just be removed from the beginning or end of the trigger without affecting its usefulness. Example alternate approaches for when that's not feasable include:
-	* `Praetorian K'Tikrn gets sick` : replace the apostrophe with a wild card period, becoming : `Praetorian K.Tikrn gets sick`
-	* `prepares to unleash a mighty barrage in (?<player>\w+)` : replace the named capture group with a numbered capture group, becoming : `prepares to unleash a mighty barrage in (\w+)`
-    * `You have infected your enemies with \\#FF0000Dark Incubation!` : replace the `\\` with a wild card period, becoming : `You have infected your enemies with .#FF0000Dark Incubation!`
-    * `\\#FF9900You feel energized by Crystalline Destruction` : just remove the slashes, becoming : `#FF9900You feel energized by Crystalline Destruction`
-    * `says, "Bring on the rocks` : replace the double quote with a wild card period, becoming :  `says, .Bring on the rocks`
+	* `Praetorian K'Tikrn gets sick` 
+      * replace the apostrophe with a wild card period, becoming 
+        * `Praetorian K.Tikrn gets sick`
+	* `prepares to unleash a mighty barrage in (?<player>\w+)`
+      * replace the named capture group with a numbered capture group, becoming
+        * `prepares to unleash a mighty barrage in (\w+)`
+    * `You have infected your enemies with \\#FF0000Dark Incubation!`
+      * replace the `\\` with a wild card period, becoming
+        * `You have infected your enemies with .#FF0000Dark Incubation!`
+    * `\\#FF9900You feel energized by Crystalline Destruction`
+      * just remove the slashes, becoming
+        * `#FF9900You feel energized by Crystalline Destruction`
+    * `says, "Bring on the rocks`
+      * replace the double quote with a wild card period, becoming
+        * `says, .Bring on the rocks`
 * If the trigger __Alert__ or __Timer or Tab name__ contain prohibited characters, they can often be written differently to exclude those characters.
 * If the timer name, sounds, or tool tip contain prohibited characters, they can often be written differently to exclude those characters.
 

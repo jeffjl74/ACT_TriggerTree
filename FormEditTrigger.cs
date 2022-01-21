@@ -24,6 +24,7 @@ namespace ACT_TriggerTree
         string zoneCategory;
         bool regexChanged = false;          //track for replace / create new
         bool initializing = true;           //oncheck() methods do not need to do anything during shown()
+        TreeNode lastSelectedNode;          //for better tree node highlighting
 
         //color the regex depending on restricted status / matching
         Color activeColor = Color.Green;
@@ -207,7 +208,7 @@ namespace ACT_TriggerTree
             {
                 if (string.IsNullOrEmpty(textBoxCategory.Text.Trim()))
                 {
-                    MessageBox.Show(this, "Category / Zone cannot be empty");
+                    SimpleMessageBox.Show(this, "Category / Zone cannot be empty");
                     return;
                 }
 
@@ -215,7 +216,7 @@ namespace ACT_TriggerTree
                 {
                     if(string.IsNullOrEmpty(textBoxRegex.Text.Trim()))
                     {
-                        MessageBox.Show(this, "Regular Expression cannot be empty");
+                        SimpleMessageBox.Show(this, "Regular Expression cannot be empty");
                         return;
                     }
 
@@ -226,8 +227,8 @@ namespace ACT_TriggerTree
                     }
                     catch (ArgumentException aex)
                     {
-                        ActGlobals.oFormActMain.NotificationAdd("Improper Custom Trigger Regular Expression", aex.Message);
-                        MessageBox.Show(this, "Improper Regular Expression:\n" + aex.Message);
+                        //ActGlobals.oFormActMain.NotificationAdd("Improper Custom Trigger Regular Expression", aex.Message);
+                        SimpleMessageBox.Show(this, aex.Message, "Improper Regular Expression");
                         return;
                     }
                     string category = editingTrigger.Category;
@@ -242,7 +243,7 @@ namespace ACT_TriggerTree
                 {
                     if(!File.Exists(textBoxSound.Text))
                     {
-                        MessageBox.Show(this, "WAV file does not exist");
+                        SimpleMessageBox.Show(this, "WAV file does not exist");
                         return;
                     }
                 }
@@ -250,7 +251,7 @@ namespace ACT_TriggerTree
                 if((editingTrigger.Timer || editingTrigger.Tabbed)
                     && string.IsNullOrEmpty(editingTrigger.TimerName))
                 {
-                    if (MessageBox.Show(this, "Timer or Tab enabled without a Timer/Tab Name. Return to fix?", "Inconsistent Settings",
+                    if (SimpleMessageBox.Show(this, @"Timer or Tab enabled without a Timer/Tab Name.\line Return to fix?", "Inconsistent Settings",
                         MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1) == DialogResult.Yes)
                         return;
                 }
@@ -347,8 +348,11 @@ namespace ACT_TriggerTree
                 Match match = parsePaste.Match(text);
                 if (match.Success)
                 {
+                    // strip the timestamp
                     // a \\ in the log is not an escaped \, it is two backslashes. fix it
-                    text = match.Groups["expr"].Value.Replace("\\", "\\\\");
+                    // escape any parentheses
+                    // escape any question marks
+                    text = match.Groups["expr"].Value.Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)").Replace("?", "\\?");
                 }
                 textBoxRegex.Text = text;
                 textBoxRegex.Focus();
@@ -368,7 +372,7 @@ namespace ACT_TriggerTree
                 }
             }
             else
-                MessageBox.Show(this, "Enter a spell timer name to search");
+                SimpleMessageBox.Show(this, "Enter a spell timer name to search");
         }
 
         #endregion Button Clicks
@@ -535,6 +539,7 @@ namespace ACT_TriggerTree
                 buttonReplace.Enabled = haveOriginal;
                 buttonUpdateCreate.Enabled = true;
                 buttonUpdateCreate.Text = "Create New";
+                checkBoxFilterRegex.Checked = false;
                 PopulateGroupList();
 
                 if (string.IsNullOrEmpty(textBoxRegex.Text))
@@ -759,7 +764,7 @@ namespace ACT_TriggerTree
             catch (Exception exc)
             {
                 UseWaitCursor = false;
-                MessageBox.Show(this, exc.Message);
+                SimpleMessageBox.Show(this, exc.Message, "Improper filter");
             }
         }
 
@@ -790,6 +795,29 @@ namespace ACT_TriggerTree
                 for(int i=0; i<lineCount; i++)
                 {
                     dt.Rows.Add(list[i].LogLine);
+                }
+            }
+            catch
+            {
+                //just in case there are any issues with accessing ACT's list,
+                //just ignore it
+            }
+            return dt;
+        }
+
+        private static DataTable ToLineTable(List<LogLineEntry> list, string regex)
+        {
+            //make a DataTable of the log lines to make filtering easy
+            DataTable dt = new DataTable();
+            Regex re = new Regex(regex, RegexOptions.Compiled);
+            dt.Columns.Add("LogLine");
+            int lineCount = list.Count;
+            try
+            {
+                for (int i = 0; i < lineCount; i++)
+                {
+                    if(re.Match(list[i].LogLine).Success)
+                        dt.Rows.Add(list[i].LogLine);
                 }
             }
             catch
@@ -957,12 +985,12 @@ namespace ACT_TriggerTree
                 }
                 else
                 {
-                    MessageBox.Show(this, "Regular Expression does not match the log line");
+                    SimpleMessageBox.Show(this, "Regular Expression does not match the log line", "No Match");
                 }
             }
             catch (Exception rex)
             {
-                MessageBox.Show(this, "Invalid regular expression:\n" + rex.Message);
+                SimpleMessageBox.Show(this, rex.Message, "Invalid regular expression");
             }
         }
 
@@ -970,7 +998,9 @@ namespace ACT_TriggerTree
         {
             if(dataGridViewLines.Rows.Count > 100)
             {
-                if (MessageBox.Show("There are more than 100 filtered lines. Are you sure the filter is correct?", "Lots of lines", 
+                if (SimpleMessageBox.Show(this, @"There are more than 100 filtered lines.\line Are you sure the filter is correct?"
+                    + @"\line (processing could take a while)"
+                    , "Lots of lines", 
                     MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.No)
                     return;
             }
@@ -1028,7 +1058,8 @@ namespace ACT_TriggerTree
                     Match match = re.Match(line);
                     if (!match.Success)
                     {
-                        MessageBox.Show("The regular expression does not match the text used to determine the timer value.\n\nYou probably want to fix the regular expression.", 
+                        SimpleMessageBox.Show(this, @"The regular expression does not match the text used to determine the timer value." 
+                            + @"\line\line You probably want to fix the regular expression.", 
                             "Inconsistent", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     }
                 }
@@ -1045,50 +1076,63 @@ namespace ACT_TriggerTree
             }
         }
 
-        private void buttonX_Click(object sender, EventArgs e)
-        {
-            textBoxFindLine.Clear();
-            textBoxFindLine.Focus();
-        }
-
-        private async void treeViewEncounters_AfterSelect(object sender, TreeViewEventArgs e)
+        private void treeViewEncounters_AfterSelect(object sender, TreeViewEventArgs e)
         {
             if (e.Node.IsSelected)
             {
                 //disconnect / clear the gridview while we update the table
                 dataGridViewLines.DataSource = new DataTable();
 
+                // better highlighting
+                e.Node.BackColor = SystemColors.Highlight;
+                e.Node.ForeColor = SystemColors.HighlightText;
+                if (lastSelectedNode != null)
+                {
+                    // Deselect old node
+                    lastSelectedNode.BackColor = SystemColors.Window;
+                    lastSelectedNode.ForeColor = SystemColors.WindowText;
+                }
+                lastSelectedNode = e.Node;
+
                 if (e.Node.Parent != null)
                 {
-                    int encounterIndex = Int32.Parse(e.Node.Tag.ToString());
-                    int zoneIndex = Int32.Parse(e.Node.Parent.Tag.ToString());
-                    ZoneData zoneData = ActGlobals.oFormActMain.ZoneList[zoneIndex];
-                    textBoxFindLine.Clear();
-                    DataTable dt = null;
-                    try
-                    {
-                        //don't tie up the UI thread building the table (even though it's fairly quick)
-                        await Task.Run(() =>
-                        {
-                            UseWaitCursor = true;
-                            dt = ToLineTable(zoneData.Items[encounterIndex].LogLines);
-                            UseWaitCursor = false;
-                        });
-                        if (dt != null)
-                        {
-                            dataGridViewLines.DataSource = dt;
-
-                            //mode fill = can't get a horizontal scroll bar
-                            //any auto size mode takes too much calculation time on large encounters
-                            //so just set a pretty large width that should handle most everything we'd want to use to make a trigger
-                            dataGridViewLines.Columns["LogLine"].Width = 1200;
-                        }
-                    }
-                    catch (Exception dtx)
-                    {
-                        MessageBox.Show(this, "Problem collecting the log lines:\n" + dtx.Message);
-                    }
+                    FillEncounterLines(e.Node);
                 }
+            }
+        }
+
+        private async void FillEncounterLines(TreeNode node)
+        {
+            int encounterIndex = Int32.Parse(node.Tag.ToString());
+            int zoneIndex = Int32.Parse(node.Parent.Tag.ToString());
+            ZoneData zoneData = ActGlobals.oFormActMain.ZoneList[zoneIndex];
+            textBoxFindLine.Clear();
+            DataTable dt = null;
+            try
+            {
+                //don't tie up the UI thread building the table (even though it's fairly quick)
+                await Task.Run(() =>
+                {
+                    UseWaitCursor = true;
+                    if (checkBoxFilterRegex.Checked)
+                        dt = ToLineTable(zoneData.Items[encounterIndex].LogLines, textBoxRegex.Text);
+                    else
+                        dt = ToLineTable(zoneData.Items[encounterIndex].LogLines);
+                    UseWaitCursor = false;
+                });
+                if (dt != null)
+                {
+                    dataGridViewLines.DataSource = dt;
+
+                    //mode fill = can't get a horizontal scroll bar
+                    //any auto size mode takes too much calculation time on large encounters
+                    //so just set a pretty large width that should handle most everything we'd want to use to make a trigger
+                    dataGridViewLines.Columns["LogLine"].Width = 1200;
+                }
+            }
+            catch (Exception dtx)
+            {
+                SimpleMessageBox.Show(this, dtx.Message, "Problem collecting the log lines");
             }
         }
 
@@ -1110,6 +1154,18 @@ namespace ACT_TriggerTree
                         e.CellStyle.ForeColor = color;
                         e.CellStyle.BackColor = Color.Black;
                     }
+                }
+            }
+        }
+
+        private void checkBoxFilterRegex_CheckedChanged(object sender, EventArgs e)
+        {
+            TreeNode node = treeViewEncounters.SelectedNode;
+            if(node != null)
+            {
+                if(node.Parent != null)
+                {
+                    FillEncounterLines(node);
                 }
             }
         }

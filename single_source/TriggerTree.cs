@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
+using System.Security.Policy;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -20,7 +21,7 @@ using System.Windows.Forms.DataVisualization.Charting;
 [assembly: AssemblyTitle("Tree view of Custom Triggers")]
 [assembly: AssemblyDescription("An alternate interface for managing Custom Triggers")]
 [assembly: AssemblyCompany("Mineeme of Maj'Dul")]
-[assembly: AssemblyVersion("1.2.0.0")]
+[assembly: AssemblyVersion("1.3.0.0")]
 
 namespace ACT_TriggerTree
 {
@@ -71,7 +72,7 @@ namespace ACT_TriggerTree
         string catLastFound = string.Empty;         //for find next cat
         enum FindResult { NOT_FOUND, FOUND, FIND_FAILED};
 
-        bool initialVisible = true;                 //save the splitter location only if it has been initialized 
+        bool neverBeenVisible = true;               //save the splitter location only if it has been initialized 
 
         //trigger macro file stuff
         string doFileName = "triggers.txt";         //macro file name
@@ -92,6 +93,8 @@ namespace ACT_TriggerTree
         string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\TriggerTree.config.xml");
         SettingsSerializer xmlSettings;
         private CheckBox checkBoxCurrentCategory;
+        int saveSplitterLoc = -1;
+        private LinkLabel linkLabel1;
 
         #region Designer Created Code (Avoid editing)
 
@@ -127,14 +130,11 @@ namespace ACT_TriggerTree
             this.panel3 = new System.Windows.Forms.Panel();
             this.label3 = new System.Windows.Forms.Label();
             this.buttonCatFindNext = new System.Windows.Forms.Button();
-            this.textBoxCatFind = new System.Windows.Forms.TextBox();
             this.treeViewTrigs = new System.Windows.Forms.TreeView();
             this.panel2 = new System.Windows.Forms.Panel();
             this.checkBoxCurrentCategory = new System.Windows.Forms.CheckBox();
             this.label4 = new System.Windows.Forms.Label();
             this.buttonFindNext = new System.Windows.Forms.Button();
-            this.textBoxTrigFind = new System.Windows.Forms.TextBox();
-            this.textBoxSplitterLoc = new System.Windows.Forms.TextBox();
             this.contextMenuStripTrig = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.copyAsShareableXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.copyAsDoubleEncodedXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -149,8 +149,6 @@ namespace ACT_TriggerTree
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.expandAllToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.collapseAllToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
-            this.helpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
             this.contextMenuStripCat = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.copyZoneNameToClipboardToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -163,6 +161,9 @@ namespace ACT_TriggerTree
             this.label1 = new System.Windows.Forms.Label();
             this.panel1 = new System.Windows.Forms.Panel();
             this.label2 = new System.Windows.Forms.Label();
+            this.linkLabel1 = new System.Windows.Forms.LinkLabel();
+            this.textBoxCatFind = new ACT_TriggerTree.TextBoxX();
+            this.textBoxTrigFind = new ACT_TriggerTree.TextBoxX();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -242,17 +243,6 @@ namespace ACT_TriggerTree
             this.buttonCatFindNext.UseVisualStyleBackColor = true;
             this.buttonCatFindNext.Click += new System.EventHandler(this.buttonCatFindNext_Click);
             // 
-            // textBoxCatFind
-            // 
-            this.textBoxCatFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxCatFind.Location = new System.Drawing.Point(40, 4);
-            this.textBoxCatFind.Name = "textBoxCatFind";
-            this.textBoxCatFind.Size = new System.Drawing.Size(148, 20);
-            this.textBoxCatFind.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
-            this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
-            // 
             // treeViewTrigs
             // 
             this.treeViewTrigs.CheckBoxes = true;
@@ -320,28 +310,6 @@ namespace ACT_TriggerTree
             this.buttonFindNext.UseVisualStyleBackColor = true;
             this.buttonFindNext.Click += new System.EventHandler(this.buttonFindNext_Click);
             // 
-            // textBoxTrigFind
-            // 
-            this.textBoxTrigFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxTrigFind.Location = new System.Drawing.Point(40, 4);
-            this.textBoxTrigFind.Name = "textBoxTrigFind";
-            this.textBoxTrigFind.Size = new System.Drawing.Size(326, 20);
-            this.textBoxTrigFind.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.textBoxTrigFind, "Incremental search for text in the trigger\'s regular expression, alert, or timer " +
-        "name");
-            this.textBoxTrigFind.TextChanged += new System.EventHandler(this.textBoxFind_TextChanged);
-            // 
-            // textBoxSplitterLoc
-            // 
-            this.textBoxSplitterLoc.Location = new System.Drawing.Point(605, 6);
-            this.textBoxSplitterLoc.Name = "textBoxSplitterLoc";
-            this.textBoxSplitterLoc.Size = new System.Drawing.Size(44, 20);
-            this.textBoxSplitterLoc.TabIndex = 2;
-            this.textBoxSplitterLoc.TabStop = false;
-            this.textBoxSplitterLoc.Text = "300";
-            this.textBoxSplitterLoc.Visible = false;
-            // 
             // contextMenuStripTrig
             // 
             this.contextMenuStripTrig.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -357,11 +325,9 @@ namespace ACT_TriggerTree
             this.groupsayShareMacroToolStripMenuItem,
             this.toolStripSeparator2,
             this.expandAllToolStripMenuItem,
-            this.collapseAllToolStripMenuItem,
-            this.toolStripSeparator6,
-            this.helpToolStripMenuItem});
+            this.collapseAllToolStripMenuItem});
             this.contextMenuStripTrig.Name = "contextMenuStrip1";
-            this.contextMenuStripTrig.Size = new System.Drawing.Size(290, 254);
+            this.contextMenuStripTrig.Size = new System.Drawing.Size(290, 248);
             this.contextMenuStripTrig.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripTrg_Opening);
             // 
             // copyAsShareableXMLToolStripMenuItem
@@ -452,18 +418,6 @@ namespace ACT_TriggerTree
             this.collapseAllToolStripMenuItem.Text = "Collapse all triggers";
             this.collapseAllToolStripMenuItem.Click += new System.EventHandler(this.collapseAllToolStripMenuItem_Click);
             // 
-            // toolStripSeparator6
-            // 
-            this.toolStripSeparator6.Name = "toolStripSeparator6";
-            this.toolStripSeparator6.Size = new System.Drawing.Size(286, 6);
-            // 
-            // helpToolStripMenuItem
-            // 
-            this.helpToolStripMenuItem.Name = "helpToolStripMenuItem";
-            this.helpToolStripMenuItem.Size = new System.Drawing.Size(289, 22);
-            this.helpToolStripMenuItem.Text = "Help";
-            this.helpToolStripMenuItem.Click += new System.EventHandler(this.helpToolStripMenuItem_Click);
-            // 
             // toolTip1
             // 
             this.toolTip1.AutomaticDelay = 750;
@@ -544,9 +498,9 @@ namespace ACT_TriggerTree
             // panel1
             // 
             this.panel1.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.panel1.Controls.Add(this.linkLabel1);
             this.panel1.Controls.Add(this.label2);
             this.panel1.Controls.Add(this.label1);
-            this.panel1.Controls.Add(this.textBoxSplitterLoc);
             this.panel1.Dock = System.Windows.Forms.DockStyle.Top;
             this.panel1.Location = new System.Drawing.Point(0, 0);
             this.panel1.Name = "panel1";
@@ -562,6 +516,43 @@ namespace ACT_TriggerTree
             this.label2.TabIndex = 1;
             this.label2.Text = "Double-click to edit trigger fields. Expand a trigger for checkbox and right-clic" +
     "k actions on sub-items.";
+            // 
+            // linkLabel1
+            // 
+            this.linkLabel1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.linkLabel1.AutoSize = true;
+            this.linkLabel1.Location = new System.Drawing.Point(690, 3);
+            this.linkLabel1.Name = "linkLabel1";
+            this.linkLabel1.Size = new System.Drawing.Size(29, 13);
+            this.linkLabel1.TabIndex = 2;
+            this.linkLabel1.TabStop = true;
+            this.linkLabel1.Text = "Help";
+            this.linkLabel1.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel1_LinkClicked);
+            // 
+            // textBoxCatFind
+            // 
+            this.textBoxCatFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxCatFind.ButtonTextClear = true;
+            this.textBoxCatFind.Location = new System.Drawing.Point(40, 4);
+            this.textBoxCatFind.Name = "textBoxCatFind";
+            this.textBoxCatFind.Size = new System.Drawing.Size(148, 20);
+            this.textBoxCatFind.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
+            this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
+            // 
+            // textBoxTrigFind
+            // 
+            this.textBoxTrigFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxTrigFind.ButtonTextClear = true;
+            this.textBoxTrigFind.Location = new System.Drawing.Point(40, 4);
+            this.textBoxTrigFind.Name = "textBoxTrigFind";
+            this.textBoxTrigFind.Size = new System.Drawing.Size(326, 20);
+            this.textBoxTrigFind.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.textBoxTrigFind, "Incremental search for text in the trigger\'s regular expression, alert, or timer " +
+        "name");
+            this.textBoxTrigFind.TextChanged += new System.EventHandler(this.textBoxFind_TextChanged);
             // 
             // TriggerTree
             // 
@@ -599,7 +590,6 @@ namespace ACT_TriggerTree
         private ToolStripMenuItem copyAsShareableXMLToolStripMenuItem;
         private ToolStripMenuItem copyAsDoubleEncodedXMLToolStripMenuItem;
         private ToolTip toolTip1;
-        private TextBox textBoxSplitterLoc;
         private ContextMenuStrip contextMenuStripCat;
         private ToolStripMenuItem copyZoneNameToClipboardToolStripMenuItem;
         private ToolStripMenuItem deleteEntireCategoryToolStripMenuItem;
@@ -609,10 +599,10 @@ namespace ACT_TriggerTree
         private ToolStripMenuItem collapseAllToolStripMenuItem;
         private Panel panel1;
         private Button buttonFindNext;
-        private TextBox textBoxTrigFind;
+        private TextBoxX textBoxTrigFind;
         private Panel panel2;
         private Panel panel3;
-        private TextBox textBoxCatFind;
+        private TextBoxX textBoxCatFind;
         private Button buttonCatFindNext;
         private ToolStripMenuItem playAlertSoundToolStripMenuItem;
         private ToolStripSeparator toolStripSeparator2;
@@ -626,8 +616,6 @@ namespace ACT_TriggerTree
         private ToolStripSeparator toolStripSeparator5;
         private ToolStripMenuItem deleteTriggerToolStripMenuItem;
         private ToolStripMenuItem editTriggerToolStripMenuItem;
-        private ToolStripSeparator toolStripSeparator6;
-        private ToolStripMenuItem helpToolStripMenuItem;
         private ToolStripSeparator toolStripSeparator7;
         private ToolStripMenuItem categorySpellTimersMenuItem;
 
@@ -696,13 +684,21 @@ namespace ACT_TriggerTree
                 Version remoteVersion = new Version(ActGlobals.oFormActMain.PluginGetRemoteVersion(pluginId).TrimStart(new char[] { 'v' }));    // Strip any leading 'v' from the string before passing to the Version constructor
                 if (remoteVersion > localVersion)
                 {
-                    DialogResult result = MessageBox.Show("There is an updated version of the Trigger Tree Plugin.  Update it now?\n\n(If there is an update to ACT, you should click No and update ACT first.)", "New Version", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    DialogResult result = SimpleMessageBox.Show(ActGlobals.oFormActMain,
+                          @"There is an update for TriggerTree."
+                        + @"\line Update it now?"
+                        + @"\line (If there is an update to ACT"
+                        + @"\line you should click No and update ACT first.)"
+                        + @"\line\line Release notes at project website:"
+                        + @"{\line\ql https://github.com/jeffjl74/ACT_TriggerTree#overview}"
+                        , "Trigger Tree New Version", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                     if (result == DialogResult.Yes)
                     {
                         FileInfo updatedFile = ActGlobals.oFormActMain.PluginDownload(pluginId);
                         ActPluginData pluginData = ActGlobals.oFormActMain.PluginGetSelfData(this);
                         pluginData.pluginFile.Delete();
                         updatedFile.MoveTo(pluginData.pluginFile.FullName);
+                        Application.DoEvents();
                         ThreadInvokes.CheckboxSetChecked(ActGlobals.oFormActMain, pluginData.cbEnabled, false);
                         Application.DoEvents();
                         ThreadInvokes.CheckboxSetChecked(ActGlobals.oFormActMain, pluginData.cbEnabled, true);
@@ -744,7 +740,7 @@ namespace ACT_TriggerTree
 
         void LoadSettings()
 		{
-            xmlSettings.AddControlSetting(textBoxSplitterLoc.Name, textBoxSplitterLoc);
+            xmlSettings.AddIntSetting("saveSplitterLoc");
 
             if (File.Exists(settingsFile))
 			{
@@ -774,10 +770,12 @@ namespace ACT_TriggerTree
 
         void SaveSettings()
 		{
-            //using a hidden textbox to store the splitter location to take advantage of xmlsettings
+            //store the splitter location
             // but only save it if it was ever set
-            if(!initialVisible)
-                textBoxSplitterLoc.Text = splitContainer1.SplitterDistance.ToString();
+            if (!neverBeenVisible)
+            {
+                saveSplitterLoc = splitContainer1.SplitterDistance;
+            }
 
             FileStream fs = new FileStream(settingsFile, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
 			XmlTextWriter xWriter = new XmlTextWriter(fs, Encoding.UTF8);
@@ -794,6 +792,28 @@ namespace ACT_TriggerTree
 			xWriter.Flush();	        // Flush the file buffer to disk
 			xWriter.Close();
 		}
+
+        private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            try
+            {
+                VisitLink();
+            }
+            catch (Exception ex)
+            {
+                SimpleMessageBox.Show(this, ex.Message, "Unable to open link that was clicked.");
+            }
+        }
+
+        private void VisitLink()
+        {
+            // Change the color of the link text by setting LinkVisited
+            // to true.
+            linkLabel1.LinkVisited = true;
+            //Call the Process.Start method to open the default browser
+            //with a URL:
+            System.Diagnostics.Process.Start("https://github.com/jeffjl74/ACT_TriggerTree#overview");
+        }
 
         #region Category Tree
 
@@ -901,11 +921,12 @@ namespace ACT_TriggerTree
         {
             if (e.Node == null) return;
 
+
             // if treeview's HideSelection property is "True", 
             // this will always returns "False" on unfocused treeview
             var selected = (e.State & TreeNodeStates.Selected) == TreeNodeStates.Selected;
             var unfocused = !e.Node.TreeView.Focused;
-            bool green = (bool)e.Node.Tag;
+            bool green = e.Node.Tag == null ? false : (bool)e.Node.Tag;
 
             // keep the focused highlight if selected and unfocused
             // draw green background if not selected and triggers are active
@@ -1015,7 +1036,7 @@ namespace ACT_TriggerTree
             if (clickedCategoryNode != null)
             {
                 string category = clickedCategoryNode.Text;
-                if (MessageBox.Show(ActGlobals.oFormActMain, "Delete category '" + category + "' and all its triggers?", "Are you sure?",
+                if (SimpleMessageBox.Show(ActGlobals.oFormActMain, "Delete category '" + category + "' and all its triggers?", "Are you sure?",
                     MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes)
                 {
                     List<CustomTrigger> triggers;
@@ -1093,7 +1114,7 @@ namespace ACT_TriggerTree
                 }
                 if (!found)
                 {
-                    MessageBox.Show(ActGlobals.oFormActMain, "Not found");
+                    SimpleMessageBox.Show(ActGlobals.oFormActMain, "Not found");
                 }
             }
         }
@@ -1223,7 +1244,7 @@ namespace ACT_TriggerTree
                     }
                     catch (Exception x)
                     {
-                        MessageBox.Show(this, "Macro file error:\n" + x.Message);
+                        SimpleMessageBox.Show(this, "Macro file error:\n" + x.Message);
                     }
                 }
             }
@@ -1648,13 +1669,12 @@ namespace ACT_TriggerTree
                 }
                 UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
 
-                if (initialVisible)
+                if (neverBeenVisible)
                 {
                     //set the splitter only on the first time shown
-                    int distance = Int32.Parse(textBoxSplitterLoc.Text);
-                    if (distance > 0)
-                        splitContainer1.SplitterDistance = distance;
-                    initialVisible = false;
+                    if (saveSplitterLoc > 0)
+                        splitContainer1.SplitterDistance = saveSplitterLoc;
+                    neverBeenVisible = false;
                 }
             }
         }
@@ -1791,7 +1811,7 @@ namespace ACT_TriggerTree
 
                 if (!ok)
                 {
-                    MessageBox.Show(ActGlobals.oFormActMain, "Was not able to delete original trigger");
+                    SimpleMessageBox.Show(ActGlobals.oFormActMain, "Was not able to delete original trigger");
                 }
             }
         }
@@ -1954,7 +1974,7 @@ namespace ACT_TriggerTree
 
                 UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
                 if (result == FindResult.NOT_FOUND)
-                    MessageBox.Show(this, "Not found");
+                    SimpleMessageBox.Show(this, "Not found");
             }
         }
 
@@ -2362,7 +2382,7 @@ namespace ACT_TriggerTree
                     if (Macros.IsInvalidMacroTrigger(trigger))
                     {
                         //should not get here since the menu should be disabled
-                        MessageBox.Show(this, "EQII does not allow certain characters in a macro.\nThis trigger cannot be saved to a macro.",
+                        SimpleMessageBox.Show(this, @"EQII does not allow certain characters in a macro.\line This trigger cannot be saved to a macro.",
                             "Unsupported Action", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
                         return;
                     }
@@ -2401,7 +2421,7 @@ namespace ACT_TriggerTree
                         }
                         catch (Exception x)
                         {
-                            MessageBox.Show(this, "Macro file error:\n" + x.Message);
+                            SimpleMessageBox.Show(this, x.Message, "Macro file error");
                         }
                     }
                 }
@@ -2451,7 +2471,7 @@ namespace ACT_TriggerTree
                 if (silently)
                     doit = true;
                 else
-                    doit = MessageBox.Show(ActGlobals.oFormActMain, "Delete trigger:\n" + trigger.ShortRegexString, "Delete?",
+                    doit = SimpleMessageBox.Show(ActGlobals.oFormActMain, @"\ql" + trigger.ShortRegexString, "Delete Trigger?",
                         MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
                 if (doit)
                 {
@@ -2496,7 +2516,7 @@ namespace ACT_TriggerTree
                     }
                     else
                     {
-                        MessageBox.Show(this, "Could not find timer:\n" + trigger.TimerName, "No such timer");
+                        SimpleMessageBox.Show(this, @"Could not find timer:\line\line " + trigger.TimerName, "No such timer");
                         return false;
                     }
                 }
@@ -2708,7 +2728,7 @@ namespace ACT_TriggerTree
                 }
                 else
                 {
-                    MessageBox.Show(this, "Could not find timer:\n" + trigger.TimerName, "No such timer");
+                    SimpleMessageBox.Show(this, @"Could not find timer:\line\line " + trigger.TimerName, "No such timer");
                 }
             }
             if (!string.IsNullOrEmpty(doubled))
@@ -2758,11 +2778,6 @@ namespace ACT_TriggerTree
             }
         }
 
-        private void helpToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            System.Diagnostics.Process.Start("https://github.com/jeffjl74/ACT_TriggerTree#overview");
-        }
-
         #endregion Context Menu
 
         #endregion Trigger Tree
@@ -2781,6 +2796,7 @@ namespace ACT_TriggerTree
         string zoneCategory;
         bool regexChanged = false;          //track for replace / create new
         bool initializing = true;           //oncheck() methods do not need to do anything during shown()
+        TreeNode lastSelectedNode;          //for better tree node highlighting
 
         //color the regex depending on restricted status / matching
         Color activeColor = Color.Green;
@@ -2964,7 +2980,7 @@ namespace ACT_TriggerTree
             {
                 if (string.IsNullOrEmpty(textBoxCategory.Text.Trim()))
                 {
-                    MessageBox.Show(this, "Category / Zone cannot be empty");
+                    SimpleMessageBox.Show(this, "Category / Zone cannot be empty");
                     return;
                 }
 
@@ -2972,7 +2988,7 @@ namespace ACT_TriggerTree
                 {
                     if(string.IsNullOrEmpty(textBoxRegex.Text.Trim()))
                     {
-                        MessageBox.Show(this, "Regular Expression cannot be empty");
+                        SimpleMessageBox.Show(this, "Regular Expression cannot be empty");
                         return;
                     }
 
@@ -2983,8 +2999,8 @@ namespace ACT_TriggerTree
                     }
                     catch (ArgumentException aex)
                     {
-                        ActGlobals.oFormActMain.NotificationAdd("Improper Custom Trigger Regular Expression", aex.Message);
-                        MessageBox.Show(this, "Improper Regular Expression:\n" + aex.Message);
+                        //ActGlobals.oFormActMain.NotificationAdd("Improper Custom Trigger Regular Expression", aex.Message);
+                        SimpleMessageBox.Show(this, aex.Message, "Improper Regular Expression");
                         return;
                     }
                     string category = editingTrigger.Category;
@@ -2999,7 +3015,7 @@ namespace ACT_TriggerTree
                 {
                     if(!File.Exists(textBoxSound.Text))
                     {
-                        MessageBox.Show(this, "WAV file does not exist");
+                        SimpleMessageBox.Show(this, "WAV file does not exist");
                         return;
                     }
                 }
@@ -3007,7 +3023,7 @@ namespace ACT_TriggerTree
                 if((editingTrigger.Timer || editingTrigger.Tabbed)
                     && string.IsNullOrEmpty(editingTrigger.TimerName))
                 {
-                    if (MessageBox.Show(this, "Timer or Tab enabled without a Timer/Tab Name. Return to fix?", "Inconsistent Settings",
+                    if (SimpleMessageBox.Show(this, @"Timer or Tab enabled without a Timer/Tab Name.\line Return to fix?", "Inconsistent Settings",
                         MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1) == DialogResult.Yes)
                         return;
                 }
@@ -3104,8 +3120,11 @@ namespace ACT_TriggerTree
                 Match match = parsePaste.Match(text);
                 if (match.Success)
                 {
+                    // strip the timestamp
                     // a \\ in the log is not an escaped \, it is two backslashes. fix it
-                    text = match.Groups["expr"].Value.Replace("\\", "\\\\");
+                    // escape any parentheses
+                    // escape any question marks
+                    text = match.Groups["expr"].Value.Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)").Replace("?", "\\?");
                 }
                 textBoxRegex.Text = text;
                 textBoxRegex.Focus();
@@ -3125,7 +3144,7 @@ namespace ACT_TriggerTree
                 }
             }
             else
-                MessageBox.Show(this, "Enter a spell timer name to search");
+                SimpleMessageBox.Show(this, "Enter a spell timer name to search");
         }
 
         #endregion Button Clicks
@@ -3292,6 +3311,7 @@ namespace ACT_TriggerTree
                 buttonReplace.Enabled = haveOriginal;
                 buttonUpdateCreate.Enabled = true;
                 buttonUpdateCreate.Text = "Create New";
+                checkBoxFilterRegex.Checked = false;
                 PopulateGroupList();
 
                 if (string.IsNullOrEmpty(textBoxRegex.Text))
@@ -3516,7 +3536,7 @@ namespace ACT_TriggerTree
             catch (Exception exc)
             {
                 UseWaitCursor = false;
-                MessageBox.Show(this, exc.Message);
+                SimpleMessageBox.Show(this, exc.Message, "Improper filter");
             }
         }
 
@@ -3547,6 +3567,29 @@ namespace ACT_TriggerTree
                 for(int i=0; i<lineCount; i++)
                 {
                     dt.Rows.Add(list[i].LogLine);
+                }
+            }
+            catch
+            {
+                //just in case there are any issues with accessing ACT's list,
+                //just ignore it
+            }
+            return dt;
+        }
+
+        private static DataTable ToLineTable(List<LogLineEntry> list, string regex)
+        {
+            //make a DataTable of the log lines to make filtering easy
+            DataTable dt = new DataTable();
+            Regex re = new Regex(regex, RegexOptions.Compiled);
+            dt.Columns.Add("LogLine");
+            int lineCount = list.Count;
+            try
+            {
+                for (int i = 0; i < lineCount; i++)
+                {
+                    if(re.Match(list[i].LogLine).Success)
+                        dt.Rows.Add(list[i].LogLine);
                 }
             }
             catch
@@ -3714,12 +3757,12 @@ namespace ACT_TriggerTree
                 }
                 else
                 {
-                    MessageBox.Show(this, "Regular Expression does not match the log line");
+                    SimpleMessageBox.Show(this, "Regular Expression does not match the log line", "No Match");
                 }
             }
             catch (Exception rex)
             {
-                MessageBox.Show(this, "Invalid regular expression:\n" + rex.Message);
+                SimpleMessageBox.Show(this, rex.Message, "Invalid regular expression");
             }
         }
 
@@ -3727,7 +3770,9 @@ namespace ACT_TriggerTree
         {
             if(dataGridViewLines.Rows.Count > 100)
             {
-                if (MessageBox.Show("There are more than 100 filtered lines. Are you sure the filter is correct?", "Lots of lines", 
+                if (SimpleMessageBox.Show(this, @"There are more than 100 filtered lines.\line Are you sure the filter is correct?"
+                    + @"\line (processing could take a while)"
+                    , "Lots of lines", 
                     MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.No)
                     return;
             }
@@ -3785,7 +3830,8 @@ namespace ACT_TriggerTree
                     Match match = re.Match(line);
                     if (!match.Success)
                     {
-                        MessageBox.Show("The regular expression does not match the text used to determine the timer value.\n\nYou probably want to fix the regular expression.", 
+                        SimpleMessageBox.Show(this, @"The regular expression does not match the text used to determine the timer value." 
+                            + @"\line\line You probably want to fix the regular expression.", 
                             "Inconsistent", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     }
                 }
@@ -3802,50 +3848,63 @@ namespace ACT_TriggerTree
             }
         }
 
-        private void buttonX_Click(object sender, EventArgs e)
-        {
-            textBoxFindLine.Clear();
-            textBoxFindLine.Focus();
-        }
-
-        private async void treeViewEncounters_AfterSelect(object sender, TreeViewEventArgs e)
+        private void treeViewEncounters_AfterSelect(object sender, TreeViewEventArgs e)
         {
             if (e.Node.IsSelected)
             {
                 //disconnect / clear the gridview while we update the table
                 dataGridViewLines.DataSource = new DataTable();
 
+                // better highlighting
+                e.Node.BackColor = SystemColors.Highlight;
+                e.Node.ForeColor = SystemColors.HighlightText;
+                if (lastSelectedNode != null)
+                {
+                    // Deselect old node
+                    lastSelectedNode.BackColor = SystemColors.Window;
+                    lastSelectedNode.ForeColor = SystemColors.WindowText;
+                }
+                lastSelectedNode = e.Node;
+
                 if (e.Node.Parent != null)
                 {
-                    int encounterIndex = Int32.Parse(e.Node.Tag.ToString());
-                    int zoneIndex = Int32.Parse(e.Node.Parent.Tag.ToString());
-                    ZoneData zoneData = ActGlobals.oFormActMain.ZoneList[zoneIndex];
-                    textBoxFindLine.Clear();
-                    DataTable dt = null;
-                    try
-                    {
-                        //don't tie up the UI thread building the table (even though it's fairly quick)
-                        await Task.Run(() =>
-                        {
-                            UseWaitCursor = true;
-                            dt = ToLineTable(zoneData.Items[encounterIndex].LogLines);
-                            UseWaitCursor = false;
-                        });
-                        if (dt != null)
-                        {
-                            dataGridViewLines.DataSource = dt;
-
-                            //mode fill = can't get a horizontal scroll bar
-                            //any auto size mode takes too much calculation time on large encounters
-                            //so just set a pretty large width that should handle most everything we'd want to use to make a trigger
-                            dataGridViewLines.Columns["LogLine"].Width = 1200;
-                        }
-                    }
-                    catch (Exception dtx)
-                    {
-                        MessageBox.Show(this, "Problem collecting the log lines:\n" + dtx.Message);
-                    }
+                    FillEncounterLines(e.Node);
                 }
+            }
+        }
+
+        private async void FillEncounterLines(TreeNode node)
+        {
+            int encounterIndex = Int32.Parse(node.Tag.ToString());
+            int zoneIndex = Int32.Parse(node.Parent.Tag.ToString());
+            ZoneData zoneData = ActGlobals.oFormActMain.ZoneList[zoneIndex];
+            textBoxFindLine.Clear();
+            DataTable dt = null;
+            try
+            {
+                //don't tie up the UI thread building the table (even though it's fairly quick)
+                await Task.Run(() =>
+                {
+                    UseWaitCursor = true;
+                    if (checkBoxFilterRegex.Checked)
+                        dt = ToLineTable(zoneData.Items[encounterIndex].LogLines, textBoxRegex.Text);
+                    else
+                        dt = ToLineTable(zoneData.Items[encounterIndex].LogLines);
+                    UseWaitCursor = false;
+                });
+                if (dt != null)
+                {
+                    dataGridViewLines.DataSource = dt;
+
+                    //mode fill = can't get a horizontal scroll bar
+                    //any auto size mode takes too much calculation time on large encounters
+                    //so just set a pretty large width that should handle most everything we'd want to use to make a trigger
+                    dataGridViewLines.Columns["LogLine"].Width = 1200;
+                }
+            }
+            catch (Exception dtx)
+            {
+                SimpleMessageBox.Show(this, dtx.Message, "Problem collecting the log lines");
             }
         }
 
@@ -3867,6 +3926,18 @@ namespace ACT_TriggerTree
                         e.CellStyle.ForeColor = color;
                         e.CellStyle.BackColor = Color.Black;
                     }
+                }
+            }
+        }
+
+        private void checkBoxFilterRegex_CheckedChanged(object sender, EventArgs e)
+        {
+            TreeNode node = treeViewEncounters.SelectedNode;
+            if(node != null)
+            {
+                if(node.Parent != null)
+                {
+                    FillEncounterLines(node);
                 }
             }
         }
@@ -3944,7 +4015,6 @@ namespace ACT_TriggerTree
             this.buttonPaste = new System.Windows.Forms.Button();
             this.buttonFindTimer = new System.Windows.Forms.Button();
             this.dataGridViewLines = new System.Windows.Forms.DataGridView();
-            this.textBoxFindLine = new System.Windows.Forms.TextBox();
             this.checkBoxLogLines = new System.Windows.Forms.CheckBox();
             this.treeViewEncounters = new System.Windows.Forms.TreeView();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
@@ -3952,7 +4022,6 @@ namespace ACT_TriggerTree
             this.label4 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
-            this.buttonX = new System.Windows.Forms.Button();
             this.pictureBoxTimer = new System.Windows.Forms.PictureBox();
             this.pictureBoxCat = new System.Windows.Forms.PictureBox();
             this.pictureBoxRe = new System.Windows.Forms.PictureBox();
@@ -3969,6 +4038,8 @@ namespace ACT_TriggerTree
             this.testWithRegularExpressionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.showTimeDifferencesMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.checkBoxFilterRegex = new System.Windows.Forms.CheckBox();
+            this.textBoxFindLine = new ACT_TriggerTree.TextBoxX();
             this.contextMenuRegex.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridViewLines)).BeginInit();
             this.groupBox1.SuspendLayout();
@@ -4458,21 +4529,6 @@ namespace ACT_TriggerTree
             this.dataGridViewLines.CellContextMenuStripNeeded += new System.Windows.Forms.DataGridViewCellContextMenuStripNeededEventHandler(this.dataGridViewLines_CellContextMenuStripNeeded);
             this.dataGridViewLines.CellFormatting += new System.Windows.Forms.DataGridViewCellFormattingEventHandler(this.dataGridViewLines_CellFormatting);
             // 
-            // textBoxFindLine
-            // 
-            this.textBoxFindLine.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.helpProvider1.SetHelpString(this.textBoxFindLine, "Filter log lines to show only those containing this text (no wildcards). For exam" +
-        "ple: \'#\' to show colored lines. \'says,\' (include the comma) to show mob dialog.");
-            this.textBoxFindLine.Location = new System.Drawing.Point(40, 2);
-            this.textBoxFindLine.Name = "textBoxFindLine";
-            this.helpProvider1.SetShowHelp(this.textBoxFindLine, true);
-            this.textBoxFindLine.Size = new System.Drawing.Size(433, 20);
-            this.textBoxFindLine.TabIndex = 1;
-            this.toolTip1.SetToolTip(this.textBoxFindLine, "Show lines containing text. Examples: \'#\' for colored lines. \'says,\' for mob dial" +
-        "og.");
-            this.textBoxFindLine.TextChanged += new System.EventHandler(this.textBoxFindLine_TextChanged);
-            // 
             // checkBoxLogLines
             // 
             this.checkBoxLogLines.AutoSize = true;
@@ -4491,8 +4547,8 @@ namespace ACT_TriggerTree
             // treeViewEncounters
             // 
             this.treeViewEncounters.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.treeViewEncounters.FullRowSelect = true;
             this.helpProvider1.SetHelpString(this.treeViewEncounters, "Select an encouner to display its log lines");
-            this.treeViewEncounters.HideSelection = false;
             this.treeViewEncounters.Indent = 10;
             this.treeViewEncounters.Location = new System.Drawing.Point(0, 0);
             this.treeViewEncounters.Name = "treeViewEncounters";
@@ -4554,23 +4610,10 @@ namespace ACT_TriggerTree
             this.label1.Text = "Changing any other field simply updates the existing trigger.";
             this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // buttonX
-            // 
-            this.buttonX.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.buttonX.Location = new System.Drawing.Point(457, 2);
-            this.buttonX.Name = "buttonX";
-            this.buttonX.Size = new System.Drawing.Size(16, 20);
-            this.buttonX.TabIndex = 28;
-            this.buttonX.Text = "x";
-            this.buttonX.TextAlign = System.Drawing.ContentAlignment.TopCenter;
-            this.toolTip1.SetToolTip(this.buttonX, "Clear Filter:");
-            this.buttonX.UseVisualStyleBackColor = true;
-            this.buttonX.Click += new System.EventHandler(this.buttonX_Click);
-            // 
             // pictureBoxTimer
             // 
             this.pictureBoxTimer.ErrorImage = null;
-            this.pictureBoxTimer.Location = new System.Drawing.Point(109, 182);
+            this.pictureBoxTimer.Location = new System.Drawing.Point(111, 183);
             this.pictureBoxTimer.Name = "pictureBoxTimer";
             this.pictureBoxTimer.Size = new System.Drawing.Size(16, 16);
             this.pictureBoxTimer.TabIndex = 31;
@@ -4638,7 +4681,7 @@ namespace ACT_TriggerTree
             // panelLogFind
             // 
             this.panelLogFind.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.panelLogFind.Controls.Add(this.buttonX);
+            this.panelLogFind.Controls.Add(this.checkBoxFilterRegex);
             this.panelLogFind.Controls.Add(this.label5);
             this.panelLogFind.Controls.Add(this.textBoxFindLine);
             this.panelLogFind.Dock = System.Windows.Forms.DockStyle.Top;
@@ -4745,6 +4788,34 @@ namespace ACT_TriggerTree
             this.showTimeDifferencesMenuItem.ToolTipText = "Histogram of the time difference between filtered log lines";
             this.showTimeDifferencesMenuItem.Click += new System.EventHandler(this.showTimeDifferencesToolStripMenuItem_Click);
             // 
+            // checkBoxFilterRegex
+            // 
+            this.checkBoxFilterRegex.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.checkBoxFilterRegex.AutoSize = true;
+            this.checkBoxFilterRegex.Location = new System.Drawing.Point(408, 4);
+            this.checkBoxFilterRegex.Name = "checkBoxFilterRegex";
+            this.checkBoxFilterRegex.Size = new System.Drawing.Size(72, 17);
+            this.checkBoxFilterRegex.TabIndex = 3;
+            this.checkBoxFilterRegex.Text = "By Regex";
+            this.checkBoxFilterRegex.UseVisualStyleBackColor = true;
+            this.checkBoxFilterRegex.CheckedChanged += new System.EventHandler(this.checkBoxFilterRegex_CheckedChanged);
+            // 
+            // textBoxFindLine
+            // 
+            this.textBoxFindLine.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxFindLine.ButtonTextClear = true;
+            this.helpProvider1.SetHelpString(this.textBoxFindLine, "Filter log lines to show only those containing this text (no wildcards). For exam" +
+        "ple: \'#\' to show colored lines. \'says,\' (include the comma) to show mob dialog.");
+            this.textBoxFindLine.Location = new System.Drawing.Point(47, 3);
+            this.textBoxFindLine.Name = "textBoxFindLine";
+            this.helpProvider1.SetShowHelp(this.textBoxFindLine, true);
+            this.textBoxFindLine.Size = new System.Drawing.Size(355, 20);
+            this.textBoxFindLine.TabIndex = 1;
+            this.toolTip1.SetToolTip(this.textBoxFindLine, "Show lines containing text. Examples: \'#\' for colored lines. \'says,\' for mob dial" +
+        "og.");
+            this.textBoxFindLine.TextChanged += new System.EventHandler(this.textBoxFindLine_TextChanged);
+            // 
             // FormEditTrigger
             // 
             this.AcceptButton = this.buttonUpdateCreate;
@@ -4832,7 +4903,6 @@ namespace ACT_TriggerTree
         private System.Windows.Forms.Panel panelTest;
         private System.Windows.Forms.Panel panelRegex;
         private System.Windows.Forms.Panel panel2;
-        private System.Windows.Forms.TextBox textBoxFindLine;
         private System.Windows.Forms.SplitContainer splitContainerLog;
         private System.Windows.Forms.Panel panelLogLines;
         private System.Windows.Forms.Panel panelLogFind;
@@ -4843,7 +4913,6 @@ namespace ACT_TriggerTree
         private System.Windows.Forms.ToolStripMenuItem pasteInRegularExpressionToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem testWithRegularExpressionToolStripMenuItem;
         private System.Windows.Forms.Label labelGridHelp;
-        private System.Windows.Forms.Button buttonX;
         private System.Windows.Forms.ToolStripMenuItem MakeNumbered;
         private System.Windows.Forms.TreeView treeViewEncounters;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator4;
@@ -4852,6 +4921,8 @@ namespace ACT_TriggerTree
         private System.Windows.Forms.PictureBox pictureBoxCat;
         private System.Windows.Forms.PictureBox pictureBoxTts;
         private System.Windows.Forms.PictureBox pictureBoxTimer;
+        private TextBoxX textBoxFindLine;
+        private System.Windows.Forms.CheckBox checkBoxFilterRegex;
     }
 	#endregion FormEditTrigger.Designer.cs
 	#region FormEditSound.cs
@@ -5966,6 +6037,850 @@ namespace ACT_TriggerTree
         private System.Windows.Forms.ToolTip toolTip1;
     }
 	#endregion FormHistogram.Designer.cs
+	#region TextBoxX.cs
+
+    public partial class TextBoxX : TextBox
+    {
+        private readonly Label lblClear;
+
+        // new event handler for the X "button"
+        [Browsable(true)]
+        [Category("Action")]
+        [Description("Invoked when user clicks X")]
+        public event EventHandler ClickX;
+
+        // required TextBox stuff
+        public bool ButtonTextClear { get; set; }
+        public AutoScaleMode AutoScaleMode;
+
+        public TextBoxX()
+        {
+            InitializeComponent();
+
+            ButtonTextClear = true;
+
+            Resize += PositionX;
+
+            lblClear = new Label()
+            {
+                Location = new Point(100, 0),
+                AutoSize = true,
+                Text = " X ",
+                ForeColor = Color.Gray,
+                Font = new Font("Tahoma", 8.25F),
+                Cursor = Cursors.Arrow
+            };
+
+            Controls.Add(lblClear);
+            lblClear.Click += LblClear_Click;
+            lblClear.BringToFront();
+        }
+
+        private void LblClear_Click(object sender, EventArgs e)
+        {
+            Text = string.Empty; 
+            ButtonX_Click(sender, e);
+        }
+
+        protected void ButtonX_Click(object sender, EventArgs e)
+        {
+            // report the event to the parent
+            if (ClickX != null)
+                ClickX(this, e);
+        }
+
+        private void PositionX(object sender, EventArgs e)
+        { 
+            lblClear.Location = new Point(Width - lblClear.Width, ((Height - lblClear.Height) / 2) - 1); 
+        }
+    }
+	#endregion TextBoxX.cs
+	#region TextBoxX.designer.cs
+
+    partial class TextBoxX
+    {
+        /// <summary> 
+        /// Required designer variable.
+        /// </summary>
+        private System.ComponentModel.IContainer components = null;
+
+        /// <summary> 
+        /// Clean up any resources being used.
+        /// </summary>
+        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        #region Component Designer generated code
+
+        /// <summary> 
+        /// Required method for Designer support - do not modify 
+        /// the contents of this method with the code editor.
+        /// </summary>
+        private void InitializeComponent()
+        {
+            components = new System.ComponentModel.Container();
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+        }
+
+        #endregion
+    }
+	#endregion TextBoxX.designer.cs
+	#region SimpleMessageBox.cs
+
+    /// <summary>
+    /// Class similar to MessageBox.Show() except the dialog placement is controlled by the user,
+    /// text is RTF, and non-modal versions are available. 
+    /// <para>In keeping with MessageBox, .Show() methods are modal and block the calling thread.
+    /// New .ShowDialog() methods are non-modal.</para>
+    /// <para>This is opposite the behaviour of Form.Show() and Form.ShowDialog().</para>
+    /// <para>Both approaches: 1) matching MessageBox.Show() or 2) matching Form.Show(),
+    /// seem to be equally confusing, so we're going with MessageBox.Show() compatibility.</para>
+    /// </summary>
+    public partial class SimpleMessageBox : Form
+    {
+
+        /// <summary>
+        /// EventArgs passed to the button event handler
+        /// </summary>
+        public class OkEventArgs : EventArgs
+        {
+            /// <summary>
+            /// Which button was pressed.
+            /// </summary>
+            public DialogResult result;
+            /// <summary>
+            /// The size of the message box when the button was pressed.
+            /// </summary>
+            public Size formSize;
+            /// <summary>
+            /// The screen location of the message box when the button was pressed.
+            /// </summary>
+            public Point formLocation;
+
+            public override string ToString()
+            {
+                return string.Format("button:{0} size:{1} location:{2}", result.ToString(), formSize, formLocation);
+            }
+        }
+
+        #region --- Internal Class Data ---
+
+        /// <summary>
+        /// Sets the maximum size of the message box by divding the screen height by this number.
+        /// e.g. <see cref="maxSizeDivisor"/> = 5 divides the screen height by 5 
+        /// making the max size of the message box 20% of the screen height.
+        /// </summary>
+        int maxSizeDivisor = 5;
+
+        /// <summary>
+        /// Positioning info
+        /// </summary>
+        Point desiredLocation = new Point(-1, -1); //save the location for _Load()
+        Control parentControl;
+
+        /// <summary>
+        /// Regular expression to find the font table in the rtf
+        /// </summary>
+        Regex reFonts = new Regex(@"({\\fonttbl({.*;})+})", RegexOptions.Compiled);
+
+        /// <summary>
+        /// Debug to Console.Writeline info during the richTextBox1_ContentsResized() method 
+        /// </summary>
+        int sizePassDebug = 0;
+
+        /// <summary>
+        /// Button press event handler
+        /// </summary>
+        event EventHandler buttonEvent;
+
+        #endregion --- Internal Class Data ---
+
+        #region --- Private Constructors ---
+
+        /// <summary>
+        /// Instantiate with all parameters
+        /// </summary>
+        /// <param name="text">Rich text message. Can be a simple string or or have rtf commands like "line 1\par line 2"</param>
+        /// <param name="title">The title for the form.</param>
+        /// <param name="parent">The parent control for positioning the message box. Null to disable.</param>
+        /// <param name="location">Position for the top left corner of the form. Point(-1, -1) is ignored</param>
+        /// <param name="eventHandler">Event hanlder to be called when the [OK] button is pressed</param>
+        SimpleMessageBox(string text, string title, Control parent, Point location, EventHandler eventHandler)
+        {
+            InitializeComponent();
+            this.Text = title;
+            SetText(text);
+            buttonEvent = eventHandler;
+            desiredLocation = location;
+            parentControl = parent;
+        }
+
+        /// <summary>
+        /// Chain construtor with no location or event handler
+        /// </summary>
+        /// <param name="text">Rich text message. Can be a simple string or or have rtf commands like "line 1\par line 2"</param>
+        /// <param name="title">The title for the form.</param>
+        /// <param name="parent">The parent control</param>
+        SimpleMessageBox(string text, string title, Control parent) : this(text, title, parent, new Point(-1, -1), null) { }
+
+        /// <summary>
+        /// Chain constructor with no parent, location or event handler
+        /// </summary>
+        /// <param name="text">Rich text message. Can be a simple string or or have rtf commands like "line 1\par line 2"</param>
+        /// <param name="title">The title for the form.</param>
+        SimpleMessageBox(string text, string title) : this(text, title, null, new Point(-1, -1), null) { }
+
+        #endregion --- Private Contructors ---
+
+        #region --- Public Show Methods ---
+
+        #region -- Modal --
+
+        /// <summary>
+        /// Modal centered on the parent with choice of buttons and icon.
+        /// </summary>
+        /// <param name="parent">The control in which the popup will be centered</param>
+        /// <param name="text">Rich text message. Can be a simple string or or have rtf commands like "line 1\par line 2"</param>
+        /// <param name="title">The title for the form.</param>
+        /// <param name="buttons"><see cref="MessageBoxButtons"/> to be displayed. Default is OK.</param>
+        /// <param name="icon"><see cref="MessageBoxIcon"/> to be displayed in the dialog. Default is none.</param>
+        /// <param name="icon"><see cref="MessageBoxIcon"/> to be displayed in the dialog. Default is none.</param>
+        /// <param name="defaultButton"><see cref="MessageBoxDefaultButton"/> with the initial focus. 
+        /// <see cref="MessageBoxDefaultButton.Button1"/> will be the first (leftmost) button.
+        /// <see cref="MessageBoxDefaultButton.Button2"/> will be the second button.
+        /// <see cref="MessageBoxDefaultButton.Button3"/> will be the third button.</param>
+        /// <returns><see cref="DialogResult"/></returns>
+        public static DialogResult Show(Control parent, string text, string title = "",
+            MessageBoxButtons buttons = MessageBoxButtons.OK, 
+            MessageBoxIcon icon = MessageBoxIcon.None,
+            MessageBoxDefaultButton defaultButton = MessageBoxDefaultButton.Button1)
+        {
+            SimpleMessageBox form = new SimpleMessageBox(text, title, parent);
+
+            SetButtons(form, buttons, defaultButton);
+
+            SetIcon(form, icon);
+
+            // modal show
+            return form.ShowDialog();
+        }
+
+        /// <summary>
+        /// Modal shown at the given location with optional buttons and icon
+        /// </summary>
+        /// <param name="location">Screen coordinates for the placement of the top left corner of the form.</param>
+        /// <param name="text">Rich text message. Can be a simple string or or have rtf controls like "line 1\par line 2"</param>
+        /// <param name="title">The title for the form.</param>
+        /// <param name="buttons"></param>
+        /// <param name="icon"><see cref="MessageBoxIcon"/> to be displayed in the dialog. Default is none.</param>
+        /// <param name="defaultButton"><see cref="MessageBoxDefaultButton"/> with the initial focus. 
+        /// <see cref="MessageBoxDefaultButton.Button1"/> will be the first (leftmost) button.
+        /// <see cref="MessageBoxDefaultButton.Button2"/> will be the second button.
+        /// <see cref="MessageBoxDefaultButton.Button3"/> will be the third button.</param>
+        public static DialogResult Show(Point location, string text, string title,
+            MessageBoxButtons buttons = MessageBoxButtons.OK,
+            MessageBoxIcon icon = MessageBoxIcon.None,
+            MessageBoxDefaultButton defaultButton = MessageBoxDefaultButton.Button1)
+        {
+            SimpleMessageBox form = new SimpleMessageBox(text, title, null, location, null);
+
+            SetButtons(form, buttons, defaultButton);
+
+            SetIcon(form, icon);
+
+            // modal show
+            return form.ShowDialog();
+        }
+
+        /// <summary>
+        /// Modal "shortcut". Show in the middle of the screen with an OK button.
+        /// </summary>
+        /// <param name="text">Rich text message. Can be a simple string or or have rtf controls like "line 1\par line 2"</param>
+        /// <param name="title">The title for the form.</param>
+        public static DialogResult Show(string text, string title)
+        {
+            // goes to the Show(Control, ...) since Point() is not nullable
+            return Show(null, text, title);
+        }
+
+        #endregion -- Modal --
+        
+        #region -- Non-Modal --
+
+        /// <summary>
+        /// Non-modal centered on the parent with choice of buttons, icon, and event.
+        /// </summary>
+        /// <param name="parent">The control in which the popup will be centered</param>
+        /// <param name="text">Rich text message. Can be a simple string or or have rtf controls like "line 1\par line 2"</param>
+        /// <param name="title">The title for the form.</param>
+        /// <param name="buttons">Accepts <see cref="MessageBoxButtons"/>. Defaults to <see cref="MessageBoxButtons.OK"/></param>
+        /// <param name="handler">Event handler to be called when a button is pressed</param>
+        /// <param name="icon"><see cref="MessageBoxIcon"/> to be displayed in the dialog. Default is none.</param>
+        /// <param name="defaultButton"><see cref="MessageBoxDefaultButton"/> with the initial focus. 
+        /// <see cref="MessageBoxDefaultButton.Button1"/> will be the first (leftmost) button.
+        /// <see cref="MessageBoxDefaultButton.Button2"/> will be the second button.
+        /// <see cref="MessageBoxDefaultButton.Button3"/> will be the third button.</param>
+        public static void ShowDialog(Control parent, string text, string title,
+            MessageBoxButtons buttons = MessageBoxButtons.OK,
+            EventHandler handler = null,
+            MessageBoxIcon icon = MessageBoxIcon.None,
+            MessageBoxDefaultButton defaultButton = MessageBoxDefaultButton.Button1)
+        {
+            // since we allow these to be initiated from any thread,
+            // which can die at any time since we don't block,
+            // and its death kills the form,
+            // rather than make separate methods for on-UI-thread and off-UI-thread,
+            // just always run on our own thread
+            // which won't die until we are done
+            var th = new Thread(() =>
+            {
+                SimpleMessageBox form = new SimpleMessageBox(text, title, parent, new Point(-1, -1), handler);
+                form.FormClosing += (s, e) => Application.ExitThread();
+
+                SetButtons(form, buttons, defaultButton);
+
+                SetIcon(form, icon);
+
+                form.Show();
+                form.TopMost = true;
+                Application.Run();
+            });
+            th.SetApartmentState(ApartmentState.STA);
+            th.Start();
+        }
+
+        /// <summary>
+        /// Non-modal shown at the given location with optional buttons, icon, and event
+        /// </summary>
+        /// <param name="location">Screen coordinates for the placement of the top left corner of the form.</param>
+        /// <param name="text">Rich text message. Can be a simple string or or have rtf controls like "line 1\par line 2"</param>
+        /// <param name="title">The title for the form.</param>
+        /// <param name="buttons"></param>
+        /// <param name="handler">Event handler to be called when the [OK] button is pressed</param>
+        /// <param name="icon"><see cref="MessageBoxIcon"/> to be displayed in the dialog. Default is none.</param>
+        /// <param name="defaultButton"><see cref="MessageBoxDefaultButton"/> with the initial focus. 
+        /// <see cref="MessageBoxDefaultButton.Button1"/> will be the first (leftmost) button.
+        /// <see cref="MessageBoxDefaultButton.Button2"/> will be the second button.
+        /// <see cref="MessageBoxDefaultButton.Button3"/> will be the third button.</param>
+        public static void ShowDialog(Point location, string text, string title,
+            MessageBoxButtons buttons = MessageBoxButtons.OK,
+            EventHandler handler = null,
+            MessageBoxIcon icon = MessageBoxIcon.None,
+            MessageBoxDefaultButton defaultButton = MessageBoxDefaultButton.Button1)
+        {
+            var th = new Thread(() =>
+            {
+                SimpleMessageBox form = new SimpleMessageBox(text, title, null, location, handler);
+                form.FormClosing += (s, e) => Application.ExitThread();
+
+                SetButtons(form, buttons, defaultButton);
+
+                SetIcon(form, icon);
+
+                form.Show();
+                form.TopMost = true;
+                Application.Run();
+            });
+            th.SetApartmentState(ApartmentState.STA);
+            th.Start();
+        }
+
+        /// <summary>
+        /// Non-modal "shortcut" show in the middle of the screen with an OK button.
+        /// </summary>
+        /// <param name="text">Rich text message. Can be a simple string or or have rtf controls like "line 1\par line 2"</param>
+        /// <param name="title">The title for the form.</param>
+        public static void ShowDialog(string text, string title)
+        {
+            // goes to the ShowDialog(Control, ...) since Point() is not nullable
+            ShowDialog(null, text, title);
+        }
+
+        #endregion -- Non-Modal --
+
+        #endregion --- Public Show Methods ---
+
+        #region --- Private Methods ---
+
+        /// <summary>
+        /// Set the text for the pop up. The text will be horizontally centered in the form unless overridden.
+        /// </summary>
+        /// <param name="txt">Can be a simple string, rtf group(s), or the entire rtf document</param>
+        void SetText(string txt)
+        {
+            // if the incoming looks like the entire document, just set it
+            if(txt.StartsWith(@"{\rtf"))
+            {
+                richTextBox1.Rtf = txt;
+                return;
+            }
+
+            // otherwise, merge the incoming with the default document
+
+            //get the empty document already in the RichTextBox
+            string rtf = richTextBox1.Rtf;
+
+            //if txt contains a font table, need to merge it with the existing one
+            if (txt.Contains(@"{\fonttbl"))
+            {
+                // find the font table in the richTextBox1.Rtf
+                Match match = reFonts.Match(rtf);
+                if (match.Success)
+                {
+                    string existingTable = match.Groups[1].Value;
+                    string existingFont = match.Groups[2].Value;
+                    //now find the one in txt
+                    match = reFonts.Match(txt);
+                    if (match.Success)
+                    {
+                        //update the table in the existing rtf to include fonts from txt
+                        string fonts = existingFont + match.Groups[2].Value;
+                        string table = @"{\fonttbl" + fonts + "}";
+                        rtf = rtf.Replace(existingTable, table);
+
+                        //then remove the table in the incoming txt
+                        txt = txt.Replace(match.Groups[1].Value, "");
+                    }
+                }
+            }
+
+            //center the text by default
+            string add = @"\qc " + txt + @"\par";
+
+            //need to insert it between the outer {} of the default document
+            int end = rtf.LastIndexOf('}');
+            string text = rtf.Insert(end, add);
+            richTextBox1.Rtf = text;
+        }
+
+        /// <summary>
+        /// Sets the text and <see cref="DialogResult"/> for each button, and default button for the form.
+        /// </summary>
+        /// <param name="form"><see cref="SimpleMessageBox"/></param>
+        /// <param name="buttons"><see cref="MessageBoxButtons"/> on the form</param>
+        /// <param name="defaultButton"><see cref="MessageBoxDefaultButton"/> to set as the default</param>
+        static void SetButtons(SimpleMessageBox form, MessageBoxButtons buttons, MessageBoxDefaultButton defaultButton)
+        {
+            switch (buttons)
+            {
+                case MessageBoxButtons.AbortRetryIgnore:
+                    form.button3.Text = "Abort";
+                    form.button3.DialogResult = DialogResult.Abort;
+                    form.button3.Visible = true;
+                    form.button1.Text = "Retry";
+                    form.button1.DialogResult = DialogResult.Retry;
+                    form.button2.Text = "Ignore";
+                    form.button2.DialogResult = DialogResult.Ignore;
+                    form.button2.Visible = true;
+                    SetDefaultButton(form, defaultButton, 3);
+                    break;
+                case MessageBoxButtons.OK:
+                    form.button1.Text = "OK";
+                    form.button1.DialogResult = DialogResult.OK;
+                    SetDefaultButton(form, defaultButton, 1);
+                    break;
+                case MessageBoxButtons.OKCancel:
+                    form.button1.Text = "OK";
+                    form.button1.DialogResult = DialogResult.OK;
+                    form.button2.Text = "Cancel";
+                    form.button2.DialogResult = DialogResult.Cancel;
+                    form.button2.Visible = true;
+                    SetDefaultButton(form, defaultButton, 2);
+                    break;
+                case MessageBoxButtons.RetryCancel:
+                    form.button1.Text = "Retry";
+                    form.button1.DialogResult = DialogResult.Retry;
+                    form.button2.Text = "Cancel";
+                    form.button2.DialogResult = DialogResult.Cancel;
+                    form.button2.Visible = true;
+                    SetDefaultButton(form, defaultButton, 2);
+                    break;
+                case MessageBoxButtons.YesNo:
+                    form.button1.Text = "Yes";
+                    form.button1.DialogResult = DialogResult.Yes;
+                    form.button2.Text = "No";
+                    form.button2.DialogResult = DialogResult.No;
+                    form.button2.Visible = true;
+                    SetDefaultButton(form, defaultButton, 2);
+                    break;
+                case MessageBoxButtons.YesNoCancel:
+                    form.button3.Text = "Yes";
+                    form.button3.DialogResult = DialogResult.Yes;
+                    form.button3.Visible = true;
+                    form.button1.Text = "No";
+                    form.button1.DialogResult = DialogResult.No;
+                    form.button2.Text = "Cancel";
+                    form.button2.DialogResult = DialogResult.Cancel;
+                    form.button2.Visible = true;
+                    SetDefaultButton(form, defaultButton, 3);
+                    break;
+                default:
+                    form.button1.Text = "OK";
+                    form.button1.DialogResult = DialogResult.OK;
+                    SetDefaultButton(form, defaultButton, 1);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Set the icon for the form.
+        /// </summary>
+        /// <param name="form"><see cref="SimpleMessageBox"/></param>
+        /// <param name="icon"><see cref="MessageBoxIcon"/> for the form</param>
+        static void SetIcon(SimpleMessageBox form, MessageBoxIcon icon)
+        {
+            if (icon != MessageBoxIcon.None)
+            {
+                //going to put the icon in cell 0,2 (col,row)
+                // need to move the textbox to the right by one column to cell 1,0 (col, row)
+                form.tableLayoutPanel1.Controls.Add(form.richTextBox1, 1, 0);
+                form.tableLayoutPanel1.SetColumnSpan(form.richTextBox1, 3);
+
+                //add the icon
+                PictureBox pic = new PictureBox();
+                switch (icon)
+                {
+                    case MessageBoxIcon.Question:
+                        pic.Image = SystemIcons.Question.ToBitmap();
+                        break;
+                    case MessageBoxIcon.Warning:
+                        pic.Image = SystemIcons.Warning.ToBitmap();
+                        break;
+                    case MessageBoxIcon.Error:
+                        pic.Image = SystemIcons.Error.ToBitmap();
+                        break;
+                    default:
+                        pic.Image = SystemIcons.Information.ToBitmap();
+                        break;
+                }
+                pic.Anchor = AnchorStyles.None;
+                form.tableLayoutPanel1.Controls.Add(pic, 0, 2);
+            }
+        }
+
+        /// <summary>
+        /// Sets the default button based on the number of buttons shown and the specified button
+        /// </summary>
+        /// <param name="form"><see cref="SimpleMessageBox"/> form containing the buttons</param>
+        /// <param name="button"><see cref="MessageBoxDefaultButton"/> to set as default</param>
+        /// <param name="buttonCount">Number of buttons visible on the form</param>
+        static void SetDefaultButton(SimpleMessageBox form, MessageBoxDefaultButton button, int buttonCount)
+        {
+            if (buttonCount == 1)
+                form.ActiveControl = form.button1;
+            else if (buttonCount == 2)
+            {
+                if (button == MessageBoxDefaultButton.Button2)
+                    form.ActiveControl = form.button2;
+                else
+                    form.ActiveControl = form.button1;
+            }
+            else
+            {
+                if (button == MessageBoxDefaultButton.Button1)
+                    form.ActiveControl = form.button3;
+                else if (button == MessageBoxDefaultButton.Button2)
+                    form.ActiveControl = form.button1;
+                else
+                    form.ActiveControl = form.button2;
+            }
+        }
+
+        /// <summary>
+        /// Trigger the callback event, if available
+        /// </summary>
+        protected virtual void OnButtonPressed(EventArgs e)
+        {
+            if (buttonEvent != null)
+            {
+                buttonEvent.Invoke(this, e);
+            }
+        }
+
+        /// <summary>
+        /// When a button is clicked, start the event callback and close the form
+        /// </summary>
+        private void button_Click(object sender, EventArgs e)
+        {
+            DialogResult result = ((Button)sender).DialogResult;
+            OkEventArgs arg = new OkEventArgs { result = result, formSize = this.Size, formLocation = this.Location };
+            OnButtonPressed(arg);
+            this.Close();
+        }
+
+        /// <summary>
+        /// Positions the form to avoid the flicker at its default location.
+        /// </summary>
+        private void SimpleMessageBox_Load(object sender, EventArgs e)
+        {
+            bool done = false;
+            if (parentControl != null)
+            {
+                // parent size will not be known if it has not been shown
+                if (parentControl.IsHandleCreated)
+                {
+                    int x = parentControl.Location.X + parentControl.Width / 2 - this.Width / 2;
+                    int y = parentControl.Location.Y + parentControl.Height / 2 - this.Height / 2;
+                    Point screen = new Point(x, y);
+                    this.Location = screen;
+                    done = true;
+                }
+            }
+            if (!done && desiredLocation.X >= 0 && desiredLocation.Y >= 0)
+            {
+                this.Location = desiredLocation;
+                done = true;
+            }
+            if (!done)
+            {
+                //center screen by default
+                Rectangle screen = Screen.FromControl(this).Bounds;
+                int x = (screen.Width - this.Width) / 2;
+                int y = (screen.Height - this.Height) / 2;
+                Point client = new Point(x, y);
+                this.Location = client;
+            }
+
+            this.TopMost = true;
+        }
+
+        /// <summary>
+        /// Resize the text box to fit its contents, within limits
+        /// </summary>
+        /// <remarks>This gets called several times per form instantiation</remarks>
+        private void richTextBox1_ContentsResized(object sender, ContentsResizedEventArgs e)
+        {
+            sizePassDebug++;            //debug
+            //bool isAdjusted = false;    //debug
+
+            int diff = 0;   //calculated size difference
+
+            //since we are changing the rtf height indirectly
+            // by changing the size of the form
+            // which changes the tablelayout
+            // which changes the richtextbox
+            //add some hysteresis
+            int pad = 7;
+
+            //Divide the screen height to get a max form height.
+            //e.g. divisor of 5 = 20% of the screen = height limit. The scroll bar will show up if needed.
+            int maxHeight = Screen.FromControl(this).Bounds.Height / maxSizeDivisor;
+
+            // we get serveral small, or small difference, height calls,
+            // so use the pad to minimze "bouncing" between close values.
+            if (e.NewRectangle.Height > richTextBox1.Height)
+            {
+                // change the height of the form, which will change the tablelayout cell sizes
+                if (e.NewRectangle.Height < maxHeight)
+                {
+                    // grow if we have not reached max size
+                    diff = (e.NewRectangle.Height - richTextBox1.Height) + pad;
+                    if (diff > pad)
+                    {
+                        this.Height += diff;
+                        //isAdjusted = true;  //debug
+                    }
+                }
+                else
+                {
+                    // set to max size
+                    diff = maxHeight - this.Height;
+                    if (diff > pad)
+                    {
+                        this.Height = maxHeight;
+                        //isAdjusted = true;  //debug
+                    }
+                }
+            }
+
+            // check for shrinking
+            if (e.NewRectangle.Height + pad < richTextBox1.Height)
+            {
+                diff = richTextBox1.Height - e.NewRectangle.Height - pad;
+                if (diff > pad)
+                {
+                    // minimum size is set in the designer
+                    if (this.Height - diff > this.MinimumSize.Height)
+                    {
+                        this.Height -= diff;
+                        //isAdjusted = true;  //debug
+                    }
+                }
+            }
+
+            // this method gets called a lot. Some debug to watch it.
+            //Console.WriteLine(string.Format("Exit {sizePassDebug} - newRect height:{e.NewRectangle.Height}, form height:{this.Height}, rtf height:{richTextBox1.Height} Changed:{isAdjusted}, diff:{diff}"));
+
+        }
+
+        /// <summary>
+        /// Process hyperlinks
+        /// </summary>
+        private void richTextBox1_LinkClicked(object sender, LinkClickedEventArgs e)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(e.LinkText);
+            }
+            catch (Exception)
+            {
+                // leave it up to the user
+                throw;
+            }
+        }
+
+        #endregion --- Private Methods ---
+    }
+	#endregion SimpleMessageBox.cs
+	#region SimpleMessageBox.designer.cs
+    partial class SimpleMessageBox
+    {
+        /// <summary>
+        /// Required designer variable.
+        /// </summary>
+        private System.ComponentModel.IContainer components = null;
+
+        /// <summary>
+        /// Clean up any resources being used.
+        /// </summary>
+        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        #region Windows Form Designer generated code
+
+        /// <summary>
+        /// Required method for Designer support - do not modify
+        /// the contents of this method with the code editor.
+        /// </summary>
+        private void InitializeComponent()
+        {
+            this.button1 = new System.Windows.Forms.Button();
+            this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
+            this.richTextBox1 = new System.Windows.Forms.RichTextBox();
+            this.button2 = new System.Windows.Forms.Button();
+            this.button3 = new System.Windows.Forms.Button();
+            this.tableLayoutPanel1.SuspendLayout();
+            this.SuspendLayout();
+            // 
+            // button1
+            // 
+            this.button1.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
+            this.button1.Location = new System.Drawing.Point(91, 121);
+            this.button1.Name = "button1";
+            this.button1.Size = new System.Drawing.Size(72, 23);
+            this.button1.TabIndex = 1;
+            this.button1.Text = "button1";
+            this.button1.UseVisualStyleBackColor = true;
+            this.button1.Click += new System.EventHandler(this.button_Click);
+            // 
+            // tableLayoutPanel1
+            // 
+            this.tableLayoutPanel1.ColumnCount = 4;
+            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 17F));
+            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 17F));
+            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33F));
+            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33F));
+            this.tableLayoutPanel1.Controls.Add(this.richTextBox1, 0, 0);
+            this.tableLayoutPanel1.Controls.Add(this.button1, 2, 4);
+            this.tableLayoutPanel1.Controls.Add(this.button2, 3, 4);
+            this.tableLayoutPanel1.Controls.Add(this.button3, 0, 4);
+            this.tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tableLayoutPanel1.Location = new System.Drawing.Point(0, 0);
+            this.tableLayoutPanel1.Name = "tableLayoutPanel1";
+            this.tableLayoutPanel1.RowCount = 5;
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 52F));
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.tableLayoutPanel1.Size = new System.Drawing.Size(253, 147);
+            this.tableLayoutPanel1.TabIndex = 1;
+            // 
+            // richTextBox1
+            // 
+            this.richTextBox1.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.tableLayoutPanel1.SetColumnSpan(this.richTextBox1, 4);
+            this.richTextBox1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.richTextBox1.Location = new System.Drawing.Point(3, 3);
+            this.richTextBox1.Name = "richTextBox1";
+            this.richTextBox1.ReadOnly = true;
+            this.tableLayoutPanel1.SetRowSpan(this.richTextBox1, 4);
+            this.richTextBox1.Size = new System.Drawing.Size(247, 110);
+            this.richTextBox1.TabIndex = 1;
+            this.richTextBox1.TabStop = false;
+            this.richTextBox1.Text = "";
+            this.richTextBox1.ContentsResized += new System.Windows.Forms.ContentsResizedEventHandler(this.richTextBox1_ContentsResized);
+            this.richTextBox1.LinkClicked += new System.Windows.Forms.LinkClickedEventHandler(this.richTextBox1_LinkClicked);
+            // 
+            // button2
+            // 
+            this.button2.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
+            this.button2.Location = new System.Drawing.Point(174, 121);
+            this.button2.Name = "button2";
+            this.button2.Size = new System.Drawing.Size(73, 23);
+            this.button2.TabIndex = 2;
+            this.button2.Text = "button2";
+            this.button2.UseVisualStyleBackColor = true;
+            this.button2.Visible = false;
+            this.button2.Click += new System.EventHandler(this.button_Click);
+            // 
+            // button3
+            // 
+            this.button3.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
+            this.tableLayoutPanel1.SetColumnSpan(this.button3, 2);
+            this.button3.Location = new System.Drawing.Point(7, 121);
+            this.button3.Name = "button3";
+            this.button3.Size = new System.Drawing.Size(72, 23);
+            this.button3.TabIndex = 0;
+            this.button3.Text = "button3";
+            this.button3.UseVisualStyleBackColor = true;
+            this.button3.Visible = false;
+            this.button3.Click += new System.EventHandler(this.button_Click);
+            // 
+            // SimpleMessageBox
+            // 
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.ClientSize = new System.Drawing.Size(253, 147);
+            this.ControlBox = false;
+            this.Controls.Add(this.tableLayoutPanel1);
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.SizableToolWindow;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+            this.MinimumSize = new System.Drawing.Size(16, 107);
+            this.Name = "SimpleMessageBox";
+            this.ShowIcon = false;
+            this.ShowInTaskbar = false;
+            this.Text = "Simple Message Box";
+            this.Load += new System.EventHandler(this.SimpleMessageBox_Load);
+            this.tableLayoutPanel1.ResumeLayout(false);
+            this.ResumeLayout(false);
+
+        }
+
+        #endregion
+
+        private System.Windows.Forms.Button button1;
+        private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
+        private System.Windows.Forms.RichTextBox richTextBox1;
+        private System.Windows.Forms.Button button2;
+        private System.Windows.Forms.Button button3;
+    }
+	#endregion SimpleMessageBox.designer.cs
 	#region Macros.cs
 
     public class Macros

@@ -95,6 +95,18 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="SimpleMessageBox.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="SimpleMessageBox.designer.cs">
+      <DependentUpon>SimpleMessageBox.cs</DependentUpon>
+    </Compile>
+    <Compile Include="TextBoxX.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="TextBoxX.designer.cs">
+      <DependentUpon>TextBoxX.cs</DependentUpon>
+    </Compile>
     <Compile Include="TriggerTree.cs">
       <SubType>UserControl</SubType>
     </Compile>
