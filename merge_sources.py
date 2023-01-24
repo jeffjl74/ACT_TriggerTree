@@ -10,6 +10,7 @@ files.extend(['FormEditTimer.cs', 'FormEditTimer.Designer.cs'])
 files.extend(['FormHistogram.cs', 'FormHistogram.Designer.cs'])
 files.extend(['TextBoxX.cs', 'TextBoxX.designer.cs'])
 files.extend(['SimpleMessageBox.cs', 'SimpleMessageBox.designer.cs'])
+files.extend(['XmlCopyForm.cs', 'XmlCopyForm.Designer.cs'])
 files.extend(['Macros.cs'])
 
 merged = []

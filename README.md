@@ -14,10 +14,13 @@ Additional features of the plugin:
 * When entering a zone in game, if there is a Category that matches the zone name, that Category is automatically selected.
 * The __Find__ boxes at the top of the Category and Trigger panes provide incremental searches.
 
-### Version 1.3.0 Changes:
-* Added the __By Regex__ checkbox in [Show Encounters](#show-encounters) to list log lines that match the regular expression.
-* [Show Encounters](#show-encounters) __Paste in Regular Expression__ now escapes ( ) and ?
-* Moved the link-to-help from the context menu to the upper right corner.
+### Version 1.4.0 Changes:
+* Added the [Share Dialog](#share-dialog) choice to the [category context menu](#category-pane) to reduce the number of mouse clicks and key presses required to paste triggers into EQII chat.
+* When searching for category spell timers for the [category context menu](#category-pane), allow the tooltip to match more than one item, when items are separated by the `|` character.
+* When searching for category spell timers for the [category context menu](#category-pane), timers that are activated by triggers but do not have a matching tooltip or category are now added to the menu.
+* The __current__ checkbox for restricting a trigger search to the current category now defaults to checked.
+* [Show Encounters](#show-encounters) __Paste in Regular Expression__ now escapes `[` and `]`
+* [Show Time Differences](#show-time-differences) context menu is now enabled when the `By Regex` checkbox is checked.
 * Some cosmetic changes.
 
 ## Editing Triggers
@@ -76,11 +79,39 @@ A right-click on a category brings up the category context menu as shown below:
 
 Most of this menu is related to sharing data via EQII macros. Macros are disussed in the [EQII Macros](#share-via-eqii-macros) section. (The numbers in parentheses are how many of the total items can be shared in a macro.)
 
-To build the _Category Spell Timers_ menu, the plugin searches for spell timers whose __Category__ or __Custom Tooltip__ matches the clicked category name.
+To build the _Category Spell Timers_ menu, the plugin searches for spell timers whose __Category__ matches the clicked category name or whose __Custom Tooltip__ contains the category name.
+
+The tooltip can contain multiple potential matches when separated by the `|` character. For example, to set up a timer so that it is in the list for both normal and challenge zones, the tooltip can be set to `Vex Thal: Beyond the Veil [Raid] | Vex Thal: Beyond the Veil [Challenge Raid]`. That spell timer will show up in the context menu for both categories. Note that a long tooltip can encroach on the maximum paste length in EQII.
 
 To simply share a spell timer via XML copy/paste in EQII chat, right click the spell timer name.
 
 Left-click the spell timer name to open ACT's __Spell Timers (Options)__ window with a search for that timer name.
+
+### Share Dialog
+The __Share Dialog...__ menu opens a dialog that can speed up sharing of triggers and timers, especially when macros don't work.
+
+If an EQII game window is found, the dialog initially opens with the __[Macro]__ items listed. Otherwise, the dialog initially opens with the __[Copy]__ items listed. The list can be switched between __[Copy]__ items and __[Macro]__ items by pressing the respective button.
+
+An example usage where the zone name prevents macros is shown below:
+
+![Share](images/xml-share.png)
+
+The dialog contains a list of all of the regular expressions for the category's enabled triggers, and the names of the category's spell timers. Pressing the __[Copy]__ button copies the XML for the selected item to the clipboard. For subsequent __[Copy]__ button presses, the next item is automatically selected, then copied. The prefix selected by the radio buttons provides the command to paste the XML into the group, raid, or custom chat channel.
+
+If the plugin finds any running Everquest2 game(s), the __Game Window:__ list contains those window handle(s). If the __Game Window:__ selection is not blank, pressing the __[Copy]__ or __[Macro]__ button will also activate the selected game window. Once the game window is activated, the chat box can be activated by pressing the `Enter` key. (`Enter` is the default key binding. Use whatever key is set in _Options->Controls->Chat Keys->Begin Chat_.) The user can then press `Ctrl-v` to paste and `Enter` to complete the command.
+
+With a game window selected, the user sequence to paste the list into the game becomes:
+1. Click the __[Copy]__ or __[Macro]__ button.
+2. Press the `Enter` key to select the chat box in EQII.
+3. Press the `Ctrl-v` key combination to paste the item into the chat window.
+4. Press the `Enter` key to finish the command.
+5. Repeat from Step 1 for the remaining items.
+
+
+The __[Macro]__ button provides a quick way to activate the macro file(s) in the game chat window using the same process described above. The button is disabled if none of the items can go in a macro. An example macro file list is shown below:
+
+![Macro Share](images/macro-share.png)
+
 
 ## Share via EQII Macros
 Ideally, it would be possible to make a macro containing all of the zone's triggers and spell timers for sharing with the group (or raid) in a single step. 

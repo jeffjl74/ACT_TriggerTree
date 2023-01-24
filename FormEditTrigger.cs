@@ -24,6 +24,7 @@ namespace ACT_TriggerTree
         string zoneCategory;
         bool regexChanged = false;          //track for replace / create new
         bool initializing = true;           //oncheck() methods do not need to do anything during shown()
+        bool ignoreTextChange = false;      //don't propagate programatic find text change
         TreeNode lastSelectedNode;          //for better tree node highlighting
 
         //color the regex depending on restricted status / matching
@@ -208,7 +209,7 @@ namespace ACT_TriggerTree
             {
                 if (string.IsNullOrEmpty(textBoxCategory.Text.Trim()))
                 {
-                    SimpleMessageBox.Show(this, "Category / Zone cannot be empty");
+                    SimpleMessageBox.Show(ActGlobals.oFormActMain, "Category / Zone cannot be empty");
                     return;
                 }
 
@@ -216,7 +217,7 @@ namespace ACT_TriggerTree
                 {
                     if(string.IsNullOrEmpty(textBoxRegex.Text.Trim()))
                     {
-                        SimpleMessageBox.Show(this, "Regular Expression cannot be empty");
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, "Regular Expression cannot be empty");
                         return;
                     }
 
@@ -228,7 +229,7 @@ namespace ACT_TriggerTree
                     catch (ArgumentException aex)
                     {
                         //ActGlobals.oFormActMain.NotificationAdd("Improper Custom Trigger Regular Expression", aex.Message);
-                        SimpleMessageBox.Show(this, aex.Message, "Improper Regular Expression");
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, aex.Message, "Improper Regular Expression");
                         return;
                     }
                     string category = editingTrigger.Category;
@@ -243,7 +244,7 @@ namespace ACT_TriggerTree
                 {
                     if(!File.Exists(textBoxSound.Text))
                     {
-                        SimpleMessageBox.Show(this, "WAV file does not exist");
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, "WAV file does not exist");
                         return;
                     }
                 }
@@ -251,7 +252,7 @@ namespace ACT_TriggerTree
                 if((editingTrigger.Timer || editingTrigger.Tabbed)
                     && string.IsNullOrEmpty(editingTrigger.TimerName))
                 {
-                    if (SimpleMessageBox.Show(this, @"Timer or Tab enabled without a Timer/Tab Name.\line Return to fix?", "Inconsistent Settings",
+                    if (SimpleMessageBox.Show(ActGlobals.oFormActMain, @"Timer or Tab enabled without a Timer/Tab Name.\line Return to fix?", "Inconsistent Settings",
                         MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1) == DialogResult.Yes)
                         return;
                 }
@@ -352,7 +353,13 @@ namespace ACT_TriggerTree
                     // a \\ in the log is not an escaped \, it is two backslashes. fix it
                     // escape any parentheses
                     // escape any question marks
-                    text = match.Groups["expr"].Value.Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)").Replace("?", "\\?");
+                    text = match.Groups["expr"].Value.Replace("\\", "\\\\")
+                        .Replace("(", "\\(")
+                        .Replace(")", "\\)")
+                        .Replace("[", "\\[")
+                        .Replace("]", "\\]")
+                        .Replace("?", "\\?")
+                        ;
                 }
                 textBoxRegex.Text = text;
                 textBoxRegex.Focus();
@@ -372,7 +379,7 @@ namespace ACT_TriggerTree
                 }
             }
             else
-                SimpleMessageBox.Show(this, "Enter a spell timer name to search");
+                SimpleMessageBox.Show(ActGlobals.oFormActMain, "Enter a spell timer name to search");
         }
 
         #endregion Button Clicks
@@ -730,6 +737,12 @@ namespace ACT_TriggerTree
 
         private void textBoxFindLine_TextChanged(object sender, EventArgs e)
         {
+            if (checkBoxFilterRegex.Checked && ignoreTextChange == false)
+            {
+                ignoreTextChange = true;
+                checkBoxFilterRegex.Checked = false;
+                ignoreTextChange = false;
+            }
             ApplyFilter();
         }
 
@@ -764,7 +777,7 @@ namespace ACT_TriggerTree
             catch (Exception exc)
             {
                 UseWaitCursor = false;
-                SimpleMessageBox.Show(this, exc.Message, "Improper filter");
+                SimpleMessageBox.Show(ActGlobals.oFormActMain, exc.Message, "Improper filter");
             }
         }
 
@@ -905,7 +918,8 @@ namespace ACT_TriggerTree
 
         private void contextMenuLog_Opening(object sender, CancelEventArgs e)
         {
-            if (string.IsNullOrEmpty(textBoxFindLine.Text) || dataGridViewLines.Rows.Count < 2)
+            if ((string.IsNullOrEmpty(textBoxFindLine.Text) && !checkBoxFilterRegex.Checked)
+                || dataGridViewLines.Rows.Count < 2)
                 showTimeDifferencesMenuItem.Enabled = false;
             else
                 showTimeDifferencesMenuItem.Enabled = true;
@@ -985,12 +999,12 @@ namespace ACT_TriggerTree
                 }
                 else
                 {
-                    SimpleMessageBox.Show(this, "Regular Expression does not match the log line", "No Match");
+                    SimpleMessageBox.Show(ActGlobals.oFormActMain, "Regular Expression does not match the log line", "No Match");
                 }
             }
             catch (Exception rex)
             {
-                SimpleMessageBox.Show(this, rex.Message, "Invalid regular expression");
+                SimpleMessageBox.Show(ActGlobals.oFormActMain, rex.Message, "Invalid regular expression");
             }
         }
 
@@ -998,7 +1012,7 @@ namespace ACT_TriggerTree
         {
             if(dataGridViewLines.Rows.Count > 100)
             {
-                if (SimpleMessageBox.Show(this, @"There are more than 100 filtered lines.\line Are you sure the filter is correct?"
+                if (SimpleMessageBox.Show(ActGlobals.oFormActMain, @"There are more than 100 filtered lines.\line Are you sure the filter is correct?"
                     + @"\line (processing could take a while)"
                     , "Lots of lines", 
                     MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.No)
@@ -1058,7 +1072,7 @@ namespace ACT_TriggerTree
                     Match match = re.Match(line);
                     if (!match.Success)
                     {
-                        SimpleMessageBox.Show(this, @"The regular expression does not match the text used to determine the timer value." 
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, @"The regular expression does not match the text used to determine the timer value." 
                             + @"\line\line You probably want to fix the regular expression.", 
                             "Inconsistent", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     }
@@ -1106,7 +1120,8 @@ namespace ACT_TriggerTree
             int encounterIndex = Int32.Parse(node.Tag.ToString());
             int zoneIndex = Int32.Parse(node.Parent.Tag.ToString());
             ZoneData zoneData = ActGlobals.oFormActMain.ZoneList[zoneIndex];
-            textBoxFindLine.Clear();
+            if(!ignoreTextChange)
+                textBoxFindLine.Clear();
             DataTable dt = null;
             try
             {
@@ -1132,7 +1147,7 @@ namespace ACT_TriggerTree
             }
             catch (Exception dtx)
             {
-                SimpleMessageBox.Show(this, dtx.Message, "Problem collecting the log lines");
+                SimpleMessageBox.Show(ActGlobals.oFormActMain, dtx.Message, "Problem collecting the log lines");
             }
         }
 
@@ -1165,7 +1180,9 @@ namespace ACT_TriggerTree
             {
                 if(node.Parent != null)
                 {
+                    ignoreTextChange = true;
                     FillEncounterLines(node);
+                    ignoreTextChange = false;
                 }
             }
         }

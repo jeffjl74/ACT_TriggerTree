@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Security.Policy;
 using System.Text;
@@ -13,15 +14,16 @@ using System.Xml;
 using System.Data;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Linq;
 using System.Windows.Forms.DataVisualization.Charting;
+using System.Diagnostics;
 // reference:System.Windows.Forms.DataVisualization.dll
 // reference:System.Core.dll
+
 
 [assembly: AssemblyTitle("Tree view of Custom Triggers")]
 [assembly: AssemblyDescription("An alternate interface for managing Custom Triggers")]
 [assembly: AssemblyCompany("Mineeme of Maj'Dul")]
-[assembly: AssemblyVersion("1.3.0.0")]
+[assembly: AssemblyVersion("1.4.0.0")]
 
 namespace ACT_TriggerTree
 {
@@ -64,6 +66,7 @@ namespace ACT_TriggerTree
         TreeNode selectedTriggerNode = null;        //node selected via mouse click
         TreeNode clickedCategoryNode = null;
         Point whereTrigMouseDown;                   //screen location for the trigger tree context menu
+        Point whereCatMouseDown;
         bool isDoubleClick = false;                 //to intercept the double click on a trigger
         Point lastEditLoc = new Point();
         Size lastEditSize = new Size();
@@ -75,7 +78,7 @@ namespace ACT_TriggerTree
         bool neverBeenVisible = true;               //save the splitter location only if it has been initialized 
 
         //trigger macro file stuff
-        string doFileName = "triggers.txt";         //macro file name
+        public static string doFileName = "triggers.txt";         //macro file name
         //menu tooltips
         string invalidTriggerText = "Trigger or Category contains character(s) {0} or string {1} which are invalid in a macro file";
         string validTriggerText = "Make a triggers.txt macro file to share trigger with the ";
@@ -92,9 +95,10 @@ namespace ACT_TriggerTree
 
         string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\TriggerTree.config.xml");
         SettingsSerializer xmlSettings;
-        private CheckBox checkBoxCurrentCategory;
+        private System.Windows.Forms.CheckBox checkBoxCurrentCategory;
         int saveSplitterLoc = -1;
         private LinkLabel linkLabel1;
+        private ToolStripMenuItem shareDialogMenuItem;
 
         #region Designer Created Code (Avoid editing)
 
@@ -130,11 +134,13 @@ namespace ACT_TriggerTree
             this.panel3 = new System.Windows.Forms.Panel();
             this.label3 = new System.Windows.Forms.Label();
             this.buttonCatFindNext = new System.Windows.Forms.Button();
+            this.textBoxCatFind = new ACT_TriggerTree.TextBoxX();
             this.treeViewTrigs = new System.Windows.Forms.TreeView();
             this.panel2 = new System.Windows.Forms.Panel();
             this.checkBoxCurrentCategory = new System.Windows.Forms.CheckBox();
             this.label4 = new System.Windows.Forms.Label();
             this.buttonFindNext = new System.Windows.Forms.Button();
+            this.textBoxTrigFind = new ACT_TriggerTree.TextBoxX();
             this.contextMenuStripTrig = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.copyAsShareableXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.copyAsDoubleEncodedXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -156,14 +162,13 @@ namespace ACT_TriggerTree
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.raidShareCategoryMacroMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.groupShareCategoryMacroMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.shareDialogMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator7 = new System.Windows.Forms.ToolStripSeparator();
             this.categorySpellTimersMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.label1 = new System.Windows.Forms.Label();
             this.panel1 = new System.Windows.Forms.Panel();
-            this.label2 = new System.Windows.Forms.Label();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
-            this.textBoxCatFind = new ACT_TriggerTree.TextBoxX();
-            this.textBoxTrigFind = new ACT_TriggerTree.TextBoxX();
+            this.label2 = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -243,6 +248,18 @@ namespace ACT_TriggerTree
             this.buttonCatFindNext.UseVisualStyleBackColor = true;
             this.buttonCatFindNext.Click += new System.EventHandler(this.buttonCatFindNext_Click);
             // 
+            // textBoxCatFind
+            // 
+            this.textBoxCatFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxCatFind.ButtonTextClear = true;
+            this.textBoxCatFind.Location = new System.Drawing.Point(40, 4);
+            this.textBoxCatFind.Name = "textBoxCatFind";
+            this.textBoxCatFind.Size = new System.Drawing.Size(148, 20);
+            this.textBoxCatFind.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
+            this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
+            // 
             // treeViewTrigs
             // 
             this.treeViewTrigs.CheckBoxes = true;
@@ -278,6 +295,8 @@ namespace ACT_TriggerTree
             // 
             this.checkBoxCurrentCategory.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.checkBoxCurrentCategory.AutoSize = true;
+            this.checkBoxCurrentCategory.Checked = true;
+            this.checkBoxCurrentCategory.CheckState = System.Windows.Forms.CheckState.Checked;
             this.checkBoxCurrentCategory.Location = new System.Drawing.Point(372, 7);
             this.checkBoxCurrentCategory.Name = "checkBoxCurrentCategory";
             this.checkBoxCurrentCategory.Size = new System.Drawing.Size(59, 17);
@@ -310,6 +329,19 @@ namespace ACT_TriggerTree
             this.buttonFindNext.UseVisualStyleBackColor = true;
             this.buttonFindNext.Click += new System.EventHandler(this.buttonFindNext_Click);
             // 
+            // textBoxTrigFind
+            // 
+            this.textBoxTrigFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxTrigFind.ButtonTextClear = true;
+            this.textBoxTrigFind.Location = new System.Drawing.Point(40, 4);
+            this.textBoxTrigFind.Name = "textBoxTrigFind";
+            this.textBoxTrigFind.Size = new System.Drawing.Size(326, 20);
+            this.textBoxTrigFind.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.textBoxTrigFind, "Incremental search for text in the trigger\'s regular expression, alert, or timer " +
+        "name");
+            this.textBoxTrigFind.TextChanged += new System.EventHandler(this.textBoxFind_TextChanged);
+            // 
             // contextMenuStripTrig
             // 
             this.contextMenuStripTrig.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -327,7 +359,7 @@ namespace ACT_TriggerTree
             this.expandAllToolStripMenuItem,
             this.collapseAllToolStripMenuItem});
             this.contextMenuStripTrig.Name = "contextMenuStrip1";
-            this.contextMenuStripTrig.Size = new System.Drawing.Size(290, 248);
+            this.contextMenuStripTrig.Size = new System.Drawing.Size(290, 226);
             this.contextMenuStripTrig.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripTrg_Opening);
             // 
             // copyAsShareableXMLToolStripMenuItem
@@ -430,10 +462,11 @@ namespace ACT_TriggerTree
             this.toolStripSeparator4,
             this.raidShareCategoryMacroMenuItem,
             this.groupShareCategoryMacroMenuItem,
+            this.shareDialogMenuItem,
             this.toolStripSeparator7,
             this.categorySpellTimersMenuItem});
             this.contextMenuStripCat.Name = "contextMenuStrip2";
-            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 126);
+            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 170);
             this.contextMenuStripCat.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripCat_Opening);
             // 
             // copyZoneNameToClipboardToolStripMenuItem
@@ -473,6 +506,13 @@ namespace ACT_TriggerTree
             this.groupShareCategoryMacroMenuItem.ToolTipText = "Make a triggers.txt macro to share the category\'s triggers with the group";
             this.groupShareCategoryMacroMenuItem.Click += new System.EventHandler(this.groupShareCategoryMacroToolStripMenuItem_Click);
             // 
+            // shareDialogMenuItem
+            // 
+            this.shareDialogMenuItem.Name = "shareDialogMenuItem";
+            this.shareDialogMenuItem.Size = new System.Drawing.Size(251, 22);
+            this.shareDialogMenuItem.Text = "Share Dialog...";
+            this.shareDialogMenuItem.Click += new System.EventHandler(this.shareDialogMenuItem_Click);
+            // 
             // toolStripSeparator7
             // 
             this.toolStripSeparator7.Name = "toolStripSeparator7";
@@ -507,16 +547,6 @@ namespace ACT_TriggerTree
             this.panel1.Size = new System.Drawing.Size(727, 38);
             this.panel1.TabIndex = 0;
             // 
-            // label2
-            // 
-            this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(5, 20);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(476, 13);
-            this.label2.TabIndex = 1;
-            this.label2.Text = "Double-click to edit trigger fields. Expand a trigger for checkbox and right-clic" +
-    "k actions on sub-items.";
-            // 
             // linkLabel1
             // 
             this.linkLabel1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
@@ -529,30 +559,15 @@ namespace ACT_TriggerTree
             this.linkLabel1.Text = "Help";
             this.linkLabel1.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel1_LinkClicked);
             // 
-            // textBoxCatFind
+            // label2
             // 
-            this.textBoxCatFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxCatFind.ButtonTextClear = true;
-            this.textBoxCatFind.Location = new System.Drawing.Point(40, 4);
-            this.textBoxCatFind.Name = "textBoxCatFind";
-            this.textBoxCatFind.Size = new System.Drawing.Size(148, 20);
-            this.textBoxCatFind.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
-            this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
-            // 
-            // textBoxTrigFind
-            // 
-            this.textBoxTrigFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxTrigFind.ButtonTextClear = true;
-            this.textBoxTrigFind.Location = new System.Drawing.Point(40, 4);
-            this.textBoxTrigFind.Name = "textBoxTrigFind";
-            this.textBoxTrigFind.Size = new System.Drawing.Size(326, 20);
-            this.textBoxTrigFind.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.textBoxTrigFind, "Incremental search for text in the trigger\'s regular expression, alert, or timer " +
-        "name");
-            this.textBoxTrigFind.TextChanged += new System.EventHandler(this.textBoxFind_TextChanged);
+            this.label2.AutoSize = true;
+            this.label2.Location = new System.Drawing.Point(5, 20);
+            this.label2.Name = "label2";
+            this.label2.Size = new System.Drawing.Size(476, 13);
+            this.label2.TabIndex = 1;
+            this.label2.Text = "Double-click to edit trigger fields. Expand a trigger for checkbox and right-clic" +
+    "k actions on sub-items.";
             // 
             // TriggerTree
             // 
@@ -682,9 +697,10 @@ namespace ACT_TriggerTree
             {
                 Version localVersion = this.GetType().Assembly.GetName().Version;
                 Version remoteVersion = new Version(ActGlobals.oFormActMain.PluginGetRemoteVersion(pluginId).TrimStart(new char[] { 'v' }));    // Strip any leading 'v' from the string before passing to the Version constructor
-                if (remoteVersion > localVersion)
+                if (remoteVersion.CompareTo(localVersion) > 0)
                 {
-                    DialogResult result = SimpleMessageBox.Show(ActGlobals.oFormActMain,
+                    Rectangle screen = Screen.GetWorkingArea(ActGlobals.oFormActMain);
+                    DialogResult result = SimpleMessageBox.Show(new Point(screen.Width / 2 - 100, screen.Height / 2 - 100),
                           @"There is an update for TriggerTree."
                         + @"\line Update it now?"
                         + @"\line (If there is an update to ACT"
@@ -801,7 +817,7 @@ namespace ACT_TriggerTree
             }
             catch (Exception ex)
             {
-                SimpleMessageBox.Show(this, ex.Message, "Unable to open link that was clicked.");
+                SimpleMessageBox.Show(ActGlobals.oFormActMain, ex.Message, "Unable to open link that was clicked.");
             }
         }
 
@@ -815,7 +831,7 @@ namespace ACT_TriggerTree
             System.Diagnostics.Process.Start("https://github.com/jeffjl74/ACT_TriggerTree#overview");
         }
 
-        #region Category Tree
+        #region --------------- Category Tree
 
         void PopulateCatsTree()
         {
@@ -1114,7 +1130,7 @@ namespace ACT_TriggerTree
                 }
                 if (!found)
                 {
-                    SimpleMessageBox.Show(ActGlobals.oFormActMain, "Not found");
+                    SimpleMessageBox.ShowDialog(ActGlobals.oFormActMain, String.Format(@"\b {0}\b0\line Not found", find), "Not Found");
                 }
             }
         }
@@ -1132,8 +1148,8 @@ namespace ACT_TriggerTree
                 clickedCategoryNode = treeViewCats.GetNodeAt(pt);
                 if (clickedCategoryNode != null)
                 {
-                    Point screen = treeViewCats.PointToScreen(pt);
-                    contextMenuStripCat.Show(screen);
+                    whereCatMouseDown = treeViewCats.PointToScreen(pt);
+                    contextMenuStripCat.Show(whereCatMouseDown);
                 }
             }
         }
@@ -1154,121 +1170,10 @@ namespace ACT_TriggerTree
             {
                 List<CustomTrigger> triggers;
                 string category = clickedCategoryNode.Text;
-                int validTrigs = 0;
-                int validTimers = 0;
-                int invalid = 0;
-                int fileCount = 0;
                 if (treeDict.TryGetValue(category, out triggers))
                 {
-                    try
-                    {
-                        StringBuilder sb = new StringBuilder();
-                        //start with timers for the category
-                        foreach (TimerData timer in categoryTimers)
-                        {
-                            if (!Macros.IsInvalidMacroTimer(timer))
-                            {
-                                sb.Append(sayCmd);
-                                sb.Append(SpellTimerToMacro(timer));
-                                sb.Append(Environment.NewLine);
-                                validTimers++;
-                                if (validTimers >= 16)
-                                {
-                                    MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs);
-                                    fileCount++;
-                                    sb.Clear();
-                                    invalid = 0;
-                                    validTimers = 0;
-                                }
-                            }
-                            else
-                            {
-                                invalid++;
-                            }
-                        }
-                        //then category triggers
-                        foreach (CustomTrigger trigger in triggers)
-                        {
-                            if (trigger.Active)
-                            {
-                                if (Macros.IsInvalidMacroTrigger(trigger))
-                                {
-                                    invalid++;
-                                }
-                                else
-                                {
-                                    sb.Append(sayCmd);
-                                    sb.Append(TriggerToMacro(trigger));
-                                    sb.Append(Environment.NewLine);
-                                    validTrigs++;
-                                }
-                                if (validTrigs + validTimers >= 16)
-                                {
-                                    MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs);
-                                    fileCount++;
-                                    sb.Clear();
-                                    invalid = 0;
-                                    validTimers = 0;
-                                    validTrigs = 0;
-                                }
-                                List<TimerData> timers = FindTimers(trigger);
-                                foreach (TimerData timer in timers)
-                                {
-                                    if (!categoryTimers.Contains(timer))
-                                    {
-                                        if (!Macros.IsInvalidMacroTimer(timer))
-                                        {
-                                            sb.Append(sayCmd);
-                                            sb.Append(SpellTimerToMacro(timer));
-                                            sb.Append(Environment.NewLine);
-                                            validTimers++;
-                                            if (validTrigs + validTimers >= 16)
-                                            {
-                                                //tooLong = true;
-                                                MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs);
-                                                fileCount++;
-                                                sb.Clear();
-                                                invalid = 0;
-                                                validTimers = 0;
-                                                validTrigs = 0;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        if (validTrigs > 0)
-                        {
-                            MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs);
-                        }
-                    }
-                    catch (Exception x)
-                    {
-                        SimpleMessageBox.Show(this, "Macro file error:\n" + x.Message);
-                    }
+                    Macros.WriteCategoryMacroFile(sayCmd, triggers, categoryTimers, true);
                 }
-            }
-        }
-
-        private void MacroToFile(int fileCount, string category, string content, int invalid, int validTimers, int validTrigs)
-        {
-            string fileName = doFileName;
-            if (fileCount > 0)
-                fileName = Path.GetFileNameWithoutExtension(doFileName) + fileCount.ToString() + Path.GetExtension(doFileName);
-            if (ActGlobals.oFormActMain.SendToMacroFile(fileName, content, string.Empty))
-            {
-                StringBuilder sb = new StringBuilder();
-                sb.Append(string.IsNullOrEmpty(category) ? string.Empty : string.Format("For category\n'{0}'\n", category));
-                sb.Append("Wrote ");
-                sb.Append(validTrigs > 0 ? string.Format("{0} trigger{1}", validTrigs, validTrigs > 1 ? "s" : string.Empty) : string.Empty);
-                sb.Append(validTrigs > 0 && validTimers > 0 ? " and " : string.Empty);
-                sb.Append(validTimers > 0 ? string.Format("{0} timer{1}", validTimers, validTimers > 1 ? "s" : string.Empty) : string.Empty);
-                sb.Append(invalid > 0 ? string.Format("\n\nCould not write {0} item{1}.", invalid, invalid > 1 ? "s" : string.Empty) : string.Empty);
-                sb.Append(string.Format("\n\nIn EQII chat, enter:\n/do_file_commands {0}", fileName));
-
-                TraySlider traySlider = new TraySlider();
-                traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
-                traySlider.ShowTraySlider(sb.ToString(), "Wrote Category Macro");
             }
         }
 
@@ -1280,13 +1185,66 @@ namespace ACT_TriggerTree
                 int canMacroTimer = 0;
                 int cannotMacroTimer = 0;
 
-                //add any spell timers for the category
+                //get tagged spell timers for the category
                 categorySpellTimersMenuItem.DropDownItems.Clear();
                 categoryTimers = FindCategoryTimers(category);
+
+                //count triggers for the menu text
+                List<CustomTrigger> triggers;
+                int valid = 0;
+                int invalid = 0;
+                if (treeDict.TryGetValue(category, out triggers))
+                {
+                    foreach (CustomTrigger trigger in triggers)
+                    {
+                        if (trigger.Active)
+                        {
+                            if (!Macros.IsInvalidMacroTrigger(trigger))
+                            {
+                                valid++;
+                                groupShareCategoryMacroMenuItem.Enabled = true;
+                                raidShareCategoryMacroMenuItem.Enabled = true;
+                                groupShareCategoryMacroMenuItem.ToolTipText = validCategoryText + "group";
+                                raidShareCategoryMacroMenuItem.ToolTipText = validCategoryText + "raid";
+                                //break;
+                            }
+                            else
+                                invalid++;
+                            // find timers that are activated by a trigger
+                            List<TimerData> timers = TriggerTree.FindTimers(trigger);
+                            foreach (TimerData timer in timers)
+                            {
+                                if (!categoryTimers.Contains(timer))
+                                {
+                                    categoryTimers.Add(timer);
+                                }
+                            }
+
+                        }
+                    }
+                    if (valid == 0)
+                    {
+                        groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", 0, valid + invalid);
+                        groupShareCategoryMacroMenuItem.Enabled = false;
+                        raidShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Raidsay", 0, valid + invalid);
+                        raidShareCategoryMacroMenuItem.Enabled = false;
+                        groupShareCategoryMacroMenuItem.ToolTipText =
+                            string.Format(invalidCategoryText, string.Join(" ", Macros.invalidMacroChars), string.Join(" ", Macros.invalidMacroStrings));
+                        raidShareCategoryMacroMenuItem.ToolTipText =
+                            string.Format(invalidCategoryText, string.Join(" ", Macros.invalidMacroChars), string.Join(" ", Macros.invalidMacroStrings));
+                    }
+                    else
+                    {
+                        groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", valid + canMacroTimer, valid + canMacroTimer + invalid + cannotMacroTimer);
+                        raidShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Raidsay", valid + canMacroTimer, valid + canMacroTimer + invalid + cannotMacroTimer);
+                    }
+                }
+
+                // add spell timers menus
                 if (categoryTimers.Count == 0)
                 {
                     categorySpellTimersMenuItem.Enabled = false;
-                    categorySpellTimersMenuItem.ToolTipText = "Found no Spell Timers with matching Category or Custom Tooltip";
+                    categorySpellTimersMenuItem.ToolTipText = "No Spell Timers with matching Category or Custom Tooltip found";
                 }
                 else
                 {
@@ -1320,54 +1278,31 @@ namespace ACT_TriggerTree
                         categorySpellTimersMenuItem.DropDownItems.Add(timerRaidMacroItem);
 
                         ToolStripMenuItem timerGroupMacroItem = new ToolStripMenuItem();
-                        txt = string.Format(catMacroText, "Groupsay", canMacroTimer, canMacroTimer+cannotMacroTimer);
+                        txt = string.Format(catMacroText, "Groupsay", canMacroTimer, canMacroTimer + cannotMacroTimer);
                         timerGroupMacroItem.Name = timerGroupMacroItem.Text = txt;
                         timerGroupMacroItem.Click += TimerMacroItem_Click;
                         categorySpellTimersMenuItem.DropDownItems.Add(timerGroupMacroItem);
                     }
                 }
+            }
+        }
 
-                //count triggers for the menu text
-                List<CustomTrigger> triggers;
-                int valid = 0;
-                int invalid = 0;
-                if (treeDict.TryGetValue(category, out triggers))
-                {
-                    foreach (CustomTrigger trigger in triggers)
-                    {
-                        if (trigger.Active)
-                        {
-                            if (!Macros.IsInvalidMacroTrigger(trigger))
-                            {
-                                valid++;
-                                groupShareCategoryMacroMenuItem.Enabled = true;
-                                raidShareCategoryMacroMenuItem.Enabled = true;
-                                groupShareCategoryMacroMenuItem.ToolTipText = validCategoryText + "group";
-                                raidShareCategoryMacroMenuItem.ToolTipText = validCategoryText + "raid";
-                                //break;
-                            }
-                            else
-                                invalid++;
-                        }
-                    }
-                    if (valid == 0)
-                    {
-                        groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", 0, valid + invalid);
-                        groupShareCategoryMacroMenuItem.Enabled = false;
-                        raidShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Raidsay", 0, valid + invalid);
-                        raidShareCategoryMacroMenuItem.Enabled = false;
-                        groupShareCategoryMacroMenuItem.ToolTipText =
-                            string.Format(invalidCategoryText, string.Join(" ", Macros.invalidMacroChars), string.Join(" ", Macros.invalidMacroStrings));
-                        raidShareCategoryMacroMenuItem.ToolTipText =
-                            string.Format(invalidCategoryText, string.Join(" ", Macros.invalidMacroChars), string.Join(" ", Macros.invalidMacroStrings));
-                    }
-                    else
-                    {
-                        groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", valid + canMacroTimer, valid + canMacroTimer + invalid + cannotMacroTimer);
-                        raidShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Raidsay", valid + canMacroTimer, valid + canMacroTimer + invalid + cannotMacroTimer);
-                    }
-                }
+        private void shareDialogMenuItem_Click(object sender, EventArgs e)
+        {
+            string category = clickedCategoryNode.Text;
+            string prefix = "/g "; 
+            if (category.Contains("["))
+            {
+                if (category.Contains("Raid"))
+                    prefix = "/r ";
+            }
 
+            List<CustomTrigger> triggers;
+            if (treeDict.TryGetValue(category, out triggers))
+            {
+                XmlCopyForm form = new XmlCopyForm(prefix, categoryTimers, triggers);
+                form.Show();
+                PositionChildForm(form, whereCatMouseDown);
             }
         }
 
@@ -1397,12 +1332,12 @@ namespace ACT_TriggerTree
                 if (!Macros.IsInvalidMacroTimer(timer))
                 {
                     sb.Append(chan);
-                    sb.Append(SpellTimerToMacro(timer));
+                    sb.Append(Macros.SpellTimerToMacro(timer));
                     sb.Append(Environment.NewLine);
                     validTimers++;
                     if (validTimers >= 16)
                     {
-                        MacroToFile(fileCount, string.Empty, sb.ToString(), invalid, validTimers, 0);
+                        Macros.MacroToFile(fileCount, string.Empty, sb.ToString(), invalid, validTimers, 0);
                         fileCount++;
                         sb.Clear();
                         invalid = 0;
@@ -1417,7 +1352,7 @@ namespace ACT_TriggerTree
 
             if (validTimers > 0)
             {
-                MacroToFile(fileCount, string.Empty, sb.ToString(), invalid, validTimers, 0);
+                Macros.MacroToFile(fileCount, string.Empty, sb.ToString(), invalid, validTimers, 0);
             }
         }
 
@@ -1437,7 +1372,7 @@ namespace ACT_TriggerTree
                 TimerData timer = menu.Tag as TimerData;
                 if(timer != null)
                 {
-                    string xml = SpellTimerToXML(timer);
+                    string xml = Macros.SpellTimerToXML(timer);
                     try
                     {
                         Clipboard.SetText(xml);
@@ -1461,8 +1396,9 @@ namespace ACT_TriggerTree
                 // just search through all timers for a .Category or .Tooltip that matches the passed category
                 foreach (TimerData timer in ActGlobals.oFormSpellTimers.TimerDefs.Values)
                 {
+                    List<string> tips = timer.Tooltip.Split('|').Select(s => s.Trim()).ToList();
                     if (timer.ActiveInList &&
-                        (timer.Category.Equals(category) || timer.Tooltip.Equals(category) || timer.Tooltip.Equals(macroCat)))
+                        (timer.Category.Equals(category) || tips.Contains(category) || tips.Contains(macroCat)))
                     {
                         if(!result.Exists(t => t.Name.Equals(timer.Name)))
                             result.Add(timer);
@@ -1474,7 +1410,7 @@ namespace ACT_TriggerTree
 
         #endregion Category Tree
 
-        #region Triggers Tree
+        #region --------------- Triggers Tree
 
         delegate void UpdateTriggerColorsCallback(Form parent, TreeView target);
         private void UpdateTriggerColors(Form parent, TreeView target)
@@ -1974,7 +1910,7 @@ namespace ACT_TriggerTree
 
                 UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
                 if (result == FindResult.NOT_FOUND)
-                    SimpleMessageBox.Show(this, "Not found");
+                    SimpleMessageBox.ShowDialog(ActGlobals.oFormActMain, String.Format(@"\b {0}\b0\line  not found", find), "Not Found");
             }
         }
 
@@ -2156,7 +2092,7 @@ namespace ACT_TriggerTree
             }
         }
 
-        #region Context Menu
+        #region --------------- Triggers Context Menu
 
         private void contextMenuStripTrg_Opening(object sender, CancelEventArgs e)
         {
@@ -2382,7 +2318,7 @@ namespace ACT_TriggerTree
                     if (Macros.IsInvalidMacroTrigger(trigger))
                     {
                         //should not get here since the menu should be disabled
-                        SimpleMessageBox.Show(this, @"EQII does not allow certain characters in a macro.\line This trigger cannot be saved to a macro.",
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, @"EQII does not allow certain characters in a macro.\line This trigger cannot be saved to a macro.",
                             "Unsupported Action", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
                         return;
                     }
@@ -2393,7 +2329,7 @@ namespace ACT_TriggerTree
                             StringBuilder sb = new StringBuilder();
                             {
                                 sb.Append(sayCmd);
-                                sb.Append(TriggerToMacro(trigger));
+                                sb.Append(Macros.TriggerToMacro(trigger));
                                 sb.Append(Environment.NewLine);
                             }
                             //  if we can find the timer and it's enabled, add it to the macro file
@@ -2404,7 +2340,7 @@ namespace ACT_TriggerTree
                                 if (!Macros.IsInvalidMacroTimer(timer))
                                 {
                                     sb.Append(sayCmd);
-                                    sb.Append(SpellTimerToMacro(timer));
+                                    sb.Append(Macros.SpellTimerToMacro(timer));
                                     sb.Append(Environment.NewLine);
                                     timersCount++;
                                 }
@@ -2421,14 +2357,14 @@ namespace ACT_TriggerTree
                         }
                         catch (Exception x)
                         {
-                            SimpleMessageBox.Show(this, x.Message, "Macro file error");
+                            SimpleMessageBox.Show(ActGlobals.oFormActMain, x.Message, "Macro file error");
                         }
                     }
                 }
             }
         }
 
-        private List<TimerData> FindTimers(CustomTrigger trigger)
+        public static List<TimerData> FindTimers(CustomTrigger trigger)
         {
             List<TimerData> result = new List<TimerData>();
             if (!string.IsNullOrEmpty(trigger.TimerName) && trigger.Timer)
@@ -2516,7 +2452,7 @@ namespace ACT_TriggerTree
                     }
                     else
                     {
-                        SimpleMessageBox.Show(this, @"Could not find timer:\line\line " + trigger.TimerName, "No such timer");
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, @"Could not find timer:\line\line " + trigger.TimerName, "No such timer");
                         return false;
                     }
                 }
@@ -2526,9 +2462,9 @@ namespace ACT_TriggerTree
                 try
                 {
                     if (isTimer)
-                        Clipboard.SetText(SpellTimerToXML(timer));
+                        Clipboard.SetText(Macros.SpellTimerToXML(timer));
                     else
-                        Clipboard.SetText(TriggerToXML(trigger));
+                        Clipboard.SetText(Macros.TriggerToXML(trigger));
                     result = true;
                 }
                 catch
@@ -2541,170 +2477,6 @@ namespace ACT_TriggerTree
             return result;
         }
 
-        private string TriggerToXML(CustomTrigger trigger)
-        {
-            string result = string.Empty;
-            if (trigger != null)
-            {
-                //match the character replacement scheme used by the Custom Triggers tab
-                StringBuilder sb = new StringBuilder();
-                sb.Append(string.Format("<Trigger R=\"{0}\"", EncodeXml_ish(trigger.ShortRegexString, true, false, true)));
-                sb.Append(string.Format(" SD=\"{0}\"", EncodeXml_ish(trigger.SoundData, false, true, false)));
-                sb.Append(string.Format(" ST=\"{0}\"", trigger.SoundType.ToString()));
-                sb.Append(string.Format(" CR=\"{0}\"", trigger.RestrictToCategoryZone ? "T" : "F"));
-                sb.Append(string.Format(" C=\"{0}\"", EncodeXml_ish(trigger.Category, false, true, false)));
-                sb.Append(string.Format(" T=\"{0}\"", trigger.Timer ? "T" : "F"));
-                sb.Append(string.Format(" TN=\"{0}\"", EncodeXml_ish(trigger.TimerName, false, true, false)));
-                sb.Append(string.Format(" Ta=\"{0}\"", trigger.Tabbed ? "T" : "F"));
-                sb.Append(" />");
-
-                result = sb.ToString();
-            }
-            return result;
-        }
-
-        private string SpellTimerToXML(TimerData timer)
-        {
-            string result = string.Empty;
-            if(timer != null)
-            {
-                StringBuilder sb = new StringBuilder();
-                sb.Append(string.Format("<Spell N=\"{0}\"", EncodeXml_ish(timer.Name, false, false, false)));
-                sb.Append(string.Format(" T=\"{0}\"", timer.TimerValue));
-                sb.Append(string.Format(" OM=\"{0}\"", timer.OnlyMasterTicks ? "T" : "F"));
-                sb.Append(string.Format(" R=\"{0}\"", timer.RestrictToMe ? "T" : "F"));
-                sb.Append(string.Format(" A=\"{0}\"",  timer.AbsoluteTiming ? "T" : "F"));
-                sb.Append(string.Format(" WV=\"{0}\"", timer.WarningValue));
-                sb.Append(string.Format(" RD=\"{0}\"", timer.RadialDisplay ? "T" : "F"));
-                sb.Append(string.Format(" M=\"{0}\"", timer.Modable ? "T" : "F"));
-                sb.Append(string.Format(" Tt=\"{0}\"", EncodeXml_ish(timer.Tooltip, false, false, false)));
-                sb.Append(string.Format(" FC=\"{0}\"", timer.FillColor.ToArgb()));
-                sb.Append(string.Format(" RV=\"{0}\"", timer.RemoveValue));
-                sb.Append(string.Format(" C=\"{0}\"", EncodeXml_ish(timer.Category, false, false, false)));
-                sb.Append(string.Format(" RC=\"{0}\"", timer.RestrictToCategory ? "T" : "F"));
-                sb.Append(string.Format(" SS=\"{0}\"", timer.StartSoundData));
-                sb.Append(string.Format(" WS=\"{0}\"", timer.WarningSoundData));
-                sb.Append(" />");
-
-                result = sb.ToString();
-            }
-
-            return result;
-        }
-
-        private string TriggerToMacro(CustomTrigger trigger)
-        {
-            string result = string.Empty;
-            if (trigger != null)
-            {
-                //use single quotes because double quotes don't work
-                StringBuilder sb = new StringBuilder();
-                sb.Append(string.Format("<Trigger R='{0}'", trigger.ShortRegexString.Replace("\\\\", "\\\\\\\\")));
-                sb.Append(string.Format(" SD='{0}'", trigger.SoundData));
-                sb.Append(string.Format(" ST='{0}'", trigger.SoundType.ToString()));
-                sb.Append(string.Format(" CR='{0}'", trigger.RestrictToCategoryZone ? "T" : "F"));
-                sb.Append(string.Format(" C='{0}'", trigger.Category));
-                sb.Append(string.Format(" T='{0}'", trigger.Timer ? "T" : "F"));
-                sb.Append(string.Format(" TN='{0}'", trigger.TimerName));
-                sb.Append(string.Format(" Ta='{0}'", trigger.Tabbed ? "T" : "F"));
-                sb.Append(" />");
-
-                result = sb.ToString();
-            }
-            return result;
-        }
-
-        private string SpellTimerToMacro(TimerData timer)
-        {
-            string result = string.Empty;
-            if (timer != null)
-            {
-                StringBuilder sb = new StringBuilder();
-                sb.Append(string.Format("<Spell N='{0}'", timer.Name));
-                sb.Append(string.Format(" T='{0}'", timer.TimerValue));
-                sb.Append(string.Format(" OM='{0}'", timer.OnlyMasterTicks ? "T" : "F"));
-                sb.Append(string.Format(" R='{0}'", timer.RestrictToMe ? "T" : "F"));
-                sb.Append(string.Format(" A='{0}'", timer.AbsoluteTiming ? "T" : "F"));
-                sb.Append(string.Format(" WV='{0}'", timer.WarningValue));
-                sb.Append(string.Format(" RD='{0}'", timer.RadialDisplay ? "T" : "F"));
-                sb.Append(string.Format(" M='{0}'", timer.Modable ? "T" : "F"));
-                sb.Append(string.Format(" Tt='{0}'", timer.Tooltip));
-                sb.Append(string.Format(" FC='{0}'", timer.FillColor.ToArgb()));
-                sb.Append(string.Format(" RV='{0}'", timer.RemoveValue));
-                sb.Append(string.Format(" C='{0}'", timer.Category));
-                sb.Append(string.Format(" RC='{0}'", timer.RestrictToCategory ? "T" : "F"));
-                sb.Append(string.Format(" SS='{0}'", timer.StartSoundData));
-                sb.Append(string.Format(" WS='{0}'", timer.WarningSoundData));
-                sb.Append(" />");
-
-                result = sb.ToString();
-            }
-            return result;
-        }
-
-        private string EncodeXml_ish(string text, bool encodeHash, bool encodePos, bool encodeSlashes)
-        {
-            if (text == null)
-                return string.Empty;
-
-            StringBuilder sb = new StringBuilder();
-            int len = text.Length;
-            for (int i = 0; i < len; i++)
-            {
-                switch (text[i])
-                {
-                    case '<':
-                        sb.Append("&lt;");
-                        break;
-                    case '>':
-                        sb.Append("&gt;");
-                        break;
-                    case '"':
-                        sb.Append("&quot;");
-                        break;
-                    case '&':
-                        sb.Append("&amp;");
-                        break;
-                    case '\'':
-                        if (encodePos)
-                            sb.Append("&apos;");
-                        else
-                            sb.Append(text[i]);
-                        break;
-                    case '\\':
-                        if (encodeSlashes)
-                        {
-                            if (i < len - 1)
-                            {
-                                //only encode double backslashes
-                                if (text[i + 1] == '\\')
-                                {
-                                    sb.Append("&#92;&#92;");
-                                    i++;
-                                }
-                                else
-                                    sb.Append(text[i]);
-                            }
-                            else
-                                sb.Append(text[i]);
-                        }
-                        else
-                            sb.Append(text[i]);
-                        break;
-                    case '#':
-                        if (encodeHash)
-                            sb.Append("&#35;");
-                        else //leave it alone when double encoding
-                            sb.Append(text[i]);
-                        break;
-                    default:
-                        sb.Append(text[i]);
-                        break;
-                }
-            }
-            return sb.ToString();
-        }
-
         private void copyAsDoubleEncodedXMLToolStripMenuItem_Click(object sender, EventArgs e)
         {
             CustomTrigger trigger;
@@ -2712,8 +2484,8 @@ namespace ACT_TriggerTree
             if (selectedTriggerNode.Tag != null)
             {
                 trigger = selectedTriggerNode.Tag as CustomTrigger;
-                string encoded = TriggerToXML(trigger);
-                doubled = EncodeXml_ish(encoded, false, false, false);
+                string encoded = Macros.TriggerToXML(trigger);
+                doubled = Macros.EncodeXml_ish(encoded, false, false, false);
             }
             else if (selectedTriggerNode.Index == indexTimerName)
             {
@@ -2723,12 +2495,12 @@ namespace ACT_TriggerTree
                 if (timers.Count > 0)
                 {
                     //can only copy one, just use the first one
-                    string encoded = SpellTimerToXML(timers[0]);
-                    doubled = EncodeXml_ish(encoded, false, false, false);
+                    string encoded = Macros.SpellTimerToXML(timers[0]);
+                    doubled = Macros.EncodeXml_ish(encoded, false, false, false);
                 }
                 else
                 {
-                    SimpleMessageBox.Show(this, @"Could not find timer:\line\line " + trigger.TimerName, "No such timer");
+                    SimpleMessageBox.Show(ActGlobals.oFormActMain, @"Could not find timer:\line\line " + trigger.TimerName, "No such timer");
                 }
             }
             if (!string.IsNullOrEmpty(doubled))
@@ -2796,6 +2568,7 @@ namespace ACT_TriggerTree
         string zoneCategory;
         bool regexChanged = false;          //track for replace / create new
         bool initializing = true;           //oncheck() methods do not need to do anything during shown()
+        bool ignoreTextChange = false;      //don't propagate programatic find text change
         TreeNode lastSelectedNode;          //for better tree node highlighting
 
         //color the regex depending on restricted status / matching
@@ -2980,7 +2753,7 @@ namespace ACT_TriggerTree
             {
                 if (string.IsNullOrEmpty(textBoxCategory.Text.Trim()))
                 {
-                    SimpleMessageBox.Show(this, "Category / Zone cannot be empty");
+                    SimpleMessageBox.Show(ActGlobals.oFormActMain, "Category / Zone cannot be empty");
                     return;
                 }
 
@@ -2988,7 +2761,7 @@ namespace ACT_TriggerTree
                 {
                     if(string.IsNullOrEmpty(textBoxRegex.Text.Trim()))
                     {
-                        SimpleMessageBox.Show(this, "Regular Expression cannot be empty");
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, "Regular Expression cannot be empty");
                         return;
                     }
 
@@ -3000,7 +2773,7 @@ namespace ACT_TriggerTree
                     catch (ArgumentException aex)
                     {
                         //ActGlobals.oFormActMain.NotificationAdd("Improper Custom Trigger Regular Expression", aex.Message);
-                        SimpleMessageBox.Show(this, aex.Message, "Improper Regular Expression");
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, aex.Message, "Improper Regular Expression");
                         return;
                     }
                     string category = editingTrigger.Category;
@@ -3015,7 +2788,7 @@ namespace ACT_TriggerTree
                 {
                     if(!File.Exists(textBoxSound.Text))
                     {
-                        SimpleMessageBox.Show(this, "WAV file does not exist");
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, "WAV file does not exist");
                         return;
                     }
                 }
@@ -3023,7 +2796,7 @@ namespace ACT_TriggerTree
                 if((editingTrigger.Timer || editingTrigger.Tabbed)
                     && string.IsNullOrEmpty(editingTrigger.TimerName))
                 {
-                    if (SimpleMessageBox.Show(this, @"Timer or Tab enabled without a Timer/Tab Name.\line Return to fix?", "Inconsistent Settings",
+                    if (SimpleMessageBox.Show(ActGlobals.oFormActMain, @"Timer or Tab enabled without a Timer/Tab Name.\line Return to fix?", "Inconsistent Settings",
                         MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1) == DialogResult.Yes)
                         return;
                 }
@@ -3124,7 +2897,13 @@ namespace ACT_TriggerTree
                     // a \\ in the log is not an escaped \, it is two backslashes. fix it
                     // escape any parentheses
                     // escape any question marks
-                    text = match.Groups["expr"].Value.Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)").Replace("?", "\\?");
+                    text = match.Groups["expr"].Value.Replace("\\", "\\\\")
+                        .Replace("(", "\\(")
+                        .Replace(")", "\\)")
+                        .Replace("[", "\\[")
+                        .Replace("]", "\\]")
+                        .Replace("?", "\\?")
+                        ;
                 }
                 textBoxRegex.Text = text;
                 textBoxRegex.Focus();
@@ -3144,7 +2923,7 @@ namespace ACT_TriggerTree
                 }
             }
             else
-                SimpleMessageBox.Show(this, "Enter a spell timer name to search");
+                SimpleMessageBox.Show(ActGlobals.oFormActMain, "Enter a spell timer name to search");
         }
 
         #endregion Button Clicks
@@ -3502,6 +3281,12 @@ namespace ACT_TriggerTree
 
         private void textBoxFindLine_TextChanged(object sender, EventArgs e)
         {
+            if (checkBoxFilterRegex.Checked && ignoreTextChange == false)
+            {
+                ignoreTextChange = true;
+                checkBoxFilterRegex.Checked = false;
+                ignoreTextChange = false;
+            }
             ApplyFilter();
         }
 
@@ -3536,7 +3321,7 @@ namespace ACT_TriggerTree
             catch (Exception exc)
             {
                 UseWaitCursor = false;
-                SimpleMessageBox.Show(this, exc.Message, "Improper filter");
+                SimpleMessageBox.Show(ActGlobals.oFormActMain, exc.Message, "Improper filter");
             }
         }
 
@@ -3677,7 +3462,8 @@ namespace ACT_TriggerTree
 
         private void contextMenuLog_Opening(object sender, CancelEventArgs e)
         {
-            if (string.IsNullOrEmpty(textBoxFindLine.Text) || dataGridViewLines.Rows.Count < 2)
+            if ((string.IsNullOrEmpty(textBoxFindLine.Text) && !checkBoxFilterRegex.Checked)
+                || dataGridViewLines.Rows.Count < 2)
                 showTimeDifferencesMenuItem.Enabled = false;
             else
                 showTimeDifferencesMenuItem.Enabled = true;
@@ -3757,12 +3543,12 @@ namespace ACT_TriggerTree
                 }
                 else
                 {
-                    SimpleMessageBox.Show(this, "Regular Expression does not match the log line", "No Match");
+                    SimpleMessageBox.Show(ActGlobals.oFormActMain, "Regular Expression does not match the log line", "No Match");
                 }
             }
             catch (Exception rex)
             {
-                SimpleMessageBox.Show(this, rex.Message, "Invalid regular expression");
+                SimpleMessageBox.Show(ActGlobals.oFormActMain, rex.Message, "Invalid regular expression");
             }
         }
 
@@ -3770,7 +3556,7 @@ namespace ACT_TriggerTree
         {
             if(dataGridViewLines.Rows.Count > 100)
             {
-                if (SimpleMessageBox.Show(this, @"There are more than 100 filtered lines.\line Are you sure the filter is correct?"
+                if (SimpleMessageBox.Show(ActGlobals.oFormActMain, @"There are more than 100 filtered lines.\line Are you sure the filter is correct?"
                     + @"\line (processing could take a while)"
                     , "Lots of lines", 
                     MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.No)
@@ -3830,7 +3616,7 @@ namespace ACT_TriggerTree
                     Match match = re.Match(line);
                     if (!match.Success)
                     {
-                        SimpleMessageBox.Show(this, @"The regular expression does not match the text used to determine the timer value." 
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, @"The regular expression does not match the text used to determine the timer value." 
                             + @"\line\line You probably want to fix the regular expression.", 
                             "Inconsistent", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     }
@@ -3878,7 +3664,8 @@ namespace ACT_TriggerTree
             int encounterIndex = Int32.Parse(node.Tag.ToString());
             int zoneIndex = Int32.Parse(node.Parent.Tag.ToString());
             ZoneData zoneData = ActGlobals.oFormActMain.ZoneList[zoneIndex];
-            textBoxFindLine.Clear();
+            if(!ignoreTextChange)
+                textBoxFindLine.Clear();
             DataTable dt = null;
             try
             {
@@ -3904,7 +3691,7 @@ namespace ACT_TriggerTree
             }
             catch (Exception dtx)
             {
-                SimpleMessageBox.Show(this, dtx.Message, "Problem collecting the log lines");
+                SimpleMessageBox.Show(ActGlobals.oFormActMain, dtx.Message, "Problem collecting the log lines");
             }
         }
 
@@ -3937,7 +3724,9 @@ namespace ACT_TriggerTree
             {
                 if(node.Parent != null)
                 {
+                    ignoreTextChange = true;
                     FillEncounterLines(node);
+                    ignoreTextChange = false;
                 }
             }
         }
@@ -6881,6 +6670,635 @@ namespace ACT_TriggerTree
         private System.Windows.Forms.Button button3;
     }
 	#endregion SimpleMessageBox.designer.cs
+	#region XmlCopyForm.cs
+
+
+    public partial class XmlCopyForm : Form
+    {
+        const int maxChatLen = 240;
+        //List<ListItem> chatSnippets;
+        bool _loading = true;
+        bool _preIncremet = false;
+        bool _autoIncrementing = false;
+        int _validTriggers = 0;
+        int _validTimers = 0;
+        int _totalTriggers = 0;
+        int _totalTimers = 0;
+        string _prefix;
+        List<TimerData> _categoryTimers;
+        List<CustomTrigger> _triggers;
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        static extern bool SetForegroundWindow(IntPtr hWnd);
+        List<IntPtr> _handles = new List<IntPtr>();
+
+        // simple class to use as the listbox item
+        enum ItemType { Trigger, Timer, Command }
+        class ListItem
+        {
+            public string description;
+            public string data;
+            public ItemType type;
+            public override string ToString()
+            {
+                return description;
+            }
+        }
+
+        public XmlCopyForm(string prefix, List<TimerData> categoryTimers, List<CustomTrigger> triggers)
+        {
+            InitializeComponent();
+
+            _prefix = prefix;
+            _triggers = triggers;
+            _categoryTimers = categoryTimers;
+        }
+
+        private void XmlCopyForm_Load(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(_prefix))
+            {
+                if (_prefix.StartsWith("/g"))
+                    radioButtonG.Checked = true;
+                else if (_prefix.StartsWith("/r"))
+                    radioButtonR.Checked = true;
+                else
+                {
+                    radioButtonCustom.Checked = true;
+                    textBoxCustom.Text = _prefix;
+                }
+            }
+
+            BuildList();
+
+            // look for game instances
+            Process[] processes = Process.GetProcessesByName("EverQuest2");
+            if (processes.Length > 0)
+            {
+                _handles = new List<IntPtr>();
+                foreach (Process p in processes)
+                {
+                    // only want the main window
+                    if (p.MainWindowTitle.StartsWith("EverQuest II ("))
+                    {
+                        if(!_handles.Contains(p.MainWindowHandle))
+                            _handles.Add(p.MainWindowHandle);
+                    }
+                }
+                if (_handles.Count > 0)
+                {
+                    foreach (IntPtr intPtr in _handles)
+                    {
+                        comboBoxGame.Items.Add(intPtr);
+                    }
+                    comboBoxGame.Items.Add(""); // item to allow user to de-select game activation
+                    comboBoxGame.SelectedIndex = 0;
+                    // switch to macro list?
+                    if(buttonMacro.Enabled)
+                        buttonMacro_Click(null, null);
+                }
+            }
+
+            _loading = false;
+            this.TopMost = true;
+        }
+
+        private void BuildList()
+        {
+            listBox1.Items.Clear();
+            _validTimers = _validTriggers = _totalTimers = _totalTriggers = 0;
+            foreach(CustomTrigger trigger in _triggers)
+            {
+                if (trigger.Active)
+                {
+                    _totalTriggers++;
+                    _validTriggers += Macros.IsInvalidMacroTrigger(trigger) ? 0 : 1;
+                    ListItem item = new ListItem { description = trigger.ShortRegexString, data = Macros.TriggerToXML(trigger), type = ItemType.Trigger };
+                    if (item.data.Length > maxChatLen)
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, @"\b Trigger might be too long to paste.\b0\line\line " + item.description, "Warning");
+                    listBox1.Items.Add(item);
+
+                    // find timers that are activated by a trigger
+                    List<TimerData> timers = TriggerTree.FindTimers(trigger);
+                    foreach (TimerData timer in timers)
+                    {
+                        if (!_categoryTimers.Contains(timer))
+                        {
+                            _categoryTimers.Add(timer);
+                        }
+                    }
+                }
+            }
+
+            foreach(TimerData timerData in _categoryTimers)
+            {
+                if (timerData.ActiveInList)
+                {
+                    _totalTimers++;
+                    _validTimers += Macros.IsInvalidMacroTimer(timerData) ? 0 : 1;
+                    ListItem item = new ListItem { description = timerData.Name, data = Macros.SpellTimerToXML(timerData), type = ItemType.Timer };
+                    if (item.data.Length > maxChatLen)
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, @"\b Timer might be too long to paste.\b0\line\line " + item.description, "Warning");
+                    listBox1.Items.Add(item);
+                }
+            }
+            if (listBox1.Items.Count > 0)
+            {
+                listBox1.SelectedIndex = 0;
+                toolStripStatusLabel1.Text = "Press [Copy] to copy selection to clipboard";
+            }
+            else
+                toolStripStatusLabel1.Text = string.Empty;
+
+            if (_validTimers == 0 && _validTriggers == 0)
+                buttonMacro.Enabled = false;
+        }
+
+        private void buttonCopy_Click(object sender, EventArgs e)
+        {
+            string prefix = string.Empty;
+            if (radioButtonG.Checked)
+                prefix = "/g ";
+            else if (radioButtonR.Checked)
+                prefix = "/r ";
+            else if (!string.IsNullOrEmpty(textBoxCustom.Text))
+            {
+                prefix = textBoxCustom.Text;
+                if (!prefix.EndsWith(" "))
+                    prefix = prefix + " ";
+            }
+
+            bool needLoad = true;
+            if (listBox1.Items.Count > 0)
+            {
+                ListItem listItem = (ListItem)listBox1.Items[0];
+                if (listItem.type != ItemType.Command)
+                {
+                    NextListItem(prefix);
+                    needLoad = false;
+                }
+            }
+            if(needLoad)
+            {
+                this.Text = "XML Share";
+                toolTip1.SetToolTip(buttonMacro, "Press to generate and list macro files");
+                toolTip1.SetToolTip(buttonCopy, "Press to copy the selected XML item to the clipboard");
+                BuildList();
+            }
+        }
+
+        private void NextListItem(string prefix)
+        {
+            try
+            {
+                if (listBox1.SelectedIndex >= 0)
+                {
+                    if (_preIncremet)
+                    {
+                        // select the next item
+                        _autoIncrementing = true;
+                        if (listBox1.SelectedIndex < listBox1.Items.Count - 1)
+                            listBox1.SelectedIndex++;
+                        else
+                        {
+                            listBox1.SelectedIndex = -1;
+                            toolStripStatusLabel1.Text = "No more items.";
+                        }
+                        _autoIncrementing = false;
+                    }
+                    else
+                    {
+                        // first time through, we use the selected item
+                        // next time, we will go to the next item
+                        _preIncremet = true;
+                    }
+
+                    if (listBox1.SelectedIndex >= 0)
+                    {
+                        int itemNum = listBox1.SelectedIndex + 1;
+                        // copy to the clipboard
+                        ListItem item = (ListItem)listBox1.Items[listBox1.SelectedIndex];
+                        Clipboard.SetText(prefix + item.data);
+
+                        bool gameActivated = false;
+                        if (comboBoxGame.Items.Count > 0 && comboBoxGame.SelectedIndex >= 0)
+                        {
+                            // if we found an EQII game window, activate it
+                            if (!string.IsNullOrEmpty(comboBoxGame.Items[comboBoxGame.SelectedIndex].ToString()))
+                            {
+                                toolStripStatusLabel1.Text = String.Format(@"<Enter><Ctrl-v> to paste item {0}. {1} for next.", itemNum, item.type == ItemType.Command ? "[Macro]" : "[Copy]");
+                                IntPtr handle = (IntPtr)comboBoxGame.Items[comboBoxGame.SelectedIndex];
+                                SetForegroundWindow(handle);
+                                gameActivated = true;
+                            }
+                        }
+                        if(!gameActivated)
+                        {
+                            toolStripStatusLabel1.Text = String.Format("Item {0} copied. Press {1} for next.", itemNum, item.type == ItemType.Command ? "[Macro]" : "[Copy]");
+                        }
+                    }
+                }
+                else
+                {
+                    SimpleMessageBox.Show(this, "Select an item to copy to the clipboard.", "Error");
+                    toolStripStatusLabel1.Text = string.Empty;
+                }
+            }
+            catch (Exception)
+            {
+                SimpleMessageBox.Show(this, "Clipboard copy failed. Try again.", "Failed");
+                _preIncremet = false;
+            }
+        }
+
+        private void buttonDone_Click(object sender, EventArgs e)
+        {
+            Close();
+        }
+
+        private void radioButtonCustom_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!_loading)
+            {
+                if (radioButtonCustom.Checked)
+                    _prefix = textBoxCustom.Text;
+                if (listBox1.Items.Count > 0)
+                {
+                    ListItem listItem = (ListItem)listBox1.Items[0];
+                    if (listItem.type == ItemType.Command)
+                    {
+                        // regenerate the macros
+                        listBox1.Items.Clear();
+                        buttonMacro_Click(null, null);
+                    }
+                }
+            }
+        }
+
+        private void textBoxCustom_TextChanged(object sender, EventArgs e)
+        {
+            if (radioButtonCustom.Checked)
+            {
+                _prefix = textBoxCustom.Text;
+                if (listBox1.Items.Count > 0)
+                {
+                    ListItem listItem = (ListItem)listBox1.Items[0];
+                    if (listItem.type == ItemType.Command)
+                    {
+                        // regenerate the macros
+                        listBox1.Items.Clear();
+                        buttonMacro_Click(null, null);
+                    }
+                }
+            }
+        }
+
+        private void listBox1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (!_loading)
+            {
+                if (listBox1.SelectedIndex >= 0)
+                {
+                    ListItem listItem = (ListItem)listBox1.Items[listBox1.SelectedIndex];
+                    toolStripStatusLabel1.Text = String.Format("Press {0} to copy selection to clipboard", listItem.type == ItemType.Command ? "[Macro]" : "[Copy]");
+                    if (!_autoIncrementing)
+                        _preIncremet = false;
+                }
+            }
+        }
+
+        private void buttonMacro_Click(object sender, EventArgs e)
+        {
+            bool needLoad = true;
+            if(listBox1.Items.Count > 0)
+            {
+                ListItem listItem = (ListItem)listBox1.Items[0];
+                if(listItem.type == ItemType.Command)
+                {
+                    // list is already do_file_commmands, select the next one
+                    NextListItem("");
+                    needLoad = false;
+                }
+            }
+            if(needLoad)
+            {
+                string prefix = string.Empty;
+                toolTip1.SetToolTip(buttonMacro, "Press to copy the selected item to the clipboard");
+                toolTip1.SetToolTip(buttonCopy, "Press to generate and list XML items");
+                if (radioButtonG.Checked)
+                    prefix = "g ";
+                else if (radioButtonR.Checked)
+                    prefix = "r ";
+                else if (!string.IsNullOrEmpty(textBoxCustom.Text))
+                {
+                    prefix = textBoxCustom.Text;
+                    prefix = prefix.TrimStart('/');
+                    if (!prefix.EndsWith(" "))
+                        prefix = prefix + " ";
+                }
+
+                if(_totalTimers > 0 && _totalTriggers > 0)
+                    this.Text = String.Format("XML Share: ({0}/{1}) triggers, ({2}/{3}) timers", _validTriggers, _totalTriggers, _validTimers, _totalTimers);
+                else if(_totalTriggers > 0)
+                    this.Text = String.Format("XML Share: ({0}/{1}) triggers", _validTriggers, _totalTriggers);
+                else if(_totalTimers > 0)
+                    this.Text = String.Format("XML Share: ({2}/{3}) timers", _validTimers, _totalTimers);
+
+                int count = Macros.WriteCategoryMacroFile(prefix, _triggers, _categoryTimers, false);
+                listBox1.Items.Clear();
+                for (int i = 0; i < count; i++)
+                {
+                    ListItem listItem = new ListItem();
+                    if (i == 0)
+                    {
+                        listItem.data = "/do_file_commands triggers.txt";
+                    }
+                    else
+                    {
+                        listItem.data = string.Format("/do_file_commands triggers{0}.txt", i);
+                    }
+                    listItem.description = listItem.data;
+                    listItem.type = ItemType.Command;
+                    listBox1.Items.Add(listItem);
+                }
+                if (listBox1.Items.Count > 0)
+                {
+                    listBox1.SelectedIndex = 0;
+                }
+            }
+        }
+
+        private void radioButtonG_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!_loading)
+            {
+                if (radioButtonG.Checked)
+                {
+                    if (listBox1.Items.Count > 0)
+                    {
+                        ListItem listItem = (ListItem)listBox1.Items[0];
+                        if (listItem.type == ItemType.Command)
+                        {
+                            // regenerate the macros
+                            listBox1.Items.Clear();
+                            buttonMacro_Click(null, null);
+                        }
+                    }
+                }
+            }
+        }
+
+        private void radioButtonR_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!_loading)
+            {
+                if (radioButtonR.Checked)
+                {
+                    if (listBox1.Items.Count > 0)
+                    {
+                        ListItem listItem = (ListItem)listBox1.Items[0];
+                        if (listItem.type == ItemType.Command)
+                        {
+                            // regenerate the macros
+                            listBox1.Items.Clear();
+                            buttonMacro_Click(null, null);
+                        }
+                    }
+                }
+            }
+        }
+    }
+	#endregion XmlCopyForm.cs
+	#region XmlCopyForm.Designer.cs
+
+    partial class XmlCopyForm
+    {
+        /// <summary>
+        /// Required designer variable.
+        /// </summary>
+        private System.ComponentModel.IContainer components = null;
+
+        /// <summary>
+        /// Clean up any resources being used.
+        /// </summary>
+        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        #region Windows Form Designer generated code
+
+        /// <summary>
+        /// Required method for Designer support - do not modify
+        /// the contents of this method with the code editor.
+        /// </summary>
+        private void InitializeComponent()
+        {
+            this.components = new System.ComponentModel.Container();
+            this.listBox1 = new System.Windows.Forms.ListBox();
+            this.buttonCopy = new System.Windows.Forms.Button();
+            this.buttonDone = new System.Windows.Forms.Button();
+            this.radioButtonG = new System.Windows.Forms.RadioButton();
+            this.radioButtonR = new System.Windows.Forms.RadioButton();
+            this.radioButtonCustom = new System.Windows.Forms.RadioButton();
+            this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
+            this.label1 = new System.Windows.Forms.Label();
+            this.comboBoxGame = new System.Windows.Forms.ComboBox();
+            this.textBoxCustom = new System.Windows.Forms.TextBox();
+            this.statusStrip1 = new System.Windows.Forms.StatusStrip();
+            this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
+            this.buttonMacro = new System.Windows.Forms.Button();
+            this.statusStrip1.SuspendLayout();
+            this.SuspendLayout();
+            // 
+            // listBox1
+            // 
+            this.listBox1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.listBox1.FormattingEnabled = true;
+            this.listBox1.Location = new System.Drawing.Point(15, 12);
+            this.listBox1.Name = "listBox1";
+            this.listBox1.Size = new System.Drawing.Size(271, 95);
+            this.listBox1.TabIndex = 0;
+            this.listBox1.SelectedIndexChanged += new System.EventHandler(this.listBox1_SelectedIndexChanged);
+            // 
+            // buttonCopy
+            // 
+            this.buttonCopy.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.buttonCopy.Location = new System.Drawing.Point(113, 170);
+            this.buttonCopy.Name = "buttonCopy";
+            this.buttonCopy.Size = new System.Drawing.Size(75, 23);
+            this.buttonCopy.TabIndex = 8;
+            this.buttonCopy.Text = "Copy";
+            this.toolTip1.SetToolTip(this.buttonCopy, "Press to copy the selected XML item to the clipboard");
+            this.buttonCopy.UseVisualStyleBackColor = true;
+            this.buttonCopy.Click += new System.EventHandler(this.buttonCopy_Click);
+            // 
+            // buttonDone
+            // 
+            this.buttonDone.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.buttonDone.Location = new System.Drawing.Point(211, 170);
+            this.buttonDone.Name = "buttonDone";
+            this.buttonDone.Size = new System.Drawing.Size(75, 23);
+            this.buttonDone.TabIndex = 9;
+            this.buttonDone.Text = "Done";
+            this.buttonDone.UseVisualStyleBackColor = true;
+            this.buttonDone.Click += new System.EventHandler(this.buttonDone_Click);
+            // 
+            // radioButtonG
+            // 
+            this.radioButtonG.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.radioButtonG.AutoSize = true;
+            this.radioButtonG.Location = new System.Drawing.Point(15, 113);
+            this.radioButtonG.Name = "radioButtonG";
+            this.radioButtonG.Size = new System.Drawing.Size(36, 17);
+            this.radioButtonG.TabIndex = 1;
+            this.radioButtonG.TabStop = true;
+            this.radioButtonG.Text = "/g";
+            this.toolTip1.SetToolTip(this.radioButtonG, "Prefix the XML with a /g for pasting in EQ2 group chat");
+            this.radioButtonG.UseVisualStyleBackColor = true;
+            this.radioButtonG.CheckedChanged += new System.EventHandler(this.radioButtonG_CheckedChanged);
+            // 
+            // radioButtonR
+            // 
+            this.radioButtonR.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.radioButtonR.AutoSize = true;
+            this.radioButtonR.Location = new System.Drawing.Point(57, 113);
+            this.radioButtonR.Name = "radioButtonR";
+            this.radioButtonR.Size = new System.Drawing.Size(33, 17);
+            this.radioButtonR.TabIndex = 2;
+            this.radioButtonR.TabStop = true;
+            this.radioButtonR.Text = "/r";
+            this.toolTip1.SetToolTip(this.radioButtonR, "Prefix the XML with /r for pasting in EQ2 raid chat");
+            this.radioButtonR.UseVisualStyleBackColor = true;
+            this.radioButtonR.CheckedChanged += new System.EventHandler(this.radioButtonR_CheckedChanged);
+            // 
+            // radioButtonCustom
+            // 
+            this.radioButtonCustom.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.radioButtonCustom.AutoSize = true;
+            this.radioButtonCustom.Location = new System.Drawing.Point(93, 113);
+            this.radioButtonCustom.Name = "radioButtonCustom";
+            this.radioButtonCustom.Size = new System.Drawing.Size(62, 17);
+            this.radioButtonCustom.TabIndex = 3;
+            this.radioButtonCustom.TabStop = true;
+            this.radioButtonCustom.Text = "custom:";
+            this.toolTip1.SetToolTip(this.radioButtonCustom, "Custom prefix. e.g. /gu for guild chat");
+            this.radioButtonCustom.UseVisualStyleBackColor = true;
+            this.radioButtonCustom.CheckedChanged += new System.EventHandler(this.radioButtonCustom_CheckedChanged);
+            // 
+            // label1
+            // 
+            this.label1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.label1.AutoSize = true;
+            this.label1.Location = new System.Drawing.Point(12, 146);
+            this.label1.Name = "label1";
+            this.label1.Size = new System.Drawing.Size(80, 13);
+            this.label1.TabIndex = 5;
+            this.label1.Text = "Game Window:";
+            this.toolTip1.SetToolTip(this.label1, "Game window to activate when the [Macro] or [Copy] button is pressed");
+            // 
+            // comboBoxGame
+            // 
+            this.comboBoxGame.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.comboBoxGame.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboBoxGame.FormattingEnabled = true;
+            this.comboBoxGame.Location = new System.Drawing.Point(93, 143);
+            this.comboBoxGame.Name = "comboBoxGame";
+            this.comboBoxGame.Size = new System.Drawing.Size(95, 21);
+            this.comboBoxGame.TabIndex = 6;
+            this.toolTip1.SetToolTip(this.comboBoxGame, "Game window to activate when the [Macro] or [Copy] button is pressed");
+            // 
+            // textBoxCustom
+            // 
+            this.textBoxCustom.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.textBoxCustom.Location = new System.Drawing.Point(151, 112);
+            this.textBoxCustom.Name = "textBoxCustom";
+            this.textBoxCustom.Size = new System.Drawing.Size(135, 20);
+            this.textBoxCustom.TabIndex = 4;
+            this.textBoxCustom.TextChanged += new System.EventHandler(this.textBoxCustom_TextChanged);
+            // 
+            // statusStrip1
+            // 
+            this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.toolStripStatusLabel1});
+            this.statusStrip1.Location = new System.Drawing.Point(0, 197);
+            this.statusStrip1.Name = "statusStrip1";
+            this.statusStrip1.Size = new System.Drawing.Size(298, 22);
+            this.statusStrip1.TabIndex = 10;
+            this.statusStrip1.Text = "statusStrip1";
+            // 
+            // toolStripStatusLabel1
+            // 
+            this.toolStripStatusLabel1.ForeColor = System.Drawing.SystemColors.Highlight;
+            this.toolStripStatusLabel1.Name = "toolStripStatusLabel1";
+            this.toolStripStatusLabel1.Size = new System.Drawing.Size(118, 17);
+            this.toolStripStatusLabel1.Text = "toolStripStatusLabel1";
+            // 
+            // buttonMacro
+            // 
+            this.buttonMacro.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.buttonMacro.Location = new System.Drawing.Point(15, 170);
+            this.buttonMacro.Name = "buttonMacro";
+            this.buttonMacro.Size = new System.Drawing.Size(75, 23);
+            this.buttonMacro.TabIndex = 7;
+            this.buttonMacro.Text = "Macro";
+            this.toolTip1.SetToolTip(this.buttonMacro, "Press to generate and list macro files");
+            this.buttonMacro.UseVisualStyleBackColor = true;
+            this.buttonMacro.Click += new System.EventHandler(this.buttonMacro_Click);
+            // 
+            // XmlCopyForm
+            // 
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.ClientSize = new System.Drawing.Size(298, 219);
+            this.ControlBox = false;
+            this.Controls.Add(this.buttonMacro);
+            this.Controls.Add(this.comboBoxGame);
+            this.Controls.Add(this.label1);
+            this.Controls.Add(this.statusStrip1);
+            this.Controls.Add(this.textBoxCustom);
+            this.Controls.Add(this.radioButtonCustom);
+            this.Controls.Add(this.radioButtonR);
+            this.Controls.Add(this.radioButtonG);
+            this.Controls.Add(this.buttonDone);
+            this.Controls.Add(this.buttonCopy);
+            this.Controls.Add(this.listBox1);
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+            this.Name = "XmlCopyForm";
+            this.Text = "Xml Share";
+            this.Load += new System.EventHandler(this.XmlCopyForm_Load);
+            this.statusStrip1.ResumeLayout(false);
+            this.statusStrip1.PerformLayout();
+            this.ResumeLayout(false);
+            this.PerformLayout();
+
+        }
+
+        #endregion
+
+        private System.Windows.Forms.ListBox listBox1;
+        private System.Windows.Forms.Button buttonCopy;
+        private System.Windows.Forms.Button buttonDone;
+        private System.Windows.Forms.RadioButton radioButtonG;
+        private System.Windows.Forms.RadioButton radioButtonR;
+        private System.Windows.Forms.RadioButton radioButtonCustom;
+        private System.Windows.Forms.ToolTip toolTip1;
+        private System.Windows.Forms.TextBox textBoxCustom;
+        private System.Windows.Forms.StatusStrip statusStrip1;
+        private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel1;
+        private System.Windows.Forms.Label label1;
+        private System.Windows.Forms.ComboBox comboBoxGame;
+        private System.Windows.Forms.Button buttonMacro;
+    }
+	#endregion XmlCopyForm.Designer.cs
 	#region Macros.cs
 
     public class Macros
@@ -7034,6 +7452,302 @@ namespace ACT_TriggerTree
             strings.Add(text);
             return IsInvalidMacro(strings);
         }
+
+        public static string EncodeXml_ish(string text, bool encodeHash, bool encodePos, bool encodeSlashes)
+        {
+            if (text == null)
+                return string.Empty;
+
+            StringBuilder sb = new StringBuilder();
+            int len = text.Length;
+            for (int i = 0; i < len; i++)
+            {
+                switch (text[i])
+                {
+                    case '<':
+                        sb.Append("&lt;");
+                        break;
+                    case '>':
+                        sb.Append("&gt;");
+                        break;
+                    case '"':
+                        sb.Append("&quot;");
+                        break;
+                    case '&':
+                        sb.Append("&amp;");
+                        break;
+                    case '\'':
+                        if (encodePos)
+                            sb.Append("&apos;");
+                        else
+                            sb.Append(text[i]);
+                        break;
+                    case '\\':
+                        if (encodeSlashes)
+                        {
+                            if (i < len - 1)
+                            {
+                                //only encode double backslashes
+                                if (text[i + 1] == '\\')
+                                {
+                                    sb.Append("&#92;&#92;");
+                                    i++;
+                                }
+                                else
+                                    sb.Append(text[i]);
+                            }
+                            else
+                                sb.Append(text[i]);
+                        }
+                        else
+                            sb.Append(text[i]);
+                        break;
+                    case '#':
+                        if (encodeHash)
+                            sb.Append("&#35;");
+                        else //leave it alone when double encoding
+                            sb.Append(text[i]);
+                        break;
+                    default:
+                        sb.Append(text[i]);
+                        break;
+                }
+            }
+            return sb.ToString();
+        }
+
+
+        public static string SpellTimerToXML(TimerData timer)
+        {
+            string result = string.Empty;
+            if (timer != null)
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append(string.Format("<Spell N=\"{0}\"", EncodeXml_ish(timer.Name, false, false, false)));
+                sb.Append(string.Format(" T=\"{0}\"", timer.TimerValue));
+                sb.Append(string.Format(" OM=\"{0}\"", timer.OnlyMasterTicks ? "T" : "F"));
+                sb.Append(string.Format(" R=\"{0}\"", timer.RestrictToMe ? "T" : "F"));
+                sb.Append(string.Format(" A=\"{0}\"", timer.AbsoluteTiming ? "T" : "F"));
+                sb.Append(string.Format(" WV=\"{0}\"", timer.WarningValue));
+                sb.Append(string.Format(" RD=\"{0}\"", timer.RadialDisplay ? "T" : "F"));
+                sb.Append(string.Format(" M=\"{0}\"", timer.Modable ? "T" : "F"));
+                sb.Append(string.Format(" Tt=\"{0}\"", EncodeXml_ish(timer.Tooltip, false, false, false)));
+                sb.Append(string.Format(" FC=\"{0}\"", timer.FillColor.ToArgb()));
+                sb.Append(string.Format(" RV=\"{0}\"", timer.RemoveValue));
+                sb.Append(string.Format(" C=\"{0}\"", EncodeXml_ish(timer.Category, false, false, false)));
+                sb.Append(string.Format(" RC=\"{0}\"", timer.RestrictToCategory ? "T" : "F"));
+                sb.Append(string.Format(" SS=\"{0}\"", timer.StartSoundData));
+                sb.Append(string.Format(" WS=\"{0}\"", timer.WarningSoundData));
+                sb.Append(" />");
+
+                result = sb.ToString();
+            }
+
+            return result;
+        }
+
+
+        public static string TriggerToXML(CustomTrigger trigger)
+        {
+            string result = string.Empty;
+            if (trigger != null)
+            {
+                //match the character replacement scheme used by the Custom Triggers tab
+                StringBuilder sb = new StringBuilder();
+                sb.Append(string.Format("<Trigger R=\"{0}\"", EncodeXml_ish(trigger.ShortRegexString, true, false, true)));
+                sb.Append(string.Format(" SD=\"{0}\"", EncodeXml_ish(trigger.SoundData, false, true, false)));
+                sb.Append(string.Format(" ST=\"{0}\"", trigger.SoundType.ToString()));
+                sb.Append(string.Format(" CR=\"{0}\"", trigger.RestrictToCategoryZone ? "T" : "F"));
+                sb.Append(string.Format(" C=\"{0}\"", EncodeXml_ish(trigger.Category, false, true, false)));
+                sb.Append(string.Format(" T=\"{0}\"", trigger.Timer ? "T" : "F"));
+                sb.Append(string.Format(" TN=\"{0}\"", EncodeXml_ish(trigger.TimerName, false, true, false)));
+                sb.Append(string.Format(" Ta=\"{0}\"", trigger.Tabbed ? "T" : "F"));
+                sb.Append(" />");
+
+                result = sb.ToString();
+            }
+            return result;
+        }
+
+        public static string TriggerToMacro(CustomTrigger trigger)
+        {
+            string result = string.Empty;
+            if (trigger != null)
+            {
+                //use single quotes because double quotes don't work
+                StringBuilder sb = new StringBuilder();
+                sb.Append(string.Format("<Trigger R='{0}'", trigger.ShortRegexString.Replace("\\\\", "\\\\\\\\")));
+                sb.Append(string.Format(" SD='{0}'", trigger.SoundData));
+                sb.Append(string.Format(" ST='{0}'", trigger.SoundType.ToString()));
+                sb.Append(string.Format(" CR='{0}'", trigger.RestrictToCategoryZone ? "T" : "F"));
+                sb.Append(string.Format(" C='{0}'", trigger.Category));
+                sb.Append(string.Format(" T='{0}'", trigger.Timer ? "T" : "F"));
+                sb.Append(string.Format(" TN='{0}'", trigger.TimerName));
+                sb.Append(string.Format(" Ta='{0}'", trigger.Tabbed ? "T" : "F"));
+                sb.Append(" />");
+
+                result = sb.ToString();
+            }
+            return result;
+        }
+
+        public static string SpellTimerToMacro(TimerData timer)
+        {
+            string result = string.Empty;
+            if (timer != null)
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append(string.Format("<Spell N='{0}'", timer.Name));
+                sb.Append(string.Format(" T='{0}'", timer.TimerValue));
+                sb.Append(string.Format(" OM='{0}'", timer.OnlyMasterTicks ? "T" : "F"));
+                sb.Append(string.Format(" R='{0}'", timer.RestrictToMe ? "T" : "F"));
+                sb.Append(string.Format(" A='{0}'", timer.AbsoluteTiming ? "T" : "F"));
+                sb.Append(string.Format(" WV='{0}'", timer.WarningValue));
+                sb.Append(string.Format(" RD='{0}'", timer.RadialDisplay ? "T" : "F"));
+                sb.Append(string.Format(" M='{0}'", timer.Modable ? "T" : "F"));
+                sb.Append(string.Format(" Tt='{0}'", timer.Tooltip));
+                sb.Append(string.Format(" FC='{0}'", timer.FillColor.ToArgb()));
+                sb.Append(string.Format(" RV='{0}'", timer.RemoveValue));
+                sb.Append(string.Format(" C='{0}'", timer.Category));
+                sb.Append(string.Format(" RC='{0}'", timer.RestrictToCategory ? "T" : "F"));
+                sb.Append(string.Format(" SS='{0}'", timer.StartSoundData));
+                sb.Append(string.Format(" WS='{0}'", timer.WarningSoundData));
+                sb.Append(" />");
+
+                result = sb.ToString();
+            }
+            return result;
+        }
+
+
+        public static int WriteCategoryMacroFile(string sayCmd, List<CustomTrigger> triggers, List<TimerData> categoryTimers, bool notifyTray = true)
+        {
+            int fileCount = 0;
+            {
+                int validTrigs = 0;
+                int validTimers = 0;
+                int invalid = 0;
+                if(triggers.Count > 0)
+                {
+                    try
+                    {
+                        string category = triggers[0].Category;
+                        StringBuilder sb = new StringBuilder();
+                        //start with timers for the category
+                        foreach (TimerData timer in categoryTimers)
+                        {
+                            if (!IsInvalidMacroTimer(timer))
+                            {
+                                sb.Append(sayCmd);
+                                sb.Append(SpellTimerToMacro(timer));
+                                sb.Append(Environment.NewLine);
+                                validTimers++;
+                                if (validTimers >= 16)
+                                {
+                                    MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                                    fileCount++;
+                                    sb.Clear();
+                                    invalid = 0;
+                                    validTimers = 0;
+                                }
+                            }
+                            else
+                            {
+                                invalid++;
+                            }
+                        }
+                        //then category triggers
+                        foreach (CustomTrigger trigger in triggers)
+                        {
+                            if (trigger.Active)
+                            {
+                                if (IsInvalidMacroTrigger(trigger))
+                                {
+                                    invalid++;
+                                }
+                                else
+                                {
+                                    sb.Append(sayCmd);
+                                    sb.Append(TriggerToMacro(trigger));
+                                    sb.Append(Environment.NewLine);
+                                    validTrigs++;
+                                }
+                                if (validTrigs + validTimers >= 16)
+                                {
+                                    MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                                    fileCount++;
+                                    sb.Clear();
+                                    invalid = 0;
+                                    validTimers = 0;
+                                    validTrigs = 0;
+                                }
+                                // find timers that are activated by a trigger
+                                List<TimerData> timers = TriggerTree.FindTimers(trigger);
+                                foreach (TimerData timer in timers)
+                                {
+                                    if (!categoryTimers.Contains(timer))
+                                    {
+                                        if (!Macros.IsInvalidMacroTimer(timer))
+                                        {
+                                            sb.Append(sayCmd);
+                                            sb.Append(SpellTimerToMacro(timer));
+                                            sb.Append(Environment.NewLine);
+                                            validTimers++;
+                                            if (validTrigs + validTimers >= 16)
+                                            {
+                                                //tooLong = true;
+                                                MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                                                fileCount++;
+                                                sb.Clear();
+                                                invalid = 0;
+                                                validTimers = 0;
+                                                validTrigs = 0;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (validTrigs > 0 || validTimers > 0)
+                        {
+                            MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                            fileCount++;
+                        }
+                    }
+                    catch (Exception x)
+                    {
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, "Macro file error:\n" + x.Message);
+                    }
+                }
+            }
+            return fileCount;
+        }
+
+        public static void MacroToFile(int fileCount, string category, string content, int invalid, int validTimers, int validTrigs, bool notifyTray = true)
+        {
+            string fileName = TriggerTree.doFileName;
+            if (fileCount > 0)
+                fileName = Path.GetFileNameWithoutExtension(TriggerTree.doFileName) + fileCount.ToString() + Path.GetExtension(TriggerTree.doFileName);
+            if (ActGlobals.oFormActMain.SendToMacroFile(fileName, content, string.Empty))
+            {
+                if(notifyTray)
+                {
+                    StringBuilder sb = new StringBuilder();
+                    sb.Append(string.IsNullOrEmpty(category) ? string.Empty : string.Format("For category\n'{0}'\n", category));
+                    sb.Append("Wrote ");
+                    sb.Append(validTrigs > 0 ? string.Format("{0} trigger{1}", validTrigs, validTrigs > 1 ? "s" : string.Empty) : string.Empty);
+                    sb.Append(validTrigs > 0 && validTimers > 0 ? " and " : string.Empty);
+                    sb.Append(validTimers > 0 ? string.Format("{0} timer{1}", validTimers, validTimers > 1 ? "s" : string.Empty) : string.Empty);
+                    sb.Append(invalid > 0 ? string.Format("\n\nCould not write {0} item{1}.", invalid, invalid > 1 ? "s" : string.Empty) : string.Empty);
+                    sb.Append(string.Format("\n\nIn EQII chat, enter:\n/do_file_commands {0}", fileName));
+
+                    TraySlider traySlider = new TraySlider();
+                    traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
+                    traySlider.ShowTraySlider(sb.ToString(), "Wrote Category Macro");
+                }
+            }
+        }
+
     }
 	#endregion Macros.cs
 }

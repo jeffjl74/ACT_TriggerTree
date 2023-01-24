@@ -1,7 +1,10 @@
 ﻿using Advanced_Combat_Tracker;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Text;
+using System.Windows.Forms;
 
 namespace ACT_TriggerTree
 {
@@ -156,5 +159,301 @@ namespace ACT_TriggerTree
             strings.Add(text);
             return IsInvalidMacro(strings);
         }
+
+        public static string EncodeXml_ish(string text, bool encodeHash, bool encodePos, bool encodeSlashes)
+        {
+            if (text == null)
+                return string.Empty;
+
+            StringBuilder sb = new StringBuilder();
+            int len = text.Length;
+            for (int i = 0; i < len; i++)
+            {
+                switch (text[i])
+                {
+                    case '<':
+                        sb.Append("&lt;");
+                        break;
+                    case '>':
+                        sb.Append("&gt;");
+                        break;
+                    case '"':
+                        sb.Append("&quot;");
+                        break;
+                    case '&':
+                        sb.Append("&amp;");
+                        break;
+                    case '\'':
+                        if (encodePos)
+                            sb.Append("&apos;");
+                        else
+                            sb.Append(text[i]);
+                        break;
+                    case '\\':
+                        if (encodeSlashes)
+                        {
+                            if (i < len - 1)
+                            {
+                                //only encode double backslashes
+                                if (text[i + 1] == '\\')
+                                {
+                                    sb.Append("&#92;&#92;");
+                                    i++;
+                                }
+                                else
+                                    sb.Append(text[i]);
+                            }
+                            else
+                                sb.Append(text[i]);
+                        }
+                        else
+                            sb.Append(text[i]);
+                        break;
+                    case '#':
+                        if (encodeHash)
+                            sb.Append("&#35;");
+                        else //leave it alone when double encoding
+                            sb.Append(text[i]);
+                        break;
+                    default:
+                        sb.Append(text[i]);
+                        break;
+                }
+            }
+            return sb.ToString();
+        }
+
+
+        public static string SpellTimerToXML(TimerData timer)
+        {
+            string result = string.Empty;
+            if (timer != null)
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append(string.Format("<Spell N=\"{0}\"", EncodeXml_ish(timer.Name, false, false, false)));
+                sb.Append(string.Format(" T=\"{0}\"", timer.TimerValue));
+                sb.Append(string.Format(" OM=\"{0}\"", timer.OnlyMasterTicks ? "T" : "F"));
+                sb.Append(string.Format(" R=\"{0}\"", timer.RestrictToMe ? "T" : "F"));
+                sb.Append(string.Format(" A=\"{0}\"", timer.AbsoluteTiming ? "T" : "F"));
+                sb.Append(string.Format(" WV=\"{0}\"", timer.WarningValue));
+                sb.Append(string.Format(" RD=\"{0}\"", timer.RadialDisplay ? "T" : "F"));
+                sb.Append(string.Format(" M=\"{0}\"", timer.Modable ? "T" : "F"));
+                sb.Append(string.Format(" Tt=\"{0}\"", EncodeXml_ish(timer.Tooltip, false, false, false)));
+                sb.Append(string.Format(" FC=\"{0}\"", timer.FillColor.ToArgb()));
+                sb.Append(string.Format(" RV=\"{0}\"", timer.RemoveValue));
+                sb.Append(string.Format(" C=\"{0}\"", EncodeXml_ish(timer.Category, false, false, false)));
+                sb.Append(string.Format(" RC=\"{0}\"", timer.RestrictToCategory ? "T" : "F"));
+                sb.Append(string.Format(" SS=\"{0}\"", timer.StartSoundData));
+                sb.Append(string.Format(" WS=\"{0}\"", timer.WarningSoundData));
+                sb.Append(" />");
+
+                result = sb.ToString();
+            }
+
+            return result;
+        }
+
+
+        public static string TriggerToXML(CustomTrigger trigger)
+        {
+            string result = string.Empty;
+            if (trigger != null)
+            {
+                //match the character replacement scheme used by the Custom Triggers tab
+                StringBuilder sb = new StringBuilder();
+                sb.Append(string.Format("<Trigger R=\"{0}\"", EncodeXml_ish(trigger.ShortRegexString, true, false, true)));
+                sb.Append(string.Format(" SD=\"{0}\"", EncodeXml_ish(trigger.SoundData, false, true, false)));
+                sb.Append(string.Format(" ST=\"{0}\"", trigger.SoundType.ToString()));
+                sb.Append(string.Format(" CR=\"{0}\"", trigger.RestrictToCategoryZone ? "T" : "F"));
+                sb.Append(string.Format(" C=\"{0}\"", EncodeXml_ish(trigger.Category, false, true, false)));
+                sb.Append(string.Format(" T=\"{0}\"", trigger.Timer ? "T" : "F"));
+                sb.Append(string.Format(" TN=\"{0}\"", EncodeXml_ish(trigger.TimerName, false, true, false)));
+                sb.Append(string.Format(" Ta=\"{0}\"", trigger.Tabbed ? "T" : "F"));
+                sb.Append(" />");
+
+                result = sb.ToString();
+            }
+            return result;
+        }
+
+        public static string TriggerToMacro(CustomTrigger trigger)
+        {
+            string result = string.Empty;
+            if (trigger != null)
+            {
+                //use single quotes because double quotes don't work
+                StringBuilder sb = new StringBuilder();
+                sb.Append(string.Format("<Trigger R='{0}'", trigger.ShortRegexString.Replace("\\\\", "\\\\\\\\")));
+                sb.Append(string.Format(" SD='{0}'", trigger.SoundData));
+                sb.Append(string.Format(" ST='{0}'", trigger.SoundType.ToString()));
+                sb.Append(string.Format(" CR='{0}'", trigger.RestrictToCategoryZone ? "T" : "F"));
+                sb.Append(string.Format(" C='{0}'", trigger.Category));
+                sb.Append(string.Format(" T='{0}'", trigger.Timer ? "T" : "F"));
+                sb.Append(string.Format(" TN='{0}'", trigger.TimerName));
+                sb.Append(string.Format(" Ta='{0}'", trigger.Tabbed ? "T" : "F"));
+                sb.Append(" />");
+
+                result = sb.ToString();
+            }
+            return result;
+        }
+
+        public static string SpellTimerToMacro(TimerData timer)
+        {
+            string result = string.Empty;
+            if (timer != null)
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append(string.Format("<Spell N='{0}'", timer.Name));
+                sb.Append(string.Format(" T='{0}'", timer.TimerValue));
+                sb.Append(string.Format(" OM='{0}'", timer.OnlyMasterTicks ? "T" : "F"));
+                sb.Append(string.Format(" R='{0}'", timer.RestrictToMe ? "T" : "F"));
+                sb.Append(string.Format(" A='{0}'", timer.AbsoluteTiming ? "T" : "F"));
+                sb.Append(string.Format(" WV='{0}'", timer.WarningValue));
+                sb.Append(string.Format(" RD='{0}'", timer.RadialDisplay ? "T" : "F"));
+                sb.Append(string.Format(" M='{0}'", timer.Modable ? "T" : "F"));
+                sb.Append(string.Format(" Tt='{0}'", timer.Tooltip));
+                sb.Append(string.Format(" FC='{0}'", timer.FillColor.ToArgb()));
+                sb.Append(string.Format(" RV='{0}'", timer.RemoveValue));
+                sb.Append(string.Format(" C='{0}'", timer.Category));
+                sb.Append(string.Format(" RC='{0}'", timer.RestrictToCategory ? "T" : "F"));
+                sb.Append(string.Format(" SS='{0}'", timer.StartSoundData));
+                sb.Append(string.Format(" WS='{0}'", timer.WarningSoundData));
+                sb.Append(" />");
+
+                result = sb.ToString();
+            }
+            return result;
+        }
+
+
+        public static int WriteCategoryMacroFile(string sayCmd, List<CustomTrigger> triggers, List<TimerData> categoryTimers, bool notifyTray = true)
+        {
+            int fileCount = 0;
+            {
+                int validTrigs = 0;
+                int validTimers = 0;
+                int invalid = 0;
+                if(triggers.Count > 0)
+                {
+                    try
+                    {
+                        string category = triggers[0].Category;
+                        StringBuilder sb = new StringBuilder();
+                        //start with timers for the category
+                        foreach (TimerData timer in categoryTimers)
+                        {
+                            if (!IsInvalidMacroTimer(timer))
+                            {
+                                sb.Append(sayCmd);
+                                sb.Append(SpellTimerToMacro(timer));
+                                sb.Append(Environment.NewLine);
+                                validTimers++;
+                                if (validTimers >= 16)
+                                {
+                                    MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                                    fileCount++;
+                                    sb.Clear();
+                                    invalid = 0;
+                                    validTimers = 0;
+                                }
+                            }
+                            else
+                            {
+                                invalid++;
+                            }
+                        }
+                        //then category triggers
+                        foreach (CustomTrigger trigger in triggers)
+                        {
+                            if (trigger.Active)
+                            {
+                                if (IsInvalidMacroTrigger(trigger))
+                                {
+                                    invalid++;
+                                }
+                                else
+                                {
+                                    sb.Append(sayCmd);
+                                    sb.Append(TriggerToMacro(trigger));
+                                    sb.Append(Environment.NewLine);
+                                    validTrigs++;
+                                }
+                                if (validTrigs + validTimers >= 16)
+                                {
+                                    MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                                    fileCount++;
+                                    sb.Clear();
+                                    invalid = 0;
+                                    validTimers = 0;
+                                    validTrigs = 0;
+                                }
+                                // find timers that are activated by a trigger
+                                List<TimerData> timers = TriggerTree.FindTimers(trigger);
+                                foreach (TimerData timer in timers)
+                                {
+                                    if (!categoryTimers.Contains(timer))
+                                    {
+                                        if (!Macros.IsInvalidMacroTimer(timer))
+                                        {
+                                            sb.Append(sayCmd);
+                                            sb.Append(SpellTimerToMacro(timer));
+                                            sb.Append(Environment.NewLine);
+                                            validTimers++;
+                                            if (validTrigs + validTimers >= 16)
+                                            {
+                                                //tooLong = true;
+                                                MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                                                fileCount++;
+                                                sb.Clear();
+                                                invalid = 0;
+                                                validTimers = 0;
+                                                validTrigs = 0;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (validTrigs > 0 || validTimers > 0)
+                        {
+                            MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                            fileCount++;
+                        }
+                    }
+                    catch (Exception x)
+                    {
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, "Macro file error:\n" + x.Message);
+                    }
+                }
+            }
+            return fileCount;
+        }
+
+        public static void MacroToFile(int fileCount, string category, string content, int invalid, int validTimers, int validTrigs, bool notifyTray = true)
+        {
+            string fileName = TriggerTree.doFileName;
+            if (fileCount > 0)
+                fileName = Path.GetFileNameWithoutExtension(TriggerTree.doFileName) + fileCount.ToString() + Path.GetExtension(TriggerTree.doFileName);
+            if (ActGlobals.oFormActMain.SendToMacroFile(fileName, content, string.Empty))
+            {
+                if(notifyTray)
+                {
+                    StringBuilder sb = new StringBuilder();
+                    sb.Append(string.IsNullOrEmpty(category) ? string.Empty : string.Format("For category\n'{0}'\n", category));
+                    sb.Append("Wrote ");
+                    sb.Append(validTrigs > 0 ? string.Format("{0} trigger{1}", validTrigs, validTrigs > 1 ? "s" : string.Empty) : string.Empty);
+                    sb.Append(validTrigs > 0 && validTimers > 0 ? " and " : string.Empty);
+                    sb.Append(validTimers > 0 ? string.Format("{0} timer{1}", validTimers, validTimers > 1 ? "s" : string.Empty) : string.Empty);
+                    sb.Append(invalid > 0 ? string.Format("\n\nCould not write {0} item{1}.", invalid, invalid > 1 ? "s" : string.Empty) : string.Empty);
+                    sb.Append(string.Format("\n\nIn EQII chat, enter:\n/do_file_commands {0}", fileName));
+
+                    TraySlider traySlider = new TraySlider();
+                    traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
+                    traySlider.ShowTraySlider(sb.ToString(), "Wrote Category Macro");
+                }
+            }
+        }
+
     }
 }

@@ -110,6 +110,12 @@
     <Compile Include="TriggerTree.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="XmlCopyForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="XmlCopyForm.Designer.cs">
+      <DependentUpon>XmlCopyForm.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="FormEditSound.resx">
@@ -130,6 +136,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="TriggerTree.resx">
       <DependentUpon>TriggerTree.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="XmlCopyForm.resx">
+      <DependentUpon>XmlCopyForm.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <PropertyGroup>
