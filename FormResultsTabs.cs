@@ -1,6 +1,7 @@
 ﻿using Advanced_Combat_Tracker;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -11,33 +12,34 @@ namespace ACT_TriggerTree
         bool disposed = false;
         bool initializing = true;
         System.Timers.Timer timer = new System.Timers.Timer();
-        TabControl triggersTab = null;  // set when we find ACT's trigger tab control
         Config _config;
 
         // each results tab in ACT is represented here by an instance of this class
-        internal class ListGroup
+        internal class TabInfo
         {
             public string title;            // cosmetic ACT tab name
             public ListView listACT;        // reference the ACT list
             public HeaderListView listTT;   // our mirror of the ACT list
 
-            public ListGroup(string title, ListView list)
+            public TabInfo(string title, ListView list)
             {
                 this.title = title;
                 this.listACT = list;
                 this.listTT = new HeaderListView();
                 listTT.Dock = DockStyle.Fill;
+                listTT.ListView.ListViewItemSorter = new ListViewDateComparer(0);
                 listTT.ListView.Sorting = SortOrder.Descending;
                 listTT.ListView.View = View.Details;
                 listTT.Header.Text = title;
             }
 
+            // for debug
             public override string ToString()
             {
-                return String.Format("{0} {1}", title, listTT.Visible);
+                return String.Format("{0} Visible:{1}", title, listTT.Visible);
             }
         }
-        List<ListGroup> groups = new List<ListGroup>();
+        List<TabInfo> tabs = new List<TabInfo>();
 
         public FormResultsTabs(Config config)
         {
@@ -46,7 +48,7 @@ namespace ACT_TriggerTree
             _config = config;
 
             // we will check for new ACT list contents on this timer tick
-            timer.Interval = 1000;
+            timer.Interval = 500;
             timer.Elapsed += Timer_Elapsed;
             timer.SynchronizingObject = ActGlobals.oFormActMain;
             timer.Enabled = true;
@@ -77,22 +79,25 @@ namespace ACT_TriggerTree
 
         private void FormResultsTabs_Shown(object sender, EventArgs e)
         {
-            this.Height = _config.ResultsSize.Height;
-            this.Width = _config.ResultsSize.Width;
+            if(_config.ResultsSize.Height > 0 && _config.ResultsSize.Width > 0)
+            {
+                this.Height = _config.ResultsSize.Height;
+                this.Width = _config.ResultsSize.Width;
+            }
             this.Location = new Point(_config.ResultsLoc.X, _config.ResultsLoc.Y);
             initializing = false;
 
-            foreach (ListGroup lvg in groups)
+            foreach (TabInfo ti in tabs)
             {
-                AdjustLastColumnToFill(lvg.listTT.ListView);
+                AdjustLastColumnToFill(ti.listTT.ListView);
             }
         }
 
         private void FormResultsTabs_ResizeEnd(object sender, EventArgs e)
         {
-            foreach (ListGroup lvg in groups)
+            foreach (TabInfo ti in tabs)
             {
-                AdjustLastColumnToFill(lvg.listTT.ListView);
+                AdjustLastColumnToFill(ti.listTT.ListView);
             }
             ReProportionPanel();
 
@@ -114,11 +119,92 @@ namespace ACT_TriggerTree
                 _config.ResultsSize.Width = this.Width;
                 _config.ResultsSize.Height = this.Height;
             }
+}
+
+        public void AddTab(TabPage tab)
+        {
+            if(tab != null)
+            {
+                ListView lv = null;
+                foreach (Control ctrl in tab.Controls)
+                {
+                    if (ctrl.GetType() == typeof(ListView))
+                    {
+                        ListView listView = (ListView)ctrl;
+                        if(listView != null)
+                        {
+                            lv = listView;
+                            break;
+                        }
+                    }
+                }
+
+                if(lv != null)
+                {
+                    if (!ContainsLV(lv.Handle))
+                    {
+                        TabInfo ti = new TabInfo(tab.Text, lv);
+                        // hide it while it's empty
+                        ti.listTT.Visible = false;
+                        tabs.Add(ti);
+                        AddPanel(ti);
+                    }
+                }
+            }
         }
 
         private void Timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
-            MirrorResults();
+            if (!disposed)
+            {
+                foreach (TabInfo ti in tabs)
+                {
+                    // this probably leaves corner cases where the user has cleared the tab in ACT
+                    // and we miss it due to race conditions (or equality) on the item count,
+                    // but this is quick and easy and covers most cases
+                    if (ti.listTT.ListView.Items.Count > ti.listACT.Items.Count)
+                    {
+                        ti.listTT.ListView.Items.Clear();
+                    }
+
+                    // copy any "new" items from ACT's list to our list
+                    if (ti.listTT.ListView.Items.Count != ti.listACT.Items.Count && ti.listACT.Items.Count > 0)
+                    {
+                        foreach (ListViewItem item in ti.listACT.Items)
+                        {
+                            ListViewItem clone = (ListViewItem)item.Clone();
+                            clone.Name = ti.title + "!" + item.Text;
+                            if (!ti.listTT.ListView.Items.ContainsKey(clone.Name))
+                            {
+                                ti.listTT.ListView.Items.Insert(0, clone);
+                                if (!this.Visible && _config.ResultsPopup)
+                                    this.Show();
+                            }
+                        }
+                    }
+
+                    if (ti.listACT.Items.Count == 0)
+                    {
+                        if (ti.listTT.Visible)
+                        {
+                            // change from visible to not
+                            ti.listTT.Visible = false;
+                            ReProportionPanel();
+                        }
+                    }
+                    else
+                    {
+                        if (!ti.listTT.Visible)
+                        {
+                            // change to visible
+                            ti.listTT.Visible = true;
+                            AdjustLastColumnToFill(ti.listTT.ListView);
+                            SetTopPanel(ti);
+                            ReProportionPanel();
+                        }
+                    }
+                }
+            }
         }
 
         private void AdjustLastColumnToFill(ListView lvw)
@@ -152,129 +238,24 @@ namespace ACT_TriggerTree
             disposed = true;
         }
 
-        public bool ContainsGroup(IntPtr handle)
+        public bool ContainsLV(IntPtr handle)
         {
-            foreach(ListGroup group in groups)
+            // the tab title is cosmetic and not unique, use the window handle
+            foreach(TabInfo ti in tabs)
             {
-                if(group.listACT.Handle.Equals(handle))
+                if(ti.listACT.Handle.Equals(handle))
                     return true;
             }
             return false;
-        }
-
-        public void MirrorResults()
-        {
-            // look for results tabs
-            if (triggersTab == null)
-            {
-                foreach (Control topC in ActGlobals.oFormActMain.Controls)
-                {
-                    if (topC.GetType() == typeof(TabControl))
-                    {
-                        TabControl tabControl = (TabControl)topC;
-                        foreach (TabPage tab in tabControl.Controls)
-                        {
-                            if (tab.Text == "Custom Triggers")
-                            {
-                                foreach (Control triggerC in tab.Controls)
-                                {
-                                    if (triggerC.GetType() == typeof(TabControl))
-                                    {
-                                        triggersTab = (TabControl)triggerC;
-                                        break;
-                                    }
-                                }
-                                if (triggersTab != null)
-                                    break;
-                            }
-                        }
-                        if (triggersTab != null)
-                            break;
-                    }
-                }
-            }
-            else
-            {
-                foreach (Control trigger in triggersTab.Controls)
-                {
-                    if (trigger.Text != "Triggers")
-                    {
-                        foreach (Control resultC in trigger.Controls)
-                        {
-                            if (resultC.GetType() == typeof(ListView))
-                            {
-                                ListView listView = (ListView)resultC;
-                                if (!ContainsGroup(listView.Handle))
-                                {
-                                    ListGroup group = new ListGroup(trigger.Text, listView);
-                                    // hide it while it's empty
-                                    group.listTT.Visible = false;
-                                    groups.Add(group);
-                                    AddPanel(group);
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (!disposed)
-            {
-                foreach (ListGroup listGroup in groups)
-                {
-                    // this probably leaves corner cases where the user has cleared the tab in ACT
-                    // and we miss it due to race conditions (or equality) on the item count,
-                    // but this is quick and easy and covers most cases
-                    if (listGroup.listTT.ListView.Items.Count > listGroup.listACT.Items.Count)
-                    {
-                        listGroup.listTT.ListView.Items.Clear();
-                    }
-
-                    // copy any "new" items from ACT's list to our list
-                    foreach (ListViewItem item in listGroup.listACT.Items)
-                    {
-                        ListViewItem clone = (ListViewItem)item.Clone();
-                        clone.Name = listGroup.title + "!" + item.Text;
-                        if (!listGroup.listTT.ListView.Items.ContainsKey(clone.Name))
-                        {
-                            listGroup.listTT.ListView.Items.Insert(0, clone);
-                            if (!this.Visible && _config.ResultsPopup)
-                                this.Show();
-                        }
-                    }
-
-                    if (listGroup.listACT.Items.Count == 0)
-                    {
-                        if (listGroup.listTT.Visible)
-                        {
-                            // change from visible to not
-                            listGroup.listTT.Visible = false;
-                            ReProportionPanel();
-                        }
-                    }
-                    else
-                    {
-                        if (!listGroup.listTT.Visible)
-                        {
-                            // change to visible
-                            listGroup.listTT.Visible = true;
-                            AdjustLastColumnToFill(listGroup.listTT.ListView);
-                            ReOrderPanel(listGroup);
-                            ReProportionPanel();
-                        }
-                    }
-                }
-            }
         }
 
         private void ReProportionPanel()
         {
             // count visible controls
             float vis = 0;
-            foreach(ListGroup group in groups)
+            foreach(TabInfo ti in tabs)
             {
-                if(group.listTT.Visible)
+                if(ti.listTT.Visible)
                     vis++;
             }
 
@@ -292,8 +273,8 @@ namespace ACT_TriggerTree
                     for (int i = 0; i < tableLayoutPanel1.RowCount; i++)
                     {
                         // since we re-order rows,
-                        // the style for control index i may not be at style index i
-                        // so make a map
+                        // the style for control index "i" may not be at style index "i"
+                        // so make a cross-reference
                         int row = tableLayoutPanel1.GetRow(tableLayoutPanel1.Controls[i]);
                         if (tableLayoutPanel1.Controls[i].Visible)
                             sizes[row] = per;
@@ -312,15 +293,16 @@ namespace ACT_TriggerTree
             }
         }
 
-        private void ReOrderPanel(ListGroup group)
+        private void SetTopPanel(TabInfo ti)
         {
-            // put the passed ListGroup at the top of the form
+            // put the passed control at the top of the form
 
             Dictionary<int, int> order = new Dictionary<int, int>();
 
-            int currentRow = tableLayoutPanel1.GetRow(group.listTT);
+            int currentRow = tableLayoutPanel1.GetRow(ti.listTT);
             if (currentRow != 0)
             {
+                // make a map of the current row order
                 for (int i = 0; i < tableLayoutPanel1.RowCount; i++)
                 {
                     HeaderListView hlv = tableLayoutPanel1.Controls[i] as HeaderListView;
@@ -331,6 +313,8 @@ namespace ACT_TriggerTree
                     }
                 }
                 // rearrange so the passed control is in row 0
+                // and everything from the top row to
+                // where the passed control used to be is shifted down
                 for (int i = 0; i < tableLayoutPanel1.RowCount; i++)
                 {
                     int rownum;
@@ -343,11 +327,10 @@ namespace ACT_TriggerTree
                     }
                 }
                 tableLayoutPanel1.Refresh();
-
             }
         }
 
-        private void AddPanel(ListGroup group)
+        private void AddPanel(TabInfo ti)
         {
             if (tableLayoutPanel1.RowCount == 1 && tableLayoutPanel1.Controls.Count == 0)
             {
@@ -359,14 +342,14 @@ namespace ACT_TriggerTree
                 // add a new row
                 tableLayoutPanel1.RowCount++;
             }
-            // add our mirror listview
-            tableLayoutPanel1.Controls.Add(group.listTT, 0, tableLayoutPanel1.RowCount-1);
-            // mirror the columns
-            foreach(ColumnHeader col in group.listACT.Columns)
+            // add our mirror listview as the bottom row
+            tableLayoutPanel1.Controls.Add(ti.listTT, 0, tableLayoutPanel1.RowCount-1);
+            // mirror the columns from ACT
+            foreach(ColumnHeader col in ti.listACT.Columns)
             {
                 ColumnHeader colTT = (ColumnHeader)col.Clone();
                 colTT.Width = -2; // autosize
-                group.listTT.ListView.Columns.Add(colTT);
+                ti.listTT.ListView.Columns.Add(colTT);
             }
             ReProportionPanel();
         }
