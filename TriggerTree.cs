@@ -97,6 +97,7 @@ namespace ACT_TriggerTree
         string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\TriggerTree.config.xml");
         XmlSerializer xmlSerializer;
         Config config;
+        private ToolStripMenuItem toggleEntireCategoryToolStripMenuItem;
 
         #region Designer Created Code (Avoid editing)
 
@@ -132,6 +133,7 @@ namespace ACT_TriggerTree
             this.panel3 = new System.Windows.Forms.Panel();
             this.label3 = new System.Windows.Forms.Label();
             this.buttonCatFindNext = new System.Windows.Forms.Button();
+            this.textBoxCatFind = new ACT_TriggerTree.TextBoxX();
             this.treeViewTrigs = new System.Windows.Forms.TreeView();
             this.panel2 = new System.Windows.Forms.Panel();
             this.toolStrip1 = new System.Windows.Forms.ToolStrip();
@@ -140,6 +142,7 @@ namespace ACT_TriggerTree
             this.checkBoxCurrentCategory = new System.Windows.Forms.CheckBox();
             this.label4 = new System.Windows.Forms.Label();
             this.buttonFindNext = new System.Windows.Forms.Button();
+            this.textBoxTrigFind = new ACT_TriggerTree.TextBoxX();
             this.contextMenuStripTrig = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.copyAsShareableXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.copyAsDoubleEncodedXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -168,8 +171,7 @@ namespace ACT_TriggerTree
             this.panel1 = new System.Windows.Forms.Panel();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.label2 = new System.Windows.Forms.Label();
-            this.textBoxCatFind = new ACT_TriggerTree.TextBoxX();
-            this.textBoxTrigFind = new ACT_TriggerTree.TextBoxX();
+            this.toggleEntireCategoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -250,6 +252,18 @@ namespace ACT_TriggerTree
             this.buttonCatFindNext.UseVisualStyleBackColor = true;
             this.buttonCatFindNext.Click += new System.EventHandler(this.buttonCatFindNext_Click);
             // 
+            // textBoxCatFind
+            // 
+            this.textBoxCatFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxCatFind.ButtonTextClear = true;
+            this.textBoxCatFind.Location = new System.Drawing.Point(40, 4);
+            this.textBoxCatFind.Name = "textBoxCatFind";
+            this.textBoxCatFind.Size = new System.Drawing.Size(148, 20);
+            this.textBoxCatFind.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
+            this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
+            // 
             // treeViewTrigs
             // 
             this.treeViewTrigs.CheckBoxes = true;
@@ -291,7 +305,7 @@ namespace ACT_TriggerTree
             this.toolStripButtonResults});
             this.toolStrip1.Location = new System.Drawing.Point(4, 3);
             this.toolStrip1.Name = "toolStrip1";
-            this.toolStrip1.Size = new System.Drawing.Size(82, 26);
+            this.toolStrip1.Size = new System.Drawing.Size(51, 26);
             this.toolStrip1.TabIndex = 4;
             this.toolStrip1.Text = "toolStrip1";
             // 
@@ -354,6 +368,19 @@ namespace ACT_TriggerTree
             this.toolTip1.SetToolTip(this.buttonFindNext, "Find the next matching trigger");
             this.buttonFindNext.UseVisualStyleBackColor = true;
             this.buttonFindNext.Click += new System.EventHandler(this.buttonFindNext_Click);
+            // 
+            // textBoxTrigFind
+            // 
+            this.textBoxTrigFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxTrigFind.ButtonTextClear = true;
+            this.textBoxTrigFind.Location = new System.Drawing.Point(109, 4);
+            this.textBoxTrigFind.Name = "textBoxTrigFind";
+            this.textBoxTrigFind.Size = new System.Drawing.Size(257, 20);
+            this.textBoxTrigFind.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.textBoxTrigFind, "Incremental search for text in the trigger\'s regular expression, alert, or timer " +
+        "name");
+            this.textBoxTrigFind.TextChanged += new System.EventHandler(this.textBoxFind_TextChanged);
             // 
             // contextMenuStripTrig
             // 
@@ -472,6 +499,7 @@ namespace ACT_TriggerTree
             this.contextMenuStripCat.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.copyZoneNameToClipboardToolStripMenuItem,
             this.deleteEntireCategoryToolStripMenuItem,
+            this.toggleEntireCategoryToolStripMenuItem,
             this.toolStripSeparator4,
             this.raidShareCategoryMacroMenuItem,
             this.groupShareCategoryMacroMenuItem,
@@ -479,7 +507,7 @@ namespace ACT_TriggerTree
             this.toolStripSeparator7,
             this.categorySpellTimersMenuItem});
             this.contextMenuStripCat.Name = "contextMenuStrip2";
-            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 148);
+            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 192);
             this.contextMenuStripCat.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripCat_Opening);
             // 
             // copyZoneNameToClipboardToolStripMenuItem
@@ -582,30 +610,12 @@ namespace ACT_TriggerTree
             this.label2.Text = "Double-click to edit trigger fields. Expand a trigger for checkbox and right-clic" +
     "k actions on sub-items.";
             // 
-            // textBoxCatFind
+            // toggleEntireCategoryToolStripMenuItem
             // 
-            this.textBoxCatFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxCatFind.ButtonTextClear = true;
-            this.textBoxCatFind.Location = new System.Drawing.Point(40, 4);
-            this.textBoxCatFind.Name = "textBoxCatFind";
-            this.textBoxCatFind.Size = new System.Drawing.Size(148, 20);
-            this.textBoxCatFind.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
-            this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
-            // 
-            // textBoxTrigFind
-            // 
-            this.textBoxTrigFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxTrigFind.ButtonTextClear = true;
-            this.textBoxTrigFind.Location = new System.Drawing.Point(109, 4);
-            this.textBoxTrigFind.Name = "textBoxTrigFind";
-            this.textBoxTrigFind.Size = new System.Drawing.Size(257, 20);
-            this.textBoxTrigFind.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.textBoxTrigFind, "Incremental search for text in the trigger\'s regular expression, alert, or timer " +
-        "name");
-            this.textBoxTrigFind.TextChanged += new System.EventHandler(this.textBoxFind_TextChanged);
+            this.toggleEntireCategoryToolStripMenuItem.Name = "toggleEntireCategoryToolStripMenuItem";
+            this.toggleEntireCategoryToolStripMenuItem.Size = new System.Drawing.Size(251, 22);
+            this.toggleEntireCategoryToolStripMenuItem.Text = "Toggle entire category";
+            this.toggleEntireCategoryToolStripMenuItem.Click += new System.EventHandler(this.toggleEntireCategoryToolStripMenuItem_Click);
             // 
             // TriggerTree
             // 
@@ -1290,12 +1300,15 @@ namespace ACT_TriggerTree
                 List<CustomTrigger> triggers;
                 int valid = 0;
                 int invalid = 0;
+                int active = 0;
+                int inactive = 0;
                 if (treeDict.TryGetValue(category, out triggers))
                 {
                     foreach (CustomTrigger trigger in triggers)
                     {
                         if (trigger.Active)
                         {
+                            active++;
                             if (!Macros.IsInvalidMacroTrigger(trigger))
                             {
                                 valid++;
@@ -1318,7 +1331,16 @@ namespace ACT_TriggerTree
                             }
 
                         }
+                        else
+                            inactive++;
                     }
+
+                    if ((active > 0 && inactive > 0) || active == 0)
+                        toggleEntireCategoryToolStripMenuItem.Text = "Enable all category triggers";
+                    else if(inactive == 0)
+                        toggleEntireCategoryToolStripMenuItem.Text = "Disable all category triggers";
+
+
                     if (valid == 0)
                     {
                         groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", 0, valid + invalid);
@@ -1503,6 +1525,33 @@ namespace ACT_TriggerTree
                 }
             }
             return result;
+        }
+
+        private void toggleEntireCategoryToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (clickedCategoryNode != null)
+            {
+                List<CustomTrigger> triggers;
+                string category = clickedCategoryNode.Text;
+                if (treeDict.TryGetValue(category, out triggers))
+                {
+                    if(toggleEntireCategoryToolStripMenuItem.Text == "Enable all category triggers")
+                    {
+                        foreach (CustomTrigger trigger in triggers)
+                        {
+                            trigger.Active = true;
+                        }
+                    }
+                    else
+                    {
+                        foreach (CustomTrigger trigger in triggers)
+                        {
+                            trigger.Active = false;
+                        }
+                    }
+                    PopulateCatsTree();
+                }
+            }
         }
 
         #endregion Category Tree

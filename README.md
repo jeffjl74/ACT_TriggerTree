@@ -16,6 +16,7 @@ Additional features of the plugin:
 
 ### Version 1.5.0 Changes:
 * Rework handling of Custom Triggers Results Tabs checkboxes for better coordination with ACT.
+* Added a [category context menu](#category-pane) to enable / disable all triggers in the category.
 * Added two buttons at the top left of the triggers panel:
   * The "plus" button provides an alternate way to open the [edit trigger dialog](#edit-all-fields) for a new trigger.
   * The "windows" button enables a popup [alternate view of the "Results Tabs"](#results-tab) of ACT's Custom Triggers.
@@ -36,7 +37,7 @@ When there is a spell timer:
 
 ### Edit All Fields
 To edit all of the trigger fields, double-click the regular expression.
-To create a new trigger, right-click in a blank area in the trigger pane.
+To create a new trigger, right-click in a blank area in the trigger pane or press the [+] button on the trigger pane toolbar.
 
 ![Edit Trigger](images/edit-trigger.png)
 
@@ -64,9 +65,9 @@ The plugin just provides another view of the data collected by ACT. To clear a t
 
 Closing the plugin's window also does not clear the data. When a new trigger occurs, the window will re-open showing both the old and new items.
 
-Pressing the red X button on a tab will hide (actually, just not draw) any items with a Time Stamp older than the time the button is pressed. The tab itself remains visible. The items are actually still in the list since they are still in ACT's list, so a scroll bar may show up when it looks unnecessary. Un-pressing the button will show all items again. A pressed button has the  blue-ish background, like the bottom tab in the example above.
+Pressing the red X button on a tab will hide (actually, just not draw) any items with a Time Stamp older than the time when the button is pressed. The tab itself remains visible. The items are actually still in the list since they are still in ACT's list, so a scroll bar may show up when it looks unnecessary. Un-pressing the button will show all items again. A pressed button has the  blue-ish background, like the bottom tab in the example above.
 
-There is a minor difference between re-enabling a Results Tab in ACT's Custom Triggers tab versus in the plugin. In the plugin, if a previously disabled tab is re-enabled by checking the checkbox, any items that were present when the checkbox was unchecked are restored when it is re-checked. In ACT, re-enabling a disabled Results Tab creates a new empty tab.
+There is a minor difference between re-enabling a Results Tab using ACT's Custom Triggers tab [Add/Edit] button versus checking the checkbox in the plugin. In the plugin, if a previously disabled tab is re-enabled by checking the checkbox, any items that were present when the checkbox was unchecked are restored when it is re-checked. In ACT, re-enabling a disabled Results Tab creates a new empty tab.
 
 
 ### Show Encounters
@@ -91,7 +92,9 @@ A right-click on a category brings up the category context menu as shown below:
 
 ![Category](images/cat-context.png)
 
-Most of this menu is related to sharing data via EQII macros. Macros are disussed in the [EQII Macros](#share-via-eqii-macros) section. (The numbers in parentheses are how many of the total items can be shared in a macro.)
+The _Disable all category triggers_ choice is presented if all of the triggers in the selected category are currently enabled. If any of the triggers in the selected category are currently disabled, the menu choice becomes _Enable all category triggers_.
+
+The second section of this menu is related to sharing data via EQII macros. Macros are disussed in the [EQII Macros](#share-via-eqii-macros) section. (The numbers in parentheses are how many of the total items can be shared in a macro.)
 
 To build the _Category Spell Timers_ menu, the plugin searches for spell timers whose __Category__ matches the clicked category name or whose __Custom Tooltip__ contains the category name.
 
