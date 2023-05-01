@@ -2,20 +2,21 @@ using Advanced_Combat_Tracker;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Security.Policy;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
-using System.Xml;
+using System.Xml.Serialization;
 using System.Data;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms.DataVisualization.Charting;
-using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Collections;
 // reference:System.Windows.Forms.DataVisualization.dll
 // reference:System.Core.dll
 
@@ -23,7 +24,7 @@ using System.Diagnostics;
 [assembly: AssemblyTitle("Tree view of Custom Triggers")]
 [assembly: AssemblyDescription("An alternate interface for managing Custom Triggers")]
 [assembly: AssemblyCompany("Mineeme of Maj'Dul")]
-[assembly: AssemblyVersion("1.4.0.0")]
+[assembly: AssemblyVersion("1.5.0.0")]
 
 namespace ACT_TriggerTree
 {
@@ -51,7 +52,7 @@ namespace ACT_TriggerTree
         int indexAlertType = 0;                     //child index for the alert type child
         int indexRestricted = 1;                    //child index for the Restrict to Zone child
         int indexTimer = 2;                         //child index for the Start Timer child
-        int indexAlertTab = 3;                      //child index for the Alert Tab child
+        int indexResultsTab = 3;                      //child index for the Alert Tab child
         int indexTimerName = 4;                     //child index for the Timer/Tab child
 
         Color activeBackground = Color.LightGreen;  //background for a category that contains active triggers
@@ -91,14 +92,17 @@ namespace ACT_TriggerTree
         List<TimerData> categoryTimers;             //category context menu timers
         MouseButtons lastSpellMenuButton;
 
+        // results tab mirror
+        FormResultsTabs formResultsTabs;
+        TabControl resultsTabCtrl = null;
+        Button addEditButton = null;
+        Button removeButton = null;
+
         Label lblStatus;                            // The status label that appears in ACT's Plugin tab
 
         string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\TriggerTree.config.xml");
-        SettingsSerializer xmlSettings;
-        private System.Windows.Forms.CheckBox checkBoxCurrentCategory;
-        int saveSplitterLoc = -1;
-        private LinkLabel linkLabel1;
-        private ToolStripMenuItem shareDialogMenuItem;
+        XmlSerializer xmlSerializer;
+        Config config;
 
         #region Designer Created Code (Avoid editing)
 
@@ -134,13 +138,14 @@ namespace ACT_TriggerTree
             this.panel3 = new System.Windows.Forms.Panel();
             this.label3 = new System.Windows.Forms.Label();
             this.buttonCatFindNext = new System.Windows.Forms.Button();
-            this.textBoxCatFind = new ACT_TriggerTree.TextBoxX();
             this.treeViewTrigs = new System.Windows.Forms.TreeView();
             this.panel2 = new System.Windows.Forms.Panel();
+            this.toolStrip1 = new System.Windows.Forms.ToolStrip();
+            this.toolStripButtonNew = new System.Windows.Forms.ToolStripButton();
+            this.toolStripButtonResults = new System.Windows.Forms.ToolStripButton();
             this.checkBoxCurrentCategory = new System.Windows.Forms.CheckBox();
             this.label4 = new System.Windows.Forms.Label();
             this.buttonFindNext = new System.Windows.Forms.Button();
-            this.textBoxTrigFind = new ACT_TriggerTree.TextBoxX();
             this.contextMenuStripTrig = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.copyAsShareableXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.copyAsDoubleEncodedXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -169,12 +174,15 @@ namespace ACT_TriggerTree
             this.panel1 = new System.Windows.Forms.Panel();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.label2 = new System.Windows.Forms.Label();
+            this.textBoxCatFind = new ACT_TriggerTree.TextBoxX();
+            this.textBoxTrigFind = new ACT_TriggerTree.TextBoxX();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
             this.panel3.SuspendLayout();
             this.panel2.SuspendLayout();
+            this.toolStrip1.SuspendLayout();
             this.contextMenuStripTrig.SuspendLayout();
             this.contextMenuStripCat.SuspendLayout();
             this.panel1.SuspendLayout();
@@ -204,9 +212,9 @@ namespace ACT_TriggerTree
             this.treeViewCats.Dock = System.Windows.Forms.DockStyle.Fill;
             this.treeViewCats.DrawMode = System.Windows.Forms.TreeViewDrawMode.OwnerDrawText;
             this.treeViewCats.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.treeViewCats.Location = new System.Drawing.Point(0, 30);
+            this.treeViewCats.Location = new System.Drawing.Point(0, 33);
             this.treeViewCats.Name = "treeViewCats";
-            this.treeViewCats.Size = new System.Drawing.Size(240, 530);
+            this.treeViewCats.Size = new System.Drawing.Size(240, 527);
             this.treeViewCats.TabIndex = 1;
             this.treeViewCats.DrawNode += new System.Windows.Forms.DrawTreeNodeEventHandler(this.treeViewCats_DrawNode);
             this.treeViewCats.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.treeViewCats_AfterSelect);
@@ -221,7 +229,7 @@ namespace ACT_TriggerTree
             this.panel3.Dock = System.Windows.Forms.DockStyle.Top;
             this.panel3.Location = new System.Drawing.Point(0, 0);
             this.panel3.Name = "panel3";
-            this.panel3.Size = new System.Drawing.Size(240, 30);
+            this.panel3.Size = new System.Drawing.Size(240, 33);
             this.panel3.TabIndex = 0;
             // 
             // label3
@@ -248,27 +256,15 @@ namespace ACT_TriggerTree
             this.buttonCatFindNext.UseVisualStyleBackColor = true;
             this.buttonCatFindNext.Click += new System.EventHandler(this.buttonCatFindNext_Click);
             // 
-            // textBoxCatFind
-            // 
-            this.textBoxCatFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxCatFind.ButtonTextClear = true;
-            this.textBoxCatFind.Location = new System.Drawing.Point(40, 4);
-            this.textBoxCatFind.Name = "textBoxCatFind";
-            this.textBoxCatFind.Size = new System.Drawing.Size(148, 20);
-            this.textBoxCatFind.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
-            this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
-            // 
             // treeViewTrigs
             // 
             this.treeViewTrigs.CheckBoxes = true;
             this.treeViewTrigs.Dock = System.Windows.Forms.DockStyle.Fill;
             this.treeViewTrigs.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.treeViewTrigs.Location = new System.Drawing.Point(0, 30);
+            this.treeViewTrigs.Location = new System.Drawing.Point(0, 33);
             this.treeViewTrigs.Name = "treeViewTrigs";
             this.treeViewTrigs.ShowNodeToolTips = true;
-            this.treeViewTrigs.Size = new System.Drawing.Size(483, 530);
+            this.treeViewTrigs.Size = new System.Drawing.Size(483, 527);
             this.treeViewTrigs.TabIndex = 1;
             this.treeViewTrigs.BeforeCheck += new System.Windows.Forms.TreeViewCancelEventHandler(this.treeViewTrigs_BeforeCheck);
             this.treeViewTrigs.AfterCheck += new System.Windows.Forms.TreeViewEventHandler(this.treeViewTrigs_AfterCheck);
@@ -281,6 +277,7 @@ namespace ACT_TriggerTree
             // panel2
             // 
             this.panel2.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.panel2.Controls.Add(this.toolStrip1);
             this.panel2.Controls.Add(this.checkBoxCurrentCategory);
             this.panel2.Controls.Add(this.label4);
             this.panel2.Controls.Add(this.buttonFindNext);
@@ -288,8 +285,43 @@ namespace ACT_TriggerTree
             this.panel2.Dock = System.Windows.Forms.DockStyle.Top;
             this.panel2.Location = new System.Drawing.Point(0, 0);
             this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(483, 30);
+            this.panel2.Size = new System.Drawing.Size(483, 33);
             this.panel2.TabIndex = 0;
+            // 
+            // toolStrip1
+            // 
+            this.toolStrip1.Dock = System.Windows.Forms.DockStyle.None;
+            this.toolStrip1.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
+            this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.toolStripButtonNew,
+            this.toolStripButtonResults});
+            this.toolStrip1.Location = new System.Drawing.Point(4, 3);
+            this.toolStrip1.Name = "toolStrip1";
+            this.toolStrip1.Size = new System.Drawing.Size(82, 26);
+            this.toolStrip1.TabIndex = 4;
+            this.toolStrip1.Text = "toolStrip1";
+            // 
+            // toolStripButtonNew
+            // 
+            this.toolStripButtonNew.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonNew.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonNew.Name = "toolStripButtonNew";
+            this.toolStripButtonNew.Size = new System.Drawing.Size(23, 23);
+            this.toolStripButtonNew.Text = "+";
+            this.toolStripButtonNew.ToolTipText = "Add New Trigger";
+            this.toolStripButtonNew.Click += new System.EventHandler(this.toolStripButtonNew_Click);
+            // 
+            // toolStripButtonResults
+            // 
+            this.toolStripButtonResults.CheckOnClick = true;
+            this.toolStripButtonResults.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonResults.Font = new System.Drawing.Font("Webdings", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
+            this.toolStripButtonResults.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonResults.Name = "toolStripButtonResults";
+            this.toolStripButtonResults.Size = new System.Drawing.Size(25, 23);
+            this.toolStripButtonResults.Text = "2";
+            this.toolStripButtonResults.ToolTipText = "Enable Results Tabs Popup";
+            this.toolStripButtonResults.Click += new System.EventHandler(this.toolStripButtonResults_Click);
             // 
             // checkBoxCurrentCategory
             // 
@@ -300,7 +332,7 @@ namespace ACT_TriggerTree
             this.checkBoxCurrentCategory.Location = new System.Drawing.Point(372, 7);
             this.checkBoxCurrentCategory.Name = "checkBoxCurrentCategory";
             this.checkBoxCurrentCategory.Size = new System.Drawing.Size(59, 17);
-            this.checkBoxCurrentCategory.TabIndex = 3;
+            this.checkBoxCurrentCategory.TabIndex = 1;
             this.checkBoxCurrentCategory.Text = "current";
             this.toolTip1.SetToolTip(this.checkBoxCurrentCategory, "Search only the current category");
             this.checkBoxCurrentCategory.UseVisualStyleBackColor = true;
@@ -309,7 +341,7 @@ namespace ACT_TriggerTree
             // label4
             // 
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(4, 8);
+            this.label4.Location = new System.Drawing.Point(75, 7);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(30, 13);
             this.label4.TabIndex = 2;
@@ -323,24 +355,11 @@ namespace ACT_TriggerTree
             this.buttonFindNext.Location = new System.Drawing.Point(437, 2);
             this.buttonFindNext.Name = "buttonFindNext";
             this.buttonFindNext.Size = new System.Drawing.Size(38, 23);
-            this.buttonFindNext.TabIndex = 1;
+            this.buttonFindNext.TabIndex = 2;
             this.buttonFindNext.Text = "8";
             this.toolTip1.SetToolTip(this.buttonFindNext, "Find the next matching trigger");
             this.buttonFindNext.UseVisualStyleBackColor = true;
             this.buttonFindNext.Click += new System.EventHandler(this.buttonFindNext_Click);
-            // 
-            // textBoxTrigFind
-            // 
-            this.textBoxTrigFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxTrigFind.ButtonTextClear = true;
-            this.textBoxTrigFind.Location = new System.Drawing.Point(40, 4);
-            this.textBoxTrigFind.Name = "textBoxTrigFind";
-            this.textBoxTrigFind.Size = new System.Drawing.Size(326, 20);
-            this.textBoxTrigFind.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.textBoxTrigFind, "Incremental search for text in the trigger\'s regular expression, alert, or timer " +
-        "name");
-            this.textBoxTrigFind.TextChanged += new System.EventHandler(this.textBoxFind_TextChanged);
             // 
             // contextMenuStripTrig
             // 
@@ -466,7 +485,7 @@ namespace ACT_TriggerTree
             this.toolStripSeparator7,
             this.categorySpellTimersMenuItem});
             this.contextMenuStripCat.Name = "contextMenuStrip2";
-            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 170);
+            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 148);
             this.contextMenuStripCat.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripCat_Opening);
             // 
             // copyZoneNameToClipboardToolStripMenuItem
@@ -569,6 +588,31 @@ namespace ACT_TriggerTree
             this.label2.Text = "Double-click to edit trigger fields. Expand a trigger for checkbox and right-clic" +
     "k actions on sub-items.";
             // 
+            // textBoxCatFind
+            // 
+            this.textBoxCatFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxCatFind.ButtonTextClear = true;
+            this.textBoxCatFind.Location = new System.Drawing.Point(40, 4);
+            this.textBoxCatFind.Name = "textBoxCatFind";
+            this.textBoxCatFind.Size = new System.Drawing.Size(148, 20);
+            this.textBoxCatFind.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
+            this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
+            // 
+            // textBoxTrigFind
+            // 
+            this.textBoxTrigFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxTrigFind.ButtonTextClear = true;
+            this.textBoxTrigFind.Location = new System.Drawing.Point(109, 4);
+            this.textBoxTrigFind.Name = "textBoxTrigFind";
+            this.textBoxTrigFind.Size = new System.Drawing.Size(257, 20);
+            this.textBoxTrigFind.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.textBoxTrigFind, "Incremental search for text in the trigger\'s regular expression, alert, or timer " +
+        "name");
+            this.textBoxTrigFind.TextChanged += new System.EventHandler(this.textBoxFind_TextChanged);
+            // 
             // TriggerTree
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -586,6 +630,8 @@ namespace ACT_TriggerTree
             this.panel3.PerformLayout();
             this.panel2.ResumeLayout(false);
             this.panel2.PerformLayout();
+            this.toolStrip1.ResumeLayout(false);
+            this.toolStrip1.PerformLayout();
             this.contextMenuStripTrig.ResumeLayout(false);
             this.contextMenuStripCat.ResumeLayout(false);
             this.panel1.ResumeLayout(false);
@@ -633,6 +679,12 @@ namespace ACT_TriggerTree
         private ToolStripMenuItem editTriggerToolStripMenuItem;
         private ToolStripSeparator toolStripSeparator7;
         private ToolStripMenuItem categorySpellTimersMenuItem;
+        private System.Windows.Forms.CheckBox checkBoxCurrentCategory;
+        private LinkLabel linkLabel1;
+        private ToolStripMenuItem shareDialogMenuItem;
+        private ToolStrip toolStrip1;
+        private ToolStripButton toolStripButtonNew;
+        private ToolStripButton toolStripButtonResults;
 
         #endregion
 
@@ -648,8 +700,8 @@ namespace ACT_TriggerTree
 		{
 			lblStatus = pluginStatusText;	            // Hand the status label's reference to our local var
 			pluginScreenSpace.Controls.Add(this);	    // Add this UserControl to the tab ACT provides
-			this.Dock = DockStyle.Fill;	                // Expand the UserControl to fill the tab's client space
-			xmlSettings = new SettingsSerializer(this); // Create a new settings serializer and pass it this instance
+			this.Dock = DockStyle.Fill;                 // Expand the UserControl to fill the tab's client space
+            xmlSerializer = new XmlSerializer(typeof(Config));
 
             LoadSettings();
 
@@ -662,7 +714,13 @@ namespace ACT_TriggerTree
             triggerBlankImage = triggerImages.Images.Count;
             treeViewTrigs.ImageList = triggerImages;
 
+            formResultsTabs = new FormResultsTabs(config);
+
             PopulateCatsTree();
+
+            Debug.WriteLine(ActGlobals.oFormActMain.ZoneChangeRegex.ToString());
+            //Regex rezc = new Regex(@"\(\d{10}\)\[.{24}\] You have entered (?::.+?:)?(?:\\#[0-9A-F]{6})?(?<zone>.+)\.", RegexOptions.Compiled);
+            //ActGlobals.oFormActMain.ZoneChangeRegex = rezc;
 
             ActGlobals.oFormActMain.OnLogLineRead += OFormActMain_OnLogLineRead;        //for zone change
             ActGlobals.oFormActMain.XmlSnippetAdded += OFormActMain_XmlSnippetAdded;    //for incoming shared trigger
@@ -679,7 +737,14 @@ namespace ACT_TriggerTree
 
         public void DeInitPlugin()
 		{
-			// Unsubscribe from any events you listen to when exiting!
+            formResultsTabs.DeInit();
+            formResultsTabs.Close();
+            if(addEditButton != null)
+                addEditButton.Click -= AddEditButton_Click;
+            if(removeButton != null)
+                removeButton.Click -= RemoveButton_Click;
+
+            // Unsubscribe from any events you listen to when exiting!
             ActGlobals.oFormActMain.OnLogLineRead -= OFormActMain_OnLogLineRead;
             ActGlobals.oFormActMain.XmlSnippetAdded -= OFormActMain_XmlSnippetAdded;
 
@@ -756,32 +821,24 @@ namespace ACT_TriggerTree
 
         void LoadSettings()
 		{
-            xmlSettings.AddIntSetting("saveSplitterLoc");
-
             if (File.Exists(settingsFile))
-			{
-				FileStream fs = new FileStream(settingsFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-				XmlTextReader xReader = new XmlTextReader(fs);
-
-				try
-				{
-					while (xReader.Read())
-					{
-						if (xReader.NodeType == XmlNodeType.Element)
-						{
-							if (xReader.LocalName == "SettingsSerializer")
-							{
-								xmlSettings.ImportFromXml(xReader);
-							}
-						}
-					}
-				}
-				catch (Exception ex)
-				{
-					lblStatus.Text = "Error loading settings: " + ex.Message;
-				}
-				xReader.Close();
+            {
+                try
+                {
+                    using (FileStream xfs = new FileStream(settingsFile, FileMode.Open))
+                    {
+                        config = (Config)xmlSerializer.Deserialize(xfs);
+                    }
+                    toolStripButtonResults.Checked = config.ResultsPopup;
+                }
+                catch (Exception ex)
+                {
+                    lblStatus.Text = "Error loading settings: " + ex.Message;
+                    config = new Config();
+                }
             }
+            else
+                config = new Config();
         }
 
         void SaveSettings()
@@ -790,24 +847,15 @@ namespace ACT_TriggerTree
             // but only save it if it was ever set
             if (!neverBeenVisible)
             {
-                saveSplitterLoc = splitContainer1.SplitterDistance;
+                config.SettingsSerializer.Int32.Value = splitContainer1.SplitterDistance;
             }
 
-            FileStream fs = new FileStream(settingsFile, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
-			XmlTextWriter xWriter = new XmlTextWriter(fs, Encoding.UTF8);
-			xWriter.Formatting = Formatting.Indented;
-			xWriter.Indentation = 1;
-			xWriter.IndentChar = '\t';
-			xWriter.WriteStartDocument(true);
-			xWriter.WriteStartElement("Config");	// <Config>
-			xWriter.WriteStartElement("SettingsSerializer");	// <Config><SettingsSerializer>
-			xmlSettings.ExportToXml(xWriter);	// Fill the SettingsSerializer XML
-			xWriter.WriteEndElement();	// </SettingsSerializer>
-			xWriter.WriteEndElement();	// </Config>
-			xWriter.WriteEndDocument();	// Tie up loose ends (shouldn't be any)
-			xWriter.Flush();	        // Flush the file buffer to disk
-			xWriter.Close();
-		}
+            using (TextWriter writer = new StreamWriter(settingsFile))
+            {
+                xmlSerializer.Serialize(writer, config);
+                writer.Close();
+            }
+        }
 
         private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
@@ -837,12 +885,18 @@ namespace ACT_TriggerTree
         {
             //try to save the current selection
             string prevCat = string.Empty;
+            List<TreeNode> expnodes = new List<TreeNode>();
             if (treeDict != null)
             {
                 TreeNode sel = treeViewCats.SelectedNode;
                 if(sel != null)
                 {
                     prevCat = sel.Text;
+                    foreach(TreeNode tn in treeViewTrigs.Nodes)
+                    {
+                        if (tn.IsExpanded)
+                            expnodes.Add(tn);
+                    }
                 }
             }
 
@@ -872,6 +926,38 @@ namespace ACT_TriggerTree
                     {
                         list.Add(trigger);
                     }
+                    // if there is a result tab, add it to our watch list
+                    if (trigger.Tabbed)
+                    {
+                        formResultsTabs.AddTab(trigger.ResultsTab);
+
+                        if (resultsTabCtrl == null && trigger.ResultsTab.Parent != null)
+                        {
+                            // save the tab ctrl for adding back a removed tab
+                            resultsTabCtrl = (TabControl)trigger.ResultsTab.Parent;
+
+                            // to keep up with Results Tabs enable/disable,
+                            // we need to monitor ACT's Add/Edit button
+                            TabPage trigtab = resultsTabCtrl.TabPages[0];
+                            foreach (Control ctrl in trigtab.Controls)
+                            {
+                                if (ctrl.GetType() == typeof(Button))
+                                {
+                                    Button button = (Button)ctrl;
+                                    if (button.Text == "Add/Edit")
+                                    {
+                                        addEditButton = button;
+                                        addEditButton.Click += AddEditButton_Click;
+                                    }
+                                    else if(button.Text == "&Remove")
+                                    {
+                                        removeButton = button;
+                                        removeButton.Click += RemoveButton_Click;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             UpdateCategoryColors(ActGlobals.oFormActMain, treeViewCats, false);
@@ -884,6 +970,12 @@ namespace ACT_TriggerTree
                 {
                     treeViewCats.SelectedNode = nodes[0];
                     treeViewCats.SelectedNode.EnsureVisible();
+                    foreach (TreeNode node in expnodes)
+                    {
+                        TreeNode[] NodeList = treeViewTrigs.Nodes.Find(node.Name, true);
+                        if (NodeList.Length > 0)
+                            NodeList[0].Expand();
+                    }
                 }
             }
             else
@@ -891,6 +983,18 @@ namespace ACT_TriggerTree
                 if(treeViewCats.Nodes.Count > 0)
                     treeViewCats.SelectedNode = treeViewCats.Nodes[0];
             }
+        }
+
+        private void RemoveButton_Click(object sender, EventArgs e)
+        {
+            // user pressed the ACT Custom Triggers Remove button
+            PopulateCatsTree();
+        }
+
+        private void AddEditButton_Click(object sender, EventArgs e)
+        {
+            // user pressed the ACT Custom Triggers Add/Edit button
+            PopulateCatsTree();
         }
 
         delegate void UpdateCategoryColorsCallback(Form parent, TreeView target, bool autoSelect);
@@ -1042,7 +1146,6 @@ namespace ACT_TriggerTree
                 string category = treeViewCats.SelectedNode.Text;
 
                 UpdateTriggerList(category);
-                //UpdateCategoryColors(ActGlobals.oFormActMain, treeViewCats, false);
                 treeViewCats.SelectedNode.BackColor = activeBackground;
             }
         }
@@ -1500,6 +1603,7 @@ namespace ACT_TriggerTree
                     TreeNode parent = new TreeNode(trigger.RegEx.ToString());
                     parent.Checked = trigger.Active;
                     parent.Tag = trigger;
+                    parent.Name = trigger.RegEx.ToString();
                     if (Macros.IsInvalidMacroTrigger(trigger))
                     {
                         parent.ImageIndex = triggerNoMacro;
@@ -1536,8 +1640,8 @@ namespace ACT_TriggerTree
 
                     //add tab child
                     parent.Nodes.Add(tabLabel).Checked = trigger.Tabbed;
-                    indexAlertTab = 3;
-                    parent.Nodes[indexAlertTab].ImageIndex = parent.Nodes[indexAlertTab].SelectedImageIndex = triggerBlankImage;
+                    indexResultsTab = 3;
+                    parent.Nodes[indexResultsTab].ImageIndex = parent.Nodes[indexResultsTab].SelectedImageIndex = triggerBlankImage;
 
                     //timer name child
                     parent.Nodes.Add(timerNameLabel + trigger.TimerName).Checked = trigger.Timer || trigger.Tabbed;
@@ -1608,8 +1712,8 @@ namespace ACT_TriggerTree
                 if (neverBeenVisible)
                 {
                     //set the splitter only on the first time shown
-                    if (saveSplitterLoc > 0)
-                        splitContainer1.SplitterDistance = saveSplitterLoc;
+                    if (config.SettingsSerializer.Int32.Value > 0)
+                        splitContainer1.SplitterDistance = config.SettingsSerializer.Int32.Value;
                     neverBeenVisible = false;
                 }
             }
@@ -1619,6 +1723,9 @@ namespace ACT_TriggerTree
         {
             bool updateACT = false;
             CustomTrigger trigger = null;
+            
+            if (e.Action != TreeViewAction.ByMouse)
+                return; // ignore calls that are not user initiated
 
             if (e.Node.Tag != null)
             {
@@ -1629,6 +1736,7 @@ namespace ACT_TriggerTree
                 {
                     trigger.Active = e.Node.Checked;
                     UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
+                    UpdateCategoryColors(ActGlobals.oFormActMain, treeViewCats, false);
                     updateACT = true;
                 }
             }
@@ -1654,7 +1762,7 @@ namespace ACT_TriggerTree
                                 e.Node.Parent.Nodes[indexTimerName].Checked = trigger.Timer || trigger.Tabbed;
                             updateACT = true;
                         }
-                        else if(e.Node.Index == indexAlertTab)
+                        else if(e.Node.Index == indexResultsTab)
                         {
                             trigger.Tabbed = e.Node.Checked;
                             if (e.Node.Parent.Nodes.Count > indexTimerName)
@@ -1669,8 +1777,29 @@ namespace ACT_TriggerTree
             {
                 //update the Custom Triggers tab, the trigger itself is already changed
                 ActGlobals.oFormActMain.AddEditCustomTrigger(trigger);
+                if (trigger.Tabbed)
+                    UpdateResultsTab(trigger);
             }
 
+        }
+
+        private void UpdateResultsTab(CustomTrigger trigger)
+        {
+            if (trigger.ResultsTab.Text != trigger.TimerName && !string.IsNullOrEmpty(trigger.TimerName))
+                trigger.ResultsTab.Text = trigger.TimerName; // make both names match
+
+            formResultsTabs.AddTab(trigger.ResultsTab);
+            if (trigger.ResultsTab != null)
+            {
+                // if we programatically toggle a tab off, then back on,
+                // ACT does not re-add the tab to the tabcontrol
+                // so we need to do it
+                // (if the tab is removed then added using ACT's Custom Triggers page, it does re-add the tab)
+                if (resultsTabCtrl != null && trigger.ResultsTab.Parent == null)
+                {
+                    resultsTabCtrl.TabPages.Add(trigger.ResultsTab);
+                }
+            }
         }
 
         private void PositionChildForm(Form form, Point loc)
@@ -1706,6 +1835,11 @@ namespace ACT_TriggerTree
             {
                 //update the display
                 RefreshTriggerChildren(arg.editedTrigger);
+                if (arg.editedTrigger.Tabbed)
+                {
+                    // if the name was changed, need to re-synchronize
+                    UpdateResultsTab(arg.editedTrigger);
+                }
             }
         }
 
@@ -1730,6 +1864,8 @@ namespace ACT_TriggerTree
                 //new / edited trigger
                 // If the regex or category was changed, this is required to update the dictionary
                 ActGlobals.oFormActMain.AddEditCustomTrigger(args.editedTrigger);
+                if (args.editedTrigger.Tabbed)
+                    UpdateResultsTab(args.editedTrigger);
 
                 PopulateCatsTree();
                 if (args.result == FormEditTrigger.EventResult.CREATE_NEW)
@@ -1769,7 +1905,7 @@ namespace ACT_TriggerTree
                     // since it doesn't really mean anything
                     // but this only mostly works due to bugs in treeview double-clicking
                     if (e.Node.Parent.Nodes[indexTimer].Checked
-                        || e.Node.Parent.Nodes[indexAlertTab].Checked)
+                        || e.Node.Parent.Nodes[indexResultsTab].Checked)
                     {
                         if (e.Node.Checked)
                             e.Cancel = true;
@@ -2003,15 +2139,7 @@ namespace ACT_TriggerTree
                 {
                     //clicked an empty line
                     //start a brand new trigger
-                    string category = " General";
-                    if (treeViewCats.SelectedNode != null)
-                        category = treeViewCats.SelectedNode.Text;
-                    CustomTrigger trigger = new CustomTrigger("new expression", category);
-                    trigger.RestrictToCategoryZone = category.Contains("["); //set restrict if it kinda looks like a zone name
-                    FormEditTrigger formEditTrigger = new FormEditTrigger(trigger, zoneName);
-                    formEditTrigger.EditDoneEvent += Trigger_EditDoneEvent; //callback for when the edit is done
-                    formEditTrigger.haveOriginal = false; //disable the replace button since there is nothing to replace
-                    formEditTrigger.Show(this);
+                    FormEditTrigger formEditTrigger = NewTrigger();
                     if (lastEditLoc.IsEmpty && lastEditSize.IsEmpty)
                         PositionChildForm(formEditTrigger, whereTrigMouseDown);
                     else
@@ -2025,6 +2153,20 @@ namespace ACT_TriggerTree
             {
                 isDoubleClick = e.Clicks > 1; //used to prevent expand/collapse on double click
             }
+        }
+
+        private FormEditTrigger NewTrigger()
+        {
+            string category = " General";
+            if (treeViewCats.SelectedNode != null)
+                category = treeViewCats.SelectedNode.Text;
+            CustomTrigger trigger = new CustomTrigger("new expression", category);
+            trigger.RestrictToCategoryZone = category.Contains("["); //set restrict if it kinda looks like a zone name
+            FormEditTrigger formEditTrigger = new FormEditTrigger(trigger, zoneName);
+            formEditTrigger.EditDoneEvent += Trigger_EditDoneEvent; //callback for when the edit is done
+            formEditTrigger.haveOriginal = false; //disable the replace button since there is nothing to replace
+            formEditTrigger.Show(this);
+            return formEditTrigger;
         }
 
         private void treeViewTrigs_BeforeCollapse(object sender, TreeViewCancelEventArgs e)
@@ -2090,6 +2232,18 @@ namespace ACT_TriggerTree
                     }
                 }
             }
+        }
+
+        private void toolStripButtonNew_Click(object sender, EventArgs e)
+        {
+            FormEditTrigger formEditTrigger = NewTrigger();
+            Point center = new Point(treeViewTrigs.Right/2 - formEditTrigger.Width/2, treeViewTrigs.Bottom/2 - formEditTrigger.Height/2);
+            PositionChildForm(formEditTrigger, treeViewTrigs.PointToScreen(center));
+        }
+
+        private void toolStripButtonResults_Click(object sender, EventArgs e)
+        {
+            config.ResultsPopup = toolStripButtonResults.Checked;
         }
 
         #region --------------- Triggers Context Menu
@@ -2407,12 +2561,18 @@ namespace ACT_TriggerTree
                 if (silently)
                     doit = true;
                 else
-                    doit = SimpleMessageBox.Show(ActGlobals.oFormActMain, @"\ql" + trigger.ShortRegexString, "Delete Trigger?",
+                    doit = SimpleMessageBox.Show(ActGlobals.oFormActMain, @"\ql " + trigger.ShortRegexString, "Delete Trigger?",
                         MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
                 if (doit)
                 {
-                    if (ActGlobals.oFormActMain.CustomTriggers.Remove(category + "|" + trigger.ShortRegexString))
+                    string key = category + "|" + trigger.ShortRegexString;
+                    CustomTrigger ct;
+                    ActGlobals.oFormActMain.CustomTriggers.TryGetValue(key, out ct);
+                    if (ct != null)
                     {
+                        if (ct.Tabbed)
+                            resultsTabCtrl.TabPages.Remove(ct.ResultsTab);
+                        ActGlobals.oFormActMain.CustomTriggers.Remove(key);
                         ActGlobals.oFormActMain.RebuildActiveCustomTriggers();
                         PopulateCatsTree();
                         UpdateTriggerList(category);
@@ -7299,6 +7459,651 @@ namespace ACT_TriggerTree
         private System.Windows.Forms.Button buttonMacro;
     }
 	#endregion XmlCopyForm.Designer.cs
+	#region HeaderListView.cs
+
+    public partial class HeaderListView : UserControl
+    {
+        public ListView ListView { get { return listView1; }  }
+        public string Header { get { return labelHeader.Text; } set { labelHeader.Text = value; } }
+
+        DateTime DisplayMinimum = DateTime.MinValue;
+
+        public HeaderListView(string header)
+        {
+            InitializeComponent();
+
+            ListView.ListViewItemSorter = new ListViewDateComparer(0);
+            ListView.Sorting = SortOrder.Descending;
+            ListView.View = View.Details;
+            labelHeader.Text = header;
+        }
+
+        private void listView1_DrawItem(object sender, DrawListViewItemEventArgs e)
+        {
+            // do not draw any items whose timestamp is less than DisplayMinimum
+            try
+            {
+                DateTime date = Convert.ToDateTime(e.Item.SubItems[0].Text);
+                if (date > DisplayMinimum)
+                    e.DrawDefault = true;
+                else
+                    e.DrawDefault = false;
+            } 
+            catch
+            {
+                e.DrawDefault = true;
+            }
+        }
+
+        private void listView1_DrawColumnHeader(object sender, DrawListViewColumnHeaderEventArgs e)
+        {
+            e.DrawDefault = true;
+        }
+
+        private void checkBoxHide_CheckedChanged(object sender, EventArgs e)
+        {
+            if (((CheckBox)sender).Checked)
+            {
+                DisplayMinimum = DateTime.Now;
+            }
+            else
+            {
+                DisplayMinimum = DateTime.MinValue;
+            }
+            listView1.Refresh();
+        }
+
+        public void Clear()
+        {
+            listView1.Items.Clear();
+            checkBoxHide.Checked = false;
+        }
+
+        public void AdjustColumnsToFit()
+        {
+            // size for contents
+            listView1.AutoResizeColumns(ColumnHeaderAutoResizeStyle.ColumnContent);
+
+            // make sure the headers fit
+            ListView.ColumnHeaderCollection cc = listView1.Columns;
+            for (int i = 0; i < cc.Count; i++)
+            {
+                int colWidth = TextRenderer.MeasureText(cc[i].Text, listView1.Font).Width + 10;
+                if (colWidth > cc[i].Width)
+                {
+                    cc[i].Width = colWidth;
+                }
+            }
+        }
+
+        public void Insert(ListViewItem item)
+        {
+            listView1.Items.Insert(0, item);
+            AdjustColumnsToFit();
+        }
+
+    }
+	#endregion HeaderListView.cs
+	#region HeaderListView.Designer.cs
+    partial class HeaderListView
+    {
+        /// <summary> 
+        /// Required designer variable.
+        /// </summary>
+        private System.ComponentModel.IContainer components = null;
+
+        /// <summary> 
+        /// Clean up any resources being used.
+        /// </summary>
+        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        #region Component Designer generated code
+
+        /// <summary> 
+        /// Required method for Designer support - do not modify 
+        /// the contents of this method with the code editor.
+        /// </summary>
+        private void InitializeComponent()
+        {
+            this.components = new System.ComponentModel.Container();
+            this.labelHeader = new System.Windows.Forms.Label();
+            this.listView1 = new System.Windows.Forms.ListView();
+            this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
+            this.checkBoxHide = new System.Windows.Forms.CheckBox();
+            this.SuspendLayout();
+            // 
+            // labelHeader
+            // 
+            this.labelHeader.Dock = System.Windows.Forms.DockStyle.Top;
+            this.labelHeader.ForeColor = System.Drawing.SystemColors.Highlight;
+            this.labelHeader.Location = new System.Drawing.Point(0, 0);
+            this.labelHeader.Name = "labelHeader";
+            this.labelHeader.Size = new System.Drawing.Size(150, 23);
+            this.labelHeader.TabIndex = 0;
+            this.labelHeader.Text = "label1";
+            this.labelHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.toolTip1.SetToolTip(this.labelHeader, "Tab Name.\r\nMore capability is provided in the ACT tab itself.");
+            // 
+            // listView1
+            // 
+            this.listView1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.listView1.HideSelection = false;
+            this.listView1.Location = new System.Drawing.Point(0, 23);
+            this.listView1.MultiSelect = false;
+            this.listView1.Name = "listView1";
+            this.listView1.OwnerDraw = true;
+            this.listView1.Size = new System.Drawing.Size(150, 127);
+            this.listView1.TabIndex = 1;
+            this.listView1.UseCompatibleStateImageBehavior = false;
+            this.listView1.View = System.Windows.Forms.View.Details;
+            this.listView1.DrawColumnHeader += new System.Windows.Forms.DrawListViewColumnHeaderEventHandler(this.listView1_DrawColumnHeader);
+            this.listView1.DrawItem += new System.Windows.Forms.DrawListViewItemEventHandler(this.listView1_DrawItem);
+            // 
+            // checkBoxHide
+            // 
+            this.checkBoxHide.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.checkBoxHide.Appearance = System.Windows.Forms.Appearance.Button;
+            this.checkBoxHide.AutoSize = true;
+            this.checkBoxHide.Font = new System.Drawing.Font("Wingdings", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
+            this.checkBoxHide.ForeColor = System.Drawing.Color.Red;
+            this.checkBoxHide.Location = new System.Drawing.Point(120, -1);
+            this.checkBoxHide.Name = "checkBoxHide";
+            this.checkBoxHide.Size = new System.Drawing.Size(27, 22);
+            this.checkBoxHide.TabIndex = 3;
+            this.checkBoxHide.Text = "x";
+            this.checkBoxHide.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.toolTip1.SetToolTip(this.checkBoxHide, "Press to hide items older than \'now\'");
+            this.checkBoxHide.UseVisualStyleBackColor = true;
+            this.checkBoxHide.CheckedChanged += new System.EventHandler(this.checkBoxHide_CheckedChanged);
+            // 
+            // HeaderListView
+            // 
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this.checkBoxHide);
+            this.Controls.Add(this.listView1);
+            this.Controls.Add(this.labelHeader);
+            this.Name = "HeaderListView";
+            this.ResumeLayout(false);
+            this.PerformLayout();
+
+        }
+
+        #endregion
+
+        private System.Windows.Forms.Label labelHeader;
+        private System.Windows.Forms.ListView listView1;
+        private System.Windows.Forms.ToolTip toolTip1;
+        private System.Windows.Forms.CheckBox checkBoxHide;
+    }
+	#endregion HeaderListView.Designer.cs
+	#region FormResultsTabs.cs
+
+    public partial class FormResultsTabs : Form
+    {
+        bool disposed = false;
+        bool initializing = true;
+        System.Timers.Timer timer = new System.Timers.Timer();
+        Config _config;
+
+        // each results tab in ACT is represented here by an instance of this class
+        internal class TabInfo
+        {
+            public string title;            // cosmetic ACT tab name
+            public ListView listACT;        // reference the ACT list
+            public TabPage tabPageACT;      // reference used to make sure the tab still exists in ACT
+            public HeaderListView listTT;   // our mirror of the ACT list
+
+            public TabInfo(TabPage tab, ListView list)
+            {
+                this.tabPageACT = tab;
+                this.title = tab.Text;
+                this.listACT = list;
+                this.listTT = new HeaderListView(title);
+                listTT.Dock = DockStyle.Fill;
+            }
+
+            // for debug
+            public override string ToString()
+            {
+                return String.Format("{0} Visible:{1}", title, listTT.Visible);
+            }
+        }
+        List<TabInfo> tabs = new List<TabInfo>();
+
+        public FormResultsTabs(Config config)
+        {
+            InitializeComponent();
+
+            _config = config;
+
+            // we will check for new ACT list contents on this timer tick
+            timer.Interval = 500;
+            timer.Elapsed += Timer_Elapsed;
+            timer.SynchronizingObject = ActGlobals.oFormActMain;
+            timer.Enabled = true;
+            timer.Start();
+        }
+
+        // do not take the focus when the form is shown
+        // but we do want topmost
+        protected override bool ShowWithoutActivation
+        {
+            get { return true; }
+        }
+        private const int WS_EX_TOPMOST = 0x00000008;
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams createParams = base.CreateParams;
+                createParams.ExStyle |= WS_EX_TOPMOST;
+                return createParams;
+            }
+        }
+
+        private void FormResultsTabs_Load(object sender, EventArgs e)
+        {
+            //AdjustLastColumnToFill(listView1);
+        }
+
+        private void FormResultsTabs_Shown(object sender, EventArgs e)
+        {
+            if(_config.ResultsSize.Height > 0 && _config.ResultsSize.Width > 0)
+            {
+                this.Height = _config.ResultsSize.Height;
+                this.Width = _config.ResultsSize.Width;
+            }
+            this.Location = new Point(_config.ResultsLoc.X, _config.ResultsLoc.Y);
+            initializing = false;
+
+            foreach (TabInfo ti in tabs)
+            {
+                ti.listTT.AdjustColumnsToFit();
+            }
+        }
+
+        private void FormResultsTabs_ResizeEnd(object sender, EventArgs e)
+        {
+            foreach (TabInfo ti in tabs)
+            {
+                ti.listTT.AdjustColumnsToFit();
+            }
+            ReProportionPanel();
+
+            if (!initializing)
+            {
+                _config.ResultsLoc.X = this.Location.X;
+                _config.ResultsLoc.Y = this.Location.Y;
+                _config.ResultsSize.Width = this.Width;
+                _config.ResultsSize.Height = this.Height;
+            }
+        }
+
+        private void FormResultsTabs_Move(object sender, EventArgs e)
+        {
+            if (!initializing)
+            {
+                _config.ResultsLoc.X = this.Location.X;
+                _config.ResultsLoc.Y = this.Location.Y;
+                _config.ResultsSize.Width = this.Width;
+                _config.ResultsSize.Height = this.Height;
+            }
+}
+
+        public void AddTab(TabPage tab)
+        {
+            if(tab != null)
+            {
+                ListView lv = null;
+                foreach (Control ctrl in tab.Controls)
+                {
+                    if (ctrl.GetType() == typeof(ListView))
+                    {
+                        ListView listView = (ListView)ctrl;
+                        if(listView != null)
+                        {
+                            lv = listView;
+                            break;
+                        }
+                    }
+                }
+
+                if (lv != null)
+                {
+                    TabInfo ti = ContainsLV(lv.Handle);
+                    if (ti == null)
+                    {
+                        timer.Stop();
+
+                        ti = new TabInfo(tab, lv);
+                        // hide it while it's empty
+                        ti.listTT.Visible = false;
+                        tabs.Add(ti);
+                        AddPanel(ti);
+
+                        timer.Start();
+                    }
+                    else
+                    {
+                        // make sure the tab name is up to date
+                        ti.listTT.Header = tab.Text;
+                    }
+                }
+            }
+        }
+
+        private void Timer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            if (!disposed)
+            {
+                foreach (TabInfo ti in tabs)
+                {
+                    if (ti.tabPageACT == null)
+                        continue; //unchecking the "Add Results Tab" doesn't seem to destroy the tab page, but just in case
+
+                    // this probably leaves corner cases where the user has cleared or disabled the tab in ACT
+                    // and we miss it due to race conditions (or equality) on the item count,
+                    // but this is quick and easy and covers most cases
+                    if ((ti.listTT.ListView.Items.Count > ti.listACT.Items.Count) 
+                        || (ti.tabPageACT.Parent == null && ti.listTT.ListView.Items.Count > 0))
+                    {
+                        ti.listTT.Clear();
+                    }
+
+                    // copy any "new" items from ACT's list to our list
+                    if (ti.listTT.ListView.Items.Count != ti.listACT.Items.Count 
+                        && ti.listACT.Items.Count > 0 
+                        && ti.tabPageACT.Parent != null) // null parent = ACT hid the tab b/c user disabled it
+                    {
+                        foreach (ListViewItem item in ti.listACT.Items)
+                        {
+                            ListViewItem clone = (ListViewItem)item.Clone();
+                            clone.Name = ti.title + "!" + item.Text;
+                            if (!ti.listTT.ListView.Items.ContainsKey(clone.Name))
+                            {
+                                ti.listTT.Insert(clone);
+                                if (!this.Visible && _config.ResultsPopup)
+                                    this.Show();
+                                if (tableLayoutPanel1.GetRow(ti.listTT) != 0)
+                                    SetTopPanel(ti);
+                            }
+                        }
+                    }
+
+                    if (ti.listACT.Items.Count == 0 
+                        || (ti.tabPageACT.Parent == null && ti.listTT.ListView.Items.Count == 0)) // need to hide it since ACT hid it?
+                    {
+                        if (ti.listTT.Visible)
+                        {
+                            // change from visible to not
+                            ti.listTT.Visible = false;
+                            ReProportionPanel();
+                        }
+                    }
+                    else if(ti.listACT.Items.Count > 0)
+                    {
+                        if (!ti.listTT.Visible)
+                        {
+                            // change to visible
+                            ti.listTT.Visible = true;
+                            SetTopPanel(ti);
+                            ReProportionPanel();
+                        }
+                    }
+                }
+            }
+        }
+
+        public void DeInit()
+        {
+            timer.Stop();
+            timer.Enabled = false;
+            disposed = true;
+        }
+
+        private TabInfo ContainsLV(IntPtr handle)
+        {
+            // the tab title is cosmetic and not unique, use the window handle
+            foreach(TabInfo ti in tabs)
+            {
+                if(ti.listACT.Handle.Equals(handle))
+                    return ti;
+            }
+            return null;
+        }
+
+        private void ReProportionPanel()
+        {
+            // count visible controls
+            float vis = 0;
+            foreach(TabInfo ti in tabs)
+            {
+                if(ti.listTT.Visible)
+                    vis++;
+            }
+
+            if (vis > 0)
+            {
+                tableLayoutPanel1.RowStyles.Clear();
+                // make each row the same size
+                float per = 100f / vis;
+                SizeType sizeType = SizeType.Percent;
+                tableLayoutPanel1.AutoScroll = false;
+                if (per < 20)
+                {
+                    // if there are more than 5 tabs, limit the min size
+                    sizeType = SizeType.Absolute;
+                    per = 100;
+                    tableLayoutPanel1.AutoScroll = true;
+                }
+                float[] sizes = new float[tableLayoutPanel1.RowCount];
+                for (int i = 0; i < tableLayoutPanel1.RowCount; i++)
+                {
+                    // since we re-order rows,
+                    // the style for control index "i" may not be at style index "i"
+                    // so make a cross-reference
+                    int row = tableLayoutPanel1.GetRow(tableLayoutPanel1.Controls[i]);
+                    if (tableLayoutPanel1.Controls[i].Visible)
+                        sizes[row] = per;
+                    else
+                        sizes[row] = 0;
+                }
+                foreach(float size in sizes)
+                {
+                    if (size > 0)
+                        tableLayoutPanel1.RowStyles.Add(new RowStyle(sizeType, per));
+                    else
+                        tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
+                }
+                tableLayoutPanel1.Refresh();
+            }
+        }
+
+        private void SetTopPanel(TabInfo ti)
+        {
+            // put the passed control at the top of the form
+
+            Dictionary<int, int> order = new Dictionary<int, int>();
+
+            int currentRow = tableLayoutPanel1.GetRow(ti.listTT);
+            if (currentRow != 0)
+            {
+                // make a map of the current row order
+                for (int i = 0; i < tableLayoutPanel1.RowCount; i++)
+                {
+                    HeaderListView hlv = tableLayoutPanel1.Controls[i] as HeaderListView;
+                    if (hlv != null)
+                    {
+                        int rownum = tableLayoutPanel1.GetRow(hlv);
+                        order.Add(i, rownum);
+                    }
+                }
+                // rearrange so the passed control is in row 0
+                // and everything from the top row to
+                // where the passed control used to be is shifted down
+                for (int i = 0; i < tableLayoutPanel1.RowCount; i++)
+                {
+                    int rownum;
+                    if (order.TryGetValue(i, out rownum))
+                    {
+                        if(rownum == currentRow)
+                            tableLayoutPanel1.SetRow(tableLayoutPanel1.Controls[i], 0);
+                        else if(rownum < currentRow)
+                            tableLayoutPanel1.SetRow(tableLayoutPanel1.Controls[i], rownum + 1);
+                    }
+                }
+                ReProportionPanel();
+                tableLayoutPanel1.Refresh();
+            }
+        }
+
+        private void AddPanel(TabInfo ti)
+        {
+            if (tableLayoutPanel1.RowCount == 1 && tableLayoutPanel1.Controls.Count == 0)
+            {
+                // account for the empty TableLayoutPanel we added in the Deisgner
+                // we will add the listview to the Designer panel row 0 after the else {}
+            }
+            else
+            {
+                // add a new row
+                tableLayoutPanel1.RowCount++;
+            }
+            // add our mirror listview as the bottom row
+            tableLayoutPanel1.Controls.Add(ti.listTT, 0, tableLayoutPanel1.RowCount-1);
+            // mirror the columns from ACT
+            foreach(ColumnHeader col in ti.listACT.Columns)
+            {
+                ColumnHeader colTT = (ColumnHeader)col.Clone();
+                // autosize
+                //colTT.Width = -2;
+                ti.listTT.ListView.Columns.Add(colTT);
+            }
+            ReProportionPanel();
+        }
+
+        private void FormResultsTabs_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            // just hide if the user hits the X button
+            if (e.CloseReason == CloseReason.UserClosing)
+            {
+                this.Hide();
+                e.Cancel = true;
+            }
+        }
+    }
+	#endregion FormResultsTabs.cs
+	#region FormResultsTabs.Designer.cs
+    partial class FormResultsTabs
+    {
+        /// <summary>
+        /// Required designer variable.
+        /// </summary>
+        private System.ComponentModel.IContainer components = null;
+
+        /// <summary>
+        /// Clean up any resources being used.
+        /// </summary>
+        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && (components != null))
+            {
+                components.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
+        #region Windows Form Designer generated code
+
+        /// <summary>
+        /// Required method for Designer support - do not modify
+        /// the contents of this method with the code editor.
+        /// </summary>
+        private void InitializeComponent()
+        {
+            this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
+            this.SuspendLayout();
+            // 
+            // tableLayoutPanel1
+            // 
+            this.tableLayoutPanel1.AutoScroll = true;
+            this.tableLayoutPanel1.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this.tableLayoutPanel1.ColumnCount = 1;
+            this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.tableLayoutPanel1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.tableLayoutPanel1.Location = new System.Drawing.Point(0, 0);
+            this.tableLayoutPanel1.Name = "tableLayoutPanel1";
+            this.tableLayoutPanel1.RowCount = 1;
+            this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.tableLayoutPanel1.Size = new System.Drawing.Size(547, 241);
+            this.tableLayoutPanel1.TabIndex = 0;
+            // 
+            // FormResultsTabs
+            // 
+            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.ClientSize = new System.Drawing.Size(547, 241);
+            this.Controls.Add(this.tableLayoutPanel1);
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+            this.Name = "FormResultsTabs";
+            this.ShowIcon = false;
+            this.Text = "Trigger Results Tabs";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FormResultsTabs_FormClosing);
+            this.Load += new System.EventHandler(this.FormResultsTabs_Load);
+            this.Shown += new System.EventHandler(this.FormResultsTabs_Shown);
+            this.ResizeEnd += new System.EventHandler(this.FormResultsTabs_ResizeEnd);
+            this.Move += new System.EventHandler(this.FormResultsTabs_Move);
+            this.ResumeLayout(false);
+
+        }
+
+        #endregion
+
+        private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
+    }
+	#endregion FormResultsTabs.Designer.cs
+	#region ListViewDateComparer.cs
+
+    class ListViewDateComparer : IComparer
+    {
+        private int col;
+        public ListViewDateComparer()
+        {
+            col = 0;
+        }
+        public ListViewDateComparer(int column)
+        {
+            col = column;
+        }
+        public int Compare(object x, object y)
+        {
+            int returnVal;
+            try
+            {
+                DateTime dateX = Convert.ToDateTime(((ListViewItem)x).SubItems[col].Text);
+                DateTime dateY = Convert.ToDateTime(((ListViewItem)y).SubItems[col].Text);
+                // sort decending
+                returnVal = dateY.CompareTo(dateX);
+            }
+            catch
+            {
+                returnVal = String.Compare(((ListViewItem)x).SubItems[col].Text, (((ListViewItem)y).SubItems[col].Text));
+            }
+            return returnVal;
+        }
+    }
+	#endregion ListViewDateComparer.cs
 	#region Macros.cs
 
     public class Macros
@@ -7750,4 +8555,68 @@ namespace ACT_TriggerTree
 
     }
 	#endregion Macros.cs
+	#region Config.cs
+
+
+    /// <remarks/>
+    [XmlRoot]
+    public partial class Config
+    {
+
+        [XmlElement]
+        public ConfigSettingsSerializer SettingsSerializer = new ConfigSettingsSerializer();
+
+        [XmlElement]
+        public ConfigResultsLoc ResultsLoc = new ConfigResultsLoc();
+
+        [XmlElement]
+        public ConfigResultsSize ResultsSize = new ConfigResultsSize();
+
+        [XmlElement]
+        public bool ResultsPopup = false;
+
+    }
+
+    /// <remarks/>
+    public partial class ConfigSettingsSerializer
+    {
+
+        [XmlElement]
+        public ConfigSettingsSerializerInt32 Int32 = new ConfigSettingsSerializerInt32();
+
+    }
+
+    public partial class ConfigSettingsSerializerInt32
+    {
+
+        [XmlAttribute]
+        public string Name = "saveSplitterLoc";
+
+        [XmlAttribute]
+        public int Value = 150;
+
+    }
+
+    /// <remarks/>
+    public partial class ConfigResultsLoc
+    {
+        [XmlAttribute]
+        public int X;
+
+        [XmlAttribute]
+        public int Y;
+
+    }
+
+    public partial class ConfigResultsSize
+    {
+
+        [XmlAttribute]
+        public int Height;
+
+        [XmlAttribute]
+        public int Width;
+
+    }
+	#endregion Config.cs
 }

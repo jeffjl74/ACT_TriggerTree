@@ -19,18 +19,16 @@ namespace ACT_TriggerTree
         {
             public string title;            // cosmetic ACT tab name
             public ListView listACT;        // reference the ACT list
+            public TabPage tabPageACT;      // reference used to make sure the tab still exists in ACT
             public HeaderListView listTT;   // our mirror of the ACT list
 
-            public TabInfo(string title, ListView list)
+            public TabInfo(TabPage tab, ListView list)
             {
-                this.title = title;
+                this.tabPageACT = tab;
+                this.title = tab.Text;
                 this.listACT = list;
-                this.listTT = new HeaderListView();
+                this.listTT = new HeaderListView(title);
                 listTT.Dock = DockStyle.Fill;
-                listTT.ListView.ListViewItemSorter = new ListViewDateComparer(0);
-                listTT.ListView.Sorting = SortOrder.Descending;
-                listTT.ListView.View = View.Details;
-                listTT.Header.Text = title;
             }
 
             // for debug
@@ -89,7 +87,7 @@ namespace ACT_TriggerTree
 
             foreach (TabInfo ti in tabs)
             {
-                AdjustLastColumnToFill(ti.listTT.ListView);
+                ti.listTT.AdjustColumnsToFit();
             }
         }
 
@@ -97,7 +95,7 @@ namespace ACT_TriggerTree
         {
             foreach (TabInfo ti in tabs)
             {
-                AdjustLastColumnToFill(ti.listTT.ListView);
+                ti.listTT.AdjustColumnsToFit();
             }
             ReProportionPanel();
 
@@ -139,15 +137,25 @@ namespace ACT_TriggerTree
                     }
                 }
 
-                if(lv != null)
+                if (lv != null)
                 {
-                    if (!ContainsLV(lv.Handle))
+                    TabInfo ti = ContainsLV(lv.Handle);
+                    if (ti == null)
                     {
-                        TabInfo ti = new TabInfo(tab.Text, lv);
+                        timer.Stop();
+
+                        ti = new TabInfo(tab, lv);
                         // hide it while it's empty
                         ti.listTT.Visible = false;
                         tabs.Add(ti);
                         AddPanel(ti);
+
+                        timer.Start();
+                    }
+                    else
+                    {
+                        // make sure the tab name is up to date
+                        ti.listTT.Header = tab.Text;
                     }
                 }
             }
@@ -159,16 +167,22 @@ namespace ACT_TriggerTree
             {
                 foreach (TabInfo ti in tabs)
                 {
-                    // this probably leaves corner cases where the user has cleared the tab in ACT
+                    if (ti.tabPageACT == null)
+                        continue; //unchecking the "Add Results Tab" doesn't seem to destroy the tab page, but just in case
+
+                    // this probably leaves corner cases where the user has cleared or disabled the tab in ACT
                     // and we miss it due to race conditions (or equality) on the item count,
                     // but this is quick and easy and covers most cases
-                    if (ti.listTT.ListView.Items.Count > ti.listACT.Items.Count)
+                    if ((ti.listTT.ListView.Items.Count > ti.listACT.Items.Count) 
+                        || (ti.tabPageACT.Parent == null && ti.listTT.ListView.Items.Count > 0))
                     {
-                        ti.listTT.ListView.Items.Clear();
+                        ti.listTT.Clear();
                     }
 
                     // copy any "new" items from ACT's list to our list
-                    if (ti.listTT.ListView.Items.Count != ti.listACT.Items.Count && ti.listACT.Items.Count > 0)
+                    if (ti.listTT.ListView.Items.Count != ti.listACT.Items.Count 
+                        && ti.listACT.Items.Count > 0 
+                        && ti.tabPageACT.Parent != null) // null parent = ACT hid the tab b/c user disabled it
                     {
                         foreach (ListViewItem item in ti.listACT.Items)
                         {
@@ -176,14 +190,17 @@ namespace ACT_TriggerTree
                             clone.Name = ti.title + "!" + item.Text;
                             if (!ti.listTT.ListView.Items.ContainsKey(clone.Name))
                             {
-                                ti.listTT.ListView.Items.Insert(0, clone);
+                                ti.listTT.Insert(clone);
                                 if (!this.Visible && _config.ResultsPopup)
                                     this.Show();
+                                if (tableLayoutPanel1.GetRow(ti.listTT) != 0)
+                                    SetTopPanel(ti);
                             }
                         }
                     }
 
-                    if (ti.listACT.Items.Count == 0)
+                    if (ti.listACT.Items.Count == 0 
+                        || (ti.tabPageACT.Parent == null && ti.listTT.ListView.Items.Count == 0)) // need to hide it since ACT hid it?
                     {
                         if (ti.listTT.Visible)
                         {
@@ -192,43 +209,18 @@ namespace ACT_TriggerTree
                             ReProportionPanel();
                         }
                     }
-                    else
+                    else if(ti.listACT.Items.Count > 0)
                     {
                         if (!ti.listTT.Visible)
                         {
                             // change to visible
                             ti.listTT.Visible = true;
-                            AdjustLastColumnToFill(ti.listTT.ListView);
                             SetTopPanel(ti);
                             ReProportionPanel();
                         }
                     }
                 }
             }
-        }
-
-        private void AdjustLastColumnToFill(ListView lvw)
-        {
-            Int32 nWidth = lvw.ClientSize.Width; // Get width of client area.
-
-            // Loop through all columns except the last one.
-            for (Int32 i = 0; i < lvw.Columns.Count - 1; i++)
-            {
-                // Subtract width of the column from the width
-                // of the client area.
-                nWidth -= lvw.Columns[i].Width;
-
-                // If the width goes below 1, then no need to keep going
-                // because the last column can't be sized to fit due to
-                // the widths of the columns before it.
-                if (nWidth < 1)
-                    break;
-            };
-
-            // If there is any width remaining, that will
-            // be the width of the last column.
-            if (nWidth > 0  && lvw.Columns.Count > 0)
-                lvw.Columns[lvw.Columns.Count - 1].Width = nWidth;
         }
 
         public void DeInit()
@@ -238,15 +230,15 @@ namespace ACT_TriggerTree
             disposed = true;
         }
 
-        public bool ContainsLV(IntPtr handle)
+        private TabInfo ContainsLV(IntPtr handle)
         {
             // the tab title is cosmetic and not unique, use the window handle
             foreach(TabInfo ti in tabs)
             {
                 if(ti.listACT.Handle.Equals(handle))
-                    return true;
+                    return ti;
             }
-            return false;
+            return null;
         }
 
         private void ReProportionPanel()
@@ -262,32 +254,35 @@ namespace ACT_TriggerTree
             if (vis > 0)
             {
                 tableLayoutPanel1.RowStyles.Clear();
-                if (vis == 1)
-                    tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-                else
+                // make each row the same size
+                float per = 100f / vis;
+                SizeType sizeType = SizeType.Percent;
+                tableLayoutPanel1.AutoScroll = false;
+                if (per < 20)
                 {
-                    // make each row the same size
-                    float per = 100f / vis;
-                    if (per < 10) per = 10;
-                    float[] sizes = new float[tableLayoutPanel1.RowCount];
-                    for (int i = 0; i < tableLayoutPanel1.RowCount; i++)
-                    {
-                        // since we re-order rows,
-                        // the style for control index "i" may not be at style index "i"
-                        // so make a cross-reference
-                        int row = tableLayoutPanel1.GetRow(tableLayoutPanel1.Controls[i]);
-                        if (tableLayoutPanel1.Controls[i].Visible)
-                            sizes[row] = per;
-                        else
-                            sizes[row] = 0;
-                    }
-                    foreach(float size in sizes)
-                    {
-                        if (size > 0)
-                            tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Percent, per));
-                        else
-                            tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
-                    }
+                    // if there are more than 5 tabs, limit the min size
+                    sizeType = SizeType.Absolute;
+                    per = 100;
+                    tableLayoutPanel1.AutoScroll = true;
+                }
+                float[] sizes = new float[tableLayoutPanel1.RowCount];
+                for (int i = 0; i < tableLayoutPanel1.RowCount; i++)
+                {
+                    // since we re-order rows,
+                    // the style for control index "i" may not be at style index "i"
+                    // so make a cross-reference
+                    int row = tableLayoutPanel1.GetRow(tableLayoutPanel1.Controls[i]);
+                    if (tableLayoutPanel1.Controls[i].Visible)
+                        sizes[row] = per;
+                    else
+                        sizes[row] = 0;
+                }
+                foreach(float size in sizes)
+                {
+                    if (size > 0)
+                        tableLayoutPanel1.RowStyles.Add(new RowStyle(sizeType, per));
+                    else
+                        tableLayoutPanel1.RowStyles.Add(new RowStyle(SizeType.Absolute, 0));
                 }
                 tableLayoutPanel1.Refresh();
             }
@@ -326,6 +321,7 @@ namespace ACT_TriggerTree
                             tableLayoutPanel1.SetRow(tableLayoutPanel1.Controls[i], rownum + 1);
                     }
                 }
+                ReProportionPanel();
                 tableLayoutPanel1.Refresh();
             }
         }
@@ -348,7 +344,8 @@ namespace ACT_TriggerTree
             foreach(ColumnHeader col in ti.listACT.Columns)
             {
                 ColumnHeader colTT = (ColumnHeader)col.Clone();
-                colTT.Width = -2; // autosize
+                // autosize
+                //colTT.Width = -2;
                 ti.listTT.ListView.Columns.Add(colTT);
             }
             ReProportionPanel();

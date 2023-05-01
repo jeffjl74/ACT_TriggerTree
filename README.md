@@ -14,14 +14,11 @@ Additional features of the plugin:
 * When entering a zone in game, if there is a Category that matches the zone name, that Category is automatically selected.
 * The __Find__ boxes at the top of the Category and Trigger panes provide incremental searches.
 
-### Version 1.4.0 Changes:
-* Added the [Share Dialog](#share-dialog) choice to the [category context menu](#category-pane) to reduce the number of mouse clicks and key presses required to paste triggers into EQII chat.
-* When searching for category spell timers for the [category context menu](#category-pane), allow the tooltip to match more than one item, when items are separated by the `|` character.
-* When searching for category spell timers for the [category context menu](#category-pane), timers that are activated by triggers but do not have a matching tooltip or category are now added to the menu.
-* The __current__ checkbox for restricting a trigger search to the current category now defaults to checked.
-* [Show Encounters](#show-encounters) __Paste in Regular Expression__ now escapes `[` and `]`
-* [Show Time Differences](#show-time-differences) context menu is now enabled when the `By Regex` checkbox is checked.
-* Some cosmetic changes.
+### Version 1.5.0 Changes:
+* Rework handling of Custom Triggers Results Tabs checkboxes for better coordination with ACT.
+* Added two buttons at the top left of the triggers panel:
+  * The "plus" button provides an alternate way to open the [edit trigger dialog](#edit-all-fields) for a new trigger.
+  * The "windows" button enables a popup [alternate view of the "Results Tabs"](#results-tab) of ACT's Custom Triggers.
 
 ## Editing Triggers
 Trigger details are available by clicking the + next to the trigger.  A context menu is provided via a right-click on a trigger, as shown below.
@@ -53,7 +50,24 @@ Features of the edit trigger dialog:
 
 * Capture groups in the __Regular Expression__ are automatically added to the drop down list next to the TTS button (e,g, the 1 shown in the [Edit All screenshot](#edit-all-fields) which represents the __(\d+)__ in the expression). They may be inserted into the TTS expression via the insert button to the right of the drop down. 
 	* Note that named capture groups such as `(?<player>\w+)` cannot be saved to an EQII macro due to the brackets.
-	
+
+### Results Tabs
+When the trigger's __Add Results tab__ checkbox is checked, ACT adds a tab next to the __Triggers__ tab. The tab is named using the __Timer / Tab Name__ and lists data from log lines that match the trigger.
+
+When the ![results](images/results-tab-button.png) button in the plugin's triggers pane is pressed, the plugin will generate another view of the results tabs upon the occurrance of a trigger with a checked _Add Results tab_. The plugin's view is a popup stay-on-top window. Instead of tabs, the plugin stacks the trigger data in a single view. A demonstration with 2 tabs is shown below:
+
+![results](images/results-tabs.png)
+
+Items are added such that the newest one is at the top of the list of each tab. Tabs are ordered in the window such that the newest occurring tab or tab item is at the top.
+
+The plugin just provides another view of the data collected by ACT. To clear a tab and remove it from the stack, it must be cleared in ACT with the appropriate tab's [Clear Items] button.
+
+Closing the plugin's window also does not clear the data. When a new trigger occurs, the window will re-open showing both the old and new items.
+
+Pressing the red X button on a tab will hide (actually, just not draw) any items with a Time Stamp older than the time the button is pressed. The tab itself remains visible. The items are actually still in the list since they are still in ACT's list, so a scroll bar may show up when it looks unnecessary. Un-pressing the button will show all items again. A pressed button has the  blue-ish background, like the bottom tab in the example above.
+
+There is a minor difference between re-enabling a Results Tab in ACT's Custom Triggers tab versus in the plugin. In the plugin, if a previously disabled tab is re-enabled by checking the checkbox, any items that were present when the checkbox was unchecked are restored when it is re-checked. In ACT, re-enabling a disabled Results Tab creates a new empty tab.
+
 
 ### Show Encounters
 The [Edit All screenshot](#edit-all-fields) above also has the __Show Encounters__ checkbox checked.

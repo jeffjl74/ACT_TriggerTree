@@ -2,15 +2,15 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Security.Policy;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
-using System.Xml;
+using System.Xml.Serialization;
 // reference:System.Windows.Forms.DataVisualization.dll
 // reference:System.Core.dll
 
@@ -18,7 +18,7 @@ using System.Xml;
 [assembly: AssemblyTitle("Tree view of Custom Triggers")]
 [assembly: AssemblyDescription("An alternate interface for managing Custom Triggers")]
 [assembly: AssemblyCompany("Mineeme of Maj'Dul")]
-[assembly: AssemblyVersion("1.4.0.0")]
+[assembly: AssemblyVersion("1.5.0.0")]
 
 namespace ACT_TriggerTree
 {
@@ -46,7 +46,7 @@ namespace ACT_TriggerTree
         int indexAlertType = 0;                     //child index for the alert type child
         int indexRestricted = 1;                    //child index for the Restrict to Zone child
         int indexTimer = 2;                         //child index for the Start Timer child
-        int indexAlertTab = 3;                      //child index for the Alert Tab child
+        int indexResultsTab = 3;                      //child index for the Alert Tab child
         int indexTimerName = 4;                     //child index for the Timer/Tab child
 
         Color activeBackground = Color.LightGreen;  //background for a category that contains active triggers
@@ -86,14 +86,17 @@ namespace ACT_TriggerTree
         List<TimerData> categoryTimers;             //category context menu timers
         MouseButtons lastSpellMenuButton;
 
+        // results tab mirror
+        FormResultsTabs formResultsTabs;
+        TabControl resultsTabCtrl = null;
+        Button addEditButton = null;
+        Button removeButton = null;
+
         Label lblStatus;                            // The status label that appears in ACT's Plugin tab
 
         string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\TriggerTree.config.xml");
-        SettingsSerializer xmlSettings;
-        private System.Windows.Forms.CheckBox checkBoxCurrentCategory;
-        int saveSplitterLoc = -1;
-        private LinkLabel linkLabel1;
-        private ToolStripMenuItem shareDialogMenuItem;
+        XmlSerializer xmlSerializer;
+        Config config;
 
         #region Designer Created Code (Avoid editing)
 
@@ -129,13 +132,14 @@ namespace ACT_TriggerTree
             this.panel3 = new System.Windows.Forms.Panel();
             this.label3 = new System.Windows.Forms.Label();
             this.buttonCatFindNext = new System.Windows.Forms.Button();
-            this.textBoxCatFind = new ACT_TriggerTree.TextBoxX();
             this.treeViewTrigs = new System.Windows.Forms.TreeView();
             this.panel2 = new System.Windows.Forms.Panel();
+            this.toolStrip1 = new System.Windows.Forms.ToolStrip();
+            this.toolStripButtonNew = new System.Windows.Forms.ToolStripButton();
+            this.toolStripButtonResults = new System.Windows.Forms.ToolStripButton();
             this.checkBoxCurrentCategory = new System.Windows.Forms.CheckBox();
             this.label4 = new System.Windows.Forms.Label();
             this.buttonFindNext = new System.Windows.Forms.Button();
-            this.textBoxTrigFind = new ACT_TriggerTree.TextBoxX();
             this.contextMenuStripTrig = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.copyAsShareableXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.copyAsDoubleEncodedXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -164,12 +168,15 @@ namespace ACT_TriggerTree
             this.panel1 = new System.Windows.Forms.Panel();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.label2 = new System.Windows.Forms.Label();
+            this.textBoxCatFind = new ACT_TriggerTree.TextBoxX();
+            this.textBoxTrigFind = new ACT_TriggerTree.TextBoxX();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
             this.panel3.SuspendLayout();
             this.panel2.SuspendLayout();
+            this.toolStrip1.SuspendLayout();
             this.contextMenuStripTrig.SuspendLayout();
             this.contextMenuStripCat.SuspendLayout();
             this.panel1.SuspendLayout();
@@ -199,9 +206,9 @@ namespace ACT_TriggerTree
             this.treeViewCats.Dock = System.Windows.Forms.DockStyle.Fill;
             this.treeViewCats.DrawMode = System.Windows.Forms.TreeViewDrawMode.OwnerDrawText;
             this.treeViewCats.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.treeViewCats.Location = new System.Drawing.Point(0, 30);
+            this.treeViewCats.Location = new System.Drawing.Point(0, 33);
             this.treeViewCats.Name = "treeViewCats";
-            this.treeViewCats.Size = new System.Drawing.Size(240, 530);
+            this.treeViewCats.Size = new System.Drawing.Size(240, 527);
             this.treeViewCats.TabIndex = 1;
             this.treeViewCats.DrawNode += new System.Windows.Forms.DrawTreeNodeEventHandler(this.treeViewCats_DrawNode);
             this.treeViewCats.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.treeViewCats_AfterSelect);
@@ -216,7 +223,7 @@ namespace ACT_TriggerTree
             this.panel3.Dock = System.Windows.Forms.DockStyle.Top;
             this.panel3.Location = new System.Drawing.Point(0, 0);
             this.panel3.Name = "panel3";
-            this.panel3.Size = new System.Drawing.Size(240, 30);
+            this.panel3.Size = new System.Drawing.Size(240, 33);
             this.panel3.TabIndex = 0;
             // 
             // label3
@@ -243,27 +250,15 @@ namespace ACT_TriggerTree
             this.buttonCatFindNext.UseVisualStyleBackColor = true;
             this.buttonCatFindNext.Click += new System.EventHandler(this.buttonCatFindNext_Click);
             // 
-            // textBoxCatFind
-            // 
-            this.textBoxCatFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxCatFind.ButtonTextClear = true;
-            this.textBoxCatFind.Location = new System.Drawing.Point(40, 4);
-            this.textBoxCatFind.Name = "textBoxCatFind";
-            this.textBoxCatFind.Size = new System.Drawing.Size(148, 20);
-            this.textBoxCatFind.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
-            this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
-            // 
             // treeViewTrigs
             // 
             this.treeViewTrigs.CheckBoxes = true;
             this.treeViewTrigs.Dock = System.Windows.Forms.DockStyle.Fill;
             this.treeViewTrigs.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.treeViewTrigs.Location = new System.Drawing.Point(0, 30);
+            this.treeViewTrigs.Location = new System.Drawing.Point(0, 33);
             this.treeViewTrigs.Name = "treeViewTrigs";
             this.treeViewTrigs.ShowNodeToolTips = true;
-            this.treeViewTrigs.Size = new System.Drawing.Size(483, 530);
+            this.treeViewTrigs.Size = new System.Drawing.Size(483, 527);
             this.treeViewTrigs.TabIndex = 1;
             this.treeViewTrigs.BeforeCheck += new System.Windows.Forms.TreeViewCancelEventHandler(this.treeViewTrigs_BeforeCheck);
             this.treeViewTrigs.AfterCheck += new System.Windows.Forms.TreeViewEventHandler(this.treeViewTrigs_AfterCheck);
@@ -276,6 +271,7 @@ namespace ACT_TriggerTree
             // panel2
             // 
             this.panel2.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.panel2.Controls.Add(this.toolStrip1);
             this.panel2.Controls.Add(this.checkBoxCurrentCategory);
             this.panel2.Controls.Add(this.label4);
             this.panel2.Controls.Add(this.buttonFindNext);
@@ -283,8 +279,43 @@ namespace ACT_TriggerTree
             this.panel2.Dock = System.Windows.Forms.DockStyle.Top;
             this.panel2.Location = new System.Drawing.Point(0, 0);
             this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(483, 30);
+            this.panel2.Size = new System.Drawing.Size(483, 33);
             this.panel2.TabIndex = 0;
+            // 
+            // toolStrip1
+            // 
+            this.toolStrip1.Dock = System.Windows.Forms.DockStyle.None;
+            this.toolStrip1.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
+            this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.toolStripButtonNew,
+            this.toolStripButtonResults});
+            this.toolStrip1.Location = new System.Drawing.Point(4, 3);
+            this.toolStrip1.Name = "toolStrip1";
+            this.toolStrip1.Size = new System.Drawing.Size(82, 26);
+            this.toolStrip1.TabIndex = 4;
+            this.toolStrip1.Text = "toolStrip1";
+            // 
+            // toolStripButtonNew
+            // 
+            this.toolStripButtonNew.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonNew.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonNew.Name = "toolStripButtonNew";
+            this.toolStripButtonNew.Size = new System.Drawing.Size(23, 23);
+            this.toolStripButtonNew.Text = "+";
+            this.toolStripButtonNew.ToolTipText = "Add New Trigger";
+            this.toolStripButtonNew.Click += new System.EventHandler(this.toolStripButtonNew_Click);
+            // 
+            // toolStripButtonResults
+            // 
+            this.toolStripButtonResults.CheckOnClick = true;
+            this.toolStripButtonResults.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonResults.Font = new System.Drawing.Font("Webdings", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
+            this.toolStripButtonResults.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonResults.Name = "toolStripButtonResults";
+            this.toolStripButtonResults.Size = new System.Drawing.Size(25, 23);
+            this.toolStripButtonResults.Text = "2";
+            this.toolStripButtonResults.ToolTipText = "Enable Results Tabs Popup";
+            this.toolStripButtonResults.Click += new System.EventHandler(this.toolStripButtonResults_Click);
             // 
             // checkBoxCurrentCategory
             // 
@@ -295,7 +326,7 @@ namespace ACT_TriggerTree
             this.checkBoxCurrentCategory.Location = new System.Drawing.Point(372, 7);
             this.checkBoxCurrentCategory.Name = "checkBoxCurrentCategory";
             this.checkBoxCurrentCategory.Size = new System.Drawing.Size(59, 17);
-            this.checkBoxCurrentCategory.TabIndex = 3;
+            this.checkBoxCurrentCategory.TabIndex = 1;
             this.checkBoxCurrentCategory.Text = "current";
             this.toolTip1.SetToolTip(this.checkBoxCurrentCategory, "Search only the current category");
             this.checkBoxCurrentCategory.UseVisualStyleBackColor = true;
@@ -304,7 +335,7 @@ namespace ACT_TriggerTree
             // label4
             // 
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(4, 8);
+            this.label4.Location = new System.Drawing.Point(75, 7);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(30, 13);
             this.label4.TabIndex = 2;
@@ -318,24 +349,11 @@ namespace ACT_TriggerTree
             this.buttonFindNext.Location = new System.Drawing.Point(437, 2);
             this.buttonFindNext.Name = "buttonFindNext";
             this.buttonFindNext.Size = new System.Drawing.Size(38, 23);
-            this.buttonFindNext.TabIndex = 1;
+            this.buttonFindNext.TabIndex = 2;
             this.buttonFindNext.Text = "8";
             this.toolTip1.SetToolTip(this.buttonFindNext, "Find the next matching trigger");
             this.buttonFindNext.UseVisualStyleBackColor = true;
             this.buttonFindNext.Click += new System.EventHandler(this.buttonFindNext_Click);
-            // 
-            // textBoxTrigFind
-            // 
-            this.textBoxTrigFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxTrigFind.ButtonTextClear = true;
-            this.textBoxTrigFind.Location = new System.Drawing.Point(40, 4);
-            this.textBoxTrigFind.Name = "textBoxTrigFind";
-            this.textBoxTrigFind.Size = new System.Drawing.Size(326, 20);
-            this.textBoxTrigFind.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.textBoxTrigFind, "Incremental search for text in the trigger\'s regular expression, alert, or timer " +
-        "name");
-            this.textBoxTrigFind.TextChanged += new System.EventHandler(this.textBoxFind_TextChanged);
             // 
             // contextMenuStripTrig
             // 
@@ -461,7 +479,7 @@ namespace ACT_TriggerTree
             this.toolStripSeparator7,
             this.categorySpellTimersMenuItem});
             this.contextMenuStripCat.Name = "contextMenuStrip2";
-            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 170);
+            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 148);
             this.contextMenuStripCat.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripCat_Opening);
             // 
             // copyZoneNameToClipboardToolStripMenuItem
@@ -564,6 +582,31 @@ namespace ACT_TriggerTree
             this.label2.Text = "Double-click to edit trigger fields. Expand a trigger for checkbox and right-clic" +
     "k actions on sub-items.";
             // 
+            // textBoxCatFind
+            // 
+            this.textBoxCatFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxCatFind.ButtonTextClear = true;
+            this.textBoxCatFind.Location = new System.Drawing.Point(40, 4);
+            this.textBoxCatFind.Name = "textBoxCatFind";
+            this.textBoxCatFind.Size = new System.Drawing.Size(148, 20);
+            this.textBoxCatFind.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
+            this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
+            // 
+            // textBoxTrigFind
+            // 
+            this.textBoxTrigFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxTrigFind.ButtonTextClear = true;
+            this.textBoxTrigFind.Location = new System.Drawing.Point(109, 4);
+            this.textBoxTrigFind.Name = "textBoxTrigFind";
+            this.textBoxTrigFind.Size = new System.Drawing.Size(257, 20);
+            this.textBoxTrigFind.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.textBoxTrigFind, "Incremental search for text in the trigger\'s regular expression, alert, or timer " +
+        "name");
+            this.textBoxTrigFind.TextChanged += new System.EventHandler(this.textBoxFind_TextChanged);
+            // 
             // TriggerTree
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -581,6 +624,8 @@ namespace ACT_TriggerTree
             this.panel3.PerformLayout();
             this.panel2.ResumeLayout(false);
             this.panel2.PerformLayout();
+            this.toolStrip1.ResumeLayout(false);
+            this.toolStrip1.PerformLayout();
             this.contextMenuStripTrig.ResumeLayout(false);
             this.contextMenuStripCat.ResumeLayout(false);
             this.panel1.ResumeLayout(false);
@@ -628,6 +673,12 @@ namespace ACT_TriggerTree
         private ToolStripMenuItem editTriggerToolStripMenuItem;
         private ToolStripSeparator toolStripSeparator7;
         private ToolStripMenuItem categorySpellTimersMenuItem;
+        private System.Windows.Forms.CheckBox checkBoxCurrentCategory;
+        private LinkLabel linkLabel1;
+        private ToolStripMenuItem shareDialogMenuItem;
+        private ToolStrip toolStrip1;
+        private ToolStripButton toolStripButtonNew;
+        private ToolStripButton toolStripButtonResults;
 
         #endregion
 
@@ -643,8 +694,8 @@ namespace ACT_TriggerTree
 		{
 			lblStatus = pluginStatusText;	            // Hand the status label's reference to our local var
 			pluginScreenSpace.Controls.Add(this);	    // Add this UserControl to the tab ACT provides
-			this.Dock = DockStyle.Fill;	                // Expand the UserControl to fill the tab's client space
-			xmlSettings = new SettingsSerializer(this); // Create a new settings serializer and pass it this instance
+			this.Dock = DockStyle.Fill;                 // Expand the UserControl to fill the tab's client space
+            xmlSerializer = new XmlSerializer(typeof(Config));
 
             LoadSettings();
 
@@ -657,7 +708,13 @@ namespace ACT_TriggerTree
             triggerBlankImage = triggerImages.Images.Count;
             treeViewTrigs.ImageList = triggerImages;
 
+            formResultsTabs = new FormResultsTabs(config);
+
             PopulateCatsTree();
+
+            Debug.WriteLine(ActGlobals.oFormActMain.ZoneChangeRegex.ToString());
+            //Regex rezc = new Regex(@"\(\d{10}\)\[.{24}\] You have entered (?::.+?:)?(?:\\#[0-9A-F]{6})?(?<zone>.+)\.", RegexOptions.Compiled);
+            //ActGlobals.oFormActMain.ZoneChangeRegex = rezc;
 
             ActGlobals.oFormActMain.OnLogLineRead += OFormActMain_OnLogLineRead;        //for zone change
             ActGlobals.oFormActMain.XmlSnippetAdded += OFormActMain_XmlSnippetAdded;    //for incoming shared trigger
@@ -674,7 +731,14 @@ namespace ACT_TriggerTree
 
         public void DeInitPlugin()
 		{
-			// Unsubscribe from any events you listen to when exiting!
+            formResultsTabs.DeInit();
+            formResultsTabs.Close();
+            if(addEditButton != null)
+                addEditButton.Click -= AddEditButton_Click;
+            if(removeButton != null)
+                removeButton.Click -= RemoveButton_Click;
+
+            // Unsubscribe from any events you listen to when exiting!
             ActGlobals.oFormActMain.OnLogLineRead -= OFormActMain_OnLogLineRead;
             ActGlobals.oFormActMain.XmlSnippetAdded -= OFormActMain_XmlSnippetAdded;
 
@@ -751,32 +815,24 @@ namespace ACT_TriggerTree
 
         void LoadSettings()
 		{
-            xmlSettings.AddIntSetting("saveSplitterLoc");
-
             if (File.Exists(settingsFile))
-			{
-				FileStream fs = new FileStream(settingsFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-				XmlTextReader xReader = new XmlTextReader(fs);
-
-				try
-				{
-					while (xReader.Read())
-					{
-						if (xReader.NodeType == XmlNodeType.Element)
-						{
-							if (xReader.LocalName == "SettingsSerializer")
-							{
-								xmlSettings.ImportFromXml(xReader);
-							}
-						}
-					}
-				}
-				catch (Exception ex)
-				{
-					lblStatus.Text = "Error loading settings: " + ex.Message;
-				}
-				xReader.Close();
+            {
+                try
+                {
+                    using (FileStream xfs = new FileStream(settingsFile, FileMode.Open))
+                    {
+                        config = (Config)xmlSerializer.Deserialize(xfs);
+                    }
+                    toolStripButtonResults.Checked = config.ResultsPopup;
+                }
+                catch (Exception ex)
+                {
+                    lblStatus.Text = "Error loading settings: " + ex.Message;
+                    config = new Config();
+                }
             }
+            else
+                config = new Config();
         }
 
         void SaveSettings()
@@ -785,24 +841,15 @@ namespace ACT_TriggerTree
             // but only save it if it was ever set
             if (!neverBeenVisible)
             {
-                saveSplitterLoc = splitContainer1.SplitterDistance;
+                config.SettingsSerializer.Int32.Value = splitContainer1.SplitterDistance;
             }
 
-            FileStream fs = new FileStream(settingsFile, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
-			XmlTextWriter xWriter = new XmlTextWriter(fs, Encoding.UTF8);
-			xWriter.Formatting = Formatting.Indented;
-			xWriter.Indentation = 1;
-			xWriter.IndentChar = '\t';
-			xWriter.WriteStartDocument(true);
-			xWriter.WriteStartElement("Config");	// <Config>
-			xWriter.WriteStartElement("SettingsSerializer");	// <Config><SettingsSerializer>
-			xmlSettings.ExportToXml(xWriter);	// Fill the SettingsSerializer XML
-			xWriter.WriteEndElement();	// </SettingsSerializer>
-			xWriter.WriteEndElement();	// </Config>
-			xWriter.WriteEndDocument();	// Tie up loose ends (shouldn't be any)
-			xWriter.Flush();	        // Flush the file buffer to disk
-			xWriter.Close();
-		}
+            using (TextWriter writer = new StreamWriter(settingsFile))
+            {
+                xmlSerializer.Serialize(writer, config);
+                writer.Close();
+            }
+        }
 
         private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
@@ -832,12 +879,18 @@ namespace ACT_TriggerTree
         {
             //try to save the current selection
             string prevCat = string.Empty;
+            List<TreeNode> expnodes = new List<TreeNode>();
             if (treeDict != null)
             {
                 TreeNode sel = treeViewCats.SelectedNode;
                 if(sel != null)
                 {
                     prevCat = sel.Text;
+                    foreach(TreeNode tn in treeViewTrigs.Nodes)
+                    {
+                        if (tn.IsExpanded)
+                            expnodes.Add(tn);
+                    }
                 }
             }
 
@@ -867,6 +920,38 @@ namespace ACT_TriggerTree
                     {
                         list.Add(trigger);
                     }
+                    // if there is a result tab, add it to our watch list
+                    if (trigger.Tabbed)
+                    {
+                        formResultsTabs.AddTab(trigger.ResultsTab);
+
+                        if (resultsTabCtrl == null && trigger.ResultsTab.Parent != null)
+                        {
+                            // save the tab ctrl for adding back a removed tab
+                            resultsTabCtrl = (TabControl)trigger.ResultsTab.Parent;
+
+                            // to keep up with Results Tabs enable/disable,
+                            // we need to monitor ACT's Add/Edit button
+                            TabPage trigtab = resultsTabCtrl.TabPages[0];
+                            foreach (Control ctrl in trigtab.Controls)
+                            {
+                                if (ctrl.GetType() == typeof(Button))
+                                {
+                                    Button button = (Button)ctrl;
+                                    if (button.Text == "Add/Edit")
+                                    {
+                                        addEditButton = button;
+                                        addEditButton.Click += AddEditButton_Click;
+                                    }
+                                    else if(button.Text == "&Remove")
+                                    {
+                                        removeButton = button;
+                                        removeButton.Click += RemoveButton_Click;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             UpdateCategoryColors(ActGlobals.oFormActMain, treeViewCats, false);
@@ -879,6 +964,12 @@ namespace ACT_TriggerTree
                 {
                     treeViewCats.SelectedNode = nodes[0];
                     treeViewCats.SelectedNode.EnsureVisible();
+                    foreach (TreeNode node in expnodes)
+                    {
+                        TreeNode[] NodeList = treeViewTrigs.Nodes.Find(node.Name, true);
+                        if (NodeList.Length > 0)
+                            NodeList[0].Expand();
+                    }
                 }
             }
             else
@@ -886,6 +977,18 @@ namespace ACT_TriggerTree
                 if(treeViewCats.Nodes.Count > 0)
                     treeViewCats.SelectedNode = treeViewCats.Nodes[0];
             }
+        }
+
+        private void RemoveButton_Click(object sender, EventArgs e)
+        {
+            // user pressed the ACT Custom Triggers Remove button
+            PopulateCatsTree();
+        }
+
+        private void AddEditButton_Click(object sender, EventArgs e)
+        {
+            // user pressed the ACT Custom Triggers Add/Edit button
+            PopulateCatsTree();
         }
 
         delegate void UpdateCategoryColorsCallback(Form parent, TreeView target, bool autoSelect);
@@ -1037,7 +1140,6 @@ namespace ACT_TriggerTree
                 string category = treeViewCats.SelectedNode.Text;
 
                 UpdateTriggerList(category);
-                //UpdateCategoryColors(ActGlobals.oFormActMain, treeViewCats, false);
                 treeViewCats.SelectedNode.BackColor = activeBackground;
             }
         }
@@ -1495,6 +1597,7 @@ namespace ACT_TriggerTree
                     TreeNode parent = new TreeNode(trigger.RegEx.ToString());
                     parent.Checked = trigger.Active;
                     parent.Tag = trigger;
+                    parent.Name = trigger.RegEx.ToString();
                     if (Macros.IsInvalidMacroTrigger(trigger))
                     {
                         parent.ImageIndex = triggerNoMacro;
@@ -1531,8 +1634,8 @@ namespace ACT_TriggerTree
 
                     //add tab child
                     parent.Nodes.Add(tabLabel).Checked = trigger.Tabbed;
-                    indexAlertTab = 3;
-                    parent.Nodes[indexAlertTab].ImageIndex = parent.Nodes[indexAlertTab].SelectedImageIndex = triggerBlankImage;
+                    indexResultsTab = 3;
+                    parent.Nodes[indexResultsTab].ImageIndex = parent.Nodes[indexResultsTab].SelectedImageIndex = triggerBlankImage;
 
                     //timer name child
                     parent.Nodes.Add(timerNameLabel + trigger.TimerName).Checked = trigger.Timer || trigger.Tabbed;
@@ -1603,8 +1706,8 @@ namespace ACT_TriggerTree
                 if (neverBeenVisible)
                 {
                     //set the splitter only on the first time shown
-                    if (saveSplitterLoc > 0)
-                        splitContainer1.SplitterDistance = saveSplitterLoc;
+                    if (config.SettingsSerializer.Int32.Value > 0)
+                        splitContainer1.SplitterDistance = config.SettingsSerializer.Int32.Value;
                     neverBeenVisible = false;
                 }
             }
@@ -1614,6 +1717,9 @@ namespace ACT_TriggerTree
         {
             bool updateACT = false;
             CustomTrigger trigger = null;
+            
+            if (e.Action != TreeViewAction.ByMouse)
+                return; // ignore calls that are not user initiated
 
             if (e.Node.Tag != null)
             {
@@ -1624,6 +1730,7 @@ namespace ACT_TriggerTree
                 {
                     trigger.Active = e.Node.Checked;
                     UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
+                    UpdateCategoryColors(ActGlobals.oFormActMain, treeViewCats, false);
                     updateACT = true;
                 }
             }
@@ -1649,7 +1756,7 @@ namespace ACT_TriggerTree
                                 e.Node.Parent.Nodes[indexTimerName].Checked = trigger.Timer || trigger.Tabbed;
                             updateACT = true;
                         }
-                        else if(e.Node.Index == indexAlertTab)
+                        else if(e.Node.Index == indexResultsTab)
                         {
                             trigger.Tabbed = e.Node.Checked;
                             if (e.Node.Parent.Nodes.Count > indexTimerName)
@@ -1664,8 +1771,29 @@ namespace ACT_TriggerTree
             {
                 //update the Custom Triggers tab, the trigger itself is already changed
                 ActGlobals.oFormActMain.AddEditCustomTrigger(trigger);
+                if (trigger.Tabbed)
+                    UpdateResultsTab(trigger);
             }
 
+        }
+
+        private void UpdateResultsTab(CustomTrigger trigger)
+        {
+            if (trigger.ResultsTab.Text != trigger.TimerName && !string.IsNullOrEmpty(trigger.TimerName))
+                trigger.ResultsTab.Text = trigger.TimerName; // make both names match
+
+            formResultsTabs.AddTab(trigger.ResultsTab);
+            if (trigger.ResultsTab != null)
+            {
+                // if we programatically toggle a tab off, then back on,
+                // ACT does not re-add the tab to the tabcontrol
+                // so we need to do it
+                // (if the tab is removed then added using ACT's Custom Triggers page, it does re-add the tab)
+                if (resultsTabCtrl != null && trigger.ResultsTab.Parent == null)
+                {
+                    resultsTabCtrl.TabPages.Add(trigger.ResultsTab);
+                }
+            }
         }
 
         private void PositionChildForm(Form form, Point loc)
@@ -1701,6 +1829,11 @@ namespace ACT_TriggerTree
             {
                 //update the display
                 RefreshTriggerChildren(arg.editedTrigger);
+                if (arg.editedTrigger.Tabbed)
+                {
+                    // if the name was changed, need to re-synchronize
+                    UpdateResultsTab(arg.editedTrigger);
+                }
             }
         }
 
@@ -1725,6 +1858,8 @@ namespace ACT_TriggerTree
                 //new / edited trigger
                 // If the regex or category was changed, this is required to update the dictionary
                 ActGlobals.oFormActMain.AddEditCustomTrigger(args.editedTrigger);
+                if (args.editedTrigger.Tabbed)
+                    UpdateResultsTab(args.editedTrigger);
 
                 PopulateCatsTree();
                 if (args.result == FormEditTrigger.EventResult.CREATE_NEW)
@@ -1764,7 +1899,7 @@ namespace ACT_TriggerTree
                     // since it doesn't really mean anything
                     // but this only mostly works due to bugs in treeview double-clicking
                     if (e.Node.Parent.Nodes[indexTimer].Checked
-                        || e.Node.Parent.Nodes[indexAlertTab].Checked)
+                        || e.Node.Parent.Nodes[indexResultsTab].Checked)
                     {
                         if (e.Node.Checked)
                             e.Cancel = true;
@@ -1998,15 +2133,7 @@ namespace ACT_TriggerTree
                 {
                     //clicked an empty line
                     //start a brand new trigger
-                    string category = " General";
-                    if (treeViewCats.SelectedNode != null)
-                        category = treeViewCats.SelectedNode.Text;
-                    CustomTrigger trigger = new CustomTrigger("new expression", category);
-                    trigger.RestrictToCategoryZone = category.Contains("["); //set restrict if it kinda looks like a zone name
-                    FormEditTrigger formEditTrigger = new FormEditTrigger(trigger, zoneName);
-                    formEditTrigger.EditDoneEvent += Trigger_EditDoneEvent; //callback for when the edit is done
-                    formEditTrigger.haveOriginal = false; //disable the replace button since there is nothing to replace
-                    formEditTrigger.Show(this);
+                    FormEditTrigger formEditTrigger = NewTrigger();
                     if (lastEditLoc.IsEmpty && lastEditSize.IsEmpty)
                         PositionChildForm(formEditTrigger, whereTrigMouseDown);
                     else
@@ -2020,6 +2147,20 @@ namespace ACT_TriggerTree
             {
                 isDoubleClick = e.Clicks > 1; //used to prevent expand/collapse on double click
             }
+        }
+
+        private FormEditTrigger NewTrigger()
+        {
+            string category = " General";
+            if (treeViewCats.SelectedNode != null)
+                category = treeViewCats.SelectedNode.Text;
+            CustomTrigger trigger = new CustomTrigger("new expression", category);
+            trigger.RestrictToCategoryZone = category.Contains("["); //set restrict if it kinda looks like a zone name
+            FormEditTrigger formEditTrigger = new FormEditTrigger(trigger, zoneName);
+            formEditTrigger.EditDoneEvent += Trigger_EditDoneEvent; //callback for when the edit is done
+            formEditTrigger.haveOriginal = false; //disable the replace button since there is nothing to replace
+            formEditTrigger.Show(this);
+            return formEditTrigger;
         }
 
         private void treeViewTrigs_BeforeCollapse(object sender, TreeViewCancelEventArgs e)
@@ -2085,6 +2226,18 @@ namespace ACT_TriggerTree
                     }
                 }
             }
+        }
+
+        private void toolStripButtonNew_Click(object sender, EventArgs e)
+        {
+            FormEditTrigger formEditTrigger = NewTrigger();
+            Point center = new Point(treeViewTrigs.Right/2 - formEditTrigger.Width/2, treeViewTrigs.Bottom/2 - formEditTrigger.Height/2);
+            PositionChildForm(formEditTrigger, treeViewTrigs.PointToScreen(center));
+        }
+
+        private void toolStripButtonResults_Click(object sender, EventArgs e)
+        {
+            config.ResultsPopup = toolStripButtonResults.Checked;
         }
 
         #region --------------- Triggers Context Menu
@@ -2402,12 +2555,18 @@ namespace ACT_TriggerTree
                 if (silently)
                     doit = true;
                 else
-                    doit = SimpleMessageBox.Show(ActGlobals.oFormActMain, @"\ql" + trigger.ShortRegexString, "Delete Trigger?",
+                    doit = SimpleMessageBox.Show(ActGlobals.oFormActMain, @"\ql " + trigger.ShortRegexString, "Delete Trigger?",
                         MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
                 if (doit)
                 {
-                    if (ActGlobals.oFormActMain.CustomTriggers.Remove(category + "|" + trigger.ShortRegexString))
+                    string key = category + "|" + trigger.ShortRegexString;
+                    CustomTrigger ct;
+                    ActGlobals.oFormActMain.CustomTriggers.TryGetValue(key, out ct);
+                    if (ct != null)
                     {
+                        if (ct.Tabbed)
+                            resultsTabCtrl.TabPages.Remove(ct.ResultsTab);
+                        ActGlobals.oFormActMain.CustomTriggers.Remove(key);
                         ActGlobals.oFormActMain.RebuildActiveCustomTriggers();
                         PopulateCatsTree();
                         UpdateTriggerList(category);

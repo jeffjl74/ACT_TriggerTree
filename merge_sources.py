@@ -11,7 +11,11 @@ files.extend(['FormHistogram.cs', 'FormHistogram.Designer.cs'])
 files.extend(['TextBoxX.cs', 'TextBoxX.designer.cs'])
 files.extend(['SimpleMessageBox.cs', 'SimpleMessageBox.designer.cs'])
 files.extend(['XmlCopyForm.cs', 'XmlCopyForm.Designer.cs'])
+files.extend(['HeaderListView.cs', 'HeaderListView.Designer.cs'])
+files.extend(['FormResultsTabs.cs', 'FormResultsTabs.Designer.cs'])
+files.extend(['ListViewDateComparer.cs'])
 files.extend(['Macros.cs'])
+files.extend(['Config.cs'])
 
 merged = []
 usings = []

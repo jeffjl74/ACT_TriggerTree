@@ -65,6 +65,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Config.cs" />
     <Compile Include="FormEditSound.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -89,6 +90,19 @@
     <Compile Include="FormHistogram.Designer.cs">
       <DependentUpon>FormHistogram.cs</DependentUpon>
     </Compile>
+    <Compile Include="FormResultsTabs.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormResultsTabs.Designer.cs">
+      <DependentUpon>FormResultsTabs.cs</DependentUpon>
+    </Compile>
+    <Compile Include="HeaderListView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="HeaderListView.Designer.cs">
+      <DependentUpon>HeaderListView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ListViewDateComparer.cs" />
     <Compile Include="Macros.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -129,6 +143,12 @@
     </EmbeddedResource>
     <EmbeddedResource Include="FormHistogram.resx">
       <DependentUpon>FormHistogram.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FormResultsTabs.resx">
+      <DependentUpon>FormResultsTabs.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="HeaderListView.resx">
+      <DependentUpon>HeaderListView.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
