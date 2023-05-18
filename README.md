@@ -15,11 +15,13 @@ Additional features of the plugin:
 * The __Find__ boxes at the top of the Category and Trigger panes provide incremental searches.
 
 ### Version 1.5.0 Changes:
-* Rework handling of Custom Triggers Results Tabs checkboxes for better coordination with ACT.
-* Added a [category context menu](#category-pane) to enable / disable all triggers in the category.
+* Added the [category context menus](#category-menus) to
+  * Enable/disable all triggers in the category providing the function of the category-level checkbox in ACT.
+  * Add an option to handle EQII zone names like __\\#00FF00Buried Takish'Hiz: Empire of Antiquity [Contested] 3__
 * Added two buttons at the top left of the triggers panel:
   * The "plus" button provides an alternate way to open the [edit trigger dialog](#edit-all-fields) for a new trigger.
   * The "windows" button enables a popup [alternate view of the "Results Tabs"](#results-tab) of ACT's Custom Triggers.
+* Rework handling of Custom Triggers Results Tabs checkboxes for better coordination with ACT, including an alternate view.
 
 ## Editing Triggers
 Trigger details are available by clicking the + next to the trigger.  A context menu is provided via a right-click on a trigger, as shown below.
@@ -42,7 +44,7 @@ To create a new trigger, right-click in a blank area in the trigger pane or pres
 ![Edit Trigger](images/edit-trigger.png)
 
 Features of the edit trigger dialog:
-* If the Regular Expression or Category / Zone fields are changed, the dialog allows either replacing the original trigger or creating a new trigger. Editing other fields updates the existing trigger.
+* If the _Regular Expression_ or _Category / Zone_ fields are changed, the dialog allows either replacing the original trigger or creating a new trigger. Editing other fields updates the existing trigger.
 * The paste clipboard button will recognize a log line copied from ACT's View Logs list and reformat the line to be a valid Regular Expression.
 * While typing in the Regular Expression box, the text turns red if the expression is invalid.
 * Selecting text in the Regular Expression and right-clicking provides a context menu that can replace the selection with a capture group.
@@ -55,7 +57,7 @@ Features of the edit trigger dialog:
 ### Results Tabs
 When the trigger's __Add Results tab__ checkbox is checked, ACT adds a tab next to the __Triggers__ tab. The tab is named using the __Timer / Tab Name__ and lists data from log lines that match the trigger.
 
-When the ![results](images/results-tab-button.png) button in the plugin's triggers pane is pressed, the plugin will generate another view of the results tabs upon the occurrance of a trigger with a checked _Add Results tab_. The plugin's view is a popup stay-on-top window. Instead of tabs, the plugin stacks the trigger data in a single view. A demonstration with 2 tabs is shown below:
+When the trigger pane ![results](images/results-tab-button.png) button is pressed, the plugin will generate another view of the results tabs upon the occurrance of a trigger with a checked _Add Results tab_. The plugin's view is a popup stay-on-top window. Instead of tabs, the plugin stacks the trigger data in a single view. A demonstration with 2 tabs is shown below:
 
 ![results](images/results-tabs.png)
 
@@ -65,9 +67,9 @@ The plugin just provides another view of the data collected by ACT. To clear a t
 
 Closing the plugin's window also does not clear the data. When a new trigger occurs, the window will re-open showing both the old and new items.
 
-Pressing the red X button on a tab will hide (actually, just not draw) any items with a Time Stamp older than the time when the button is pressed. The tab itself remains visible. The items are actually still in the list since they are still in ACT's list, so a scroll bar may show up when it looks unnecessary. Un-pressing the button will show all items again. A pressed button has the  blue-ish background, like the bottom tab in the example above.
+Pressing the red X button on a tab will hide (actually, just not draw) any items with a Time Stamp older than the time when the button is pressed. The tab itself remains visible. The items are actually still in the list since they are still in ACT's list, so a scroll bar may show up when it looks unnecessary. Un-pressing the button will show all items again. A pressed button has the  blue-ish background, like the bottom tab in the example above. Note that this button may not work as expected since ACT only stores the log line time and not the date. Any entries from a different date (like playing through midnight or importing an old log file) may not clear. Use ACT's __[Clear Items]__ instead.
 
-There is a minor difference between re-enabling a Results Tab using ACT's Custom Triggers tab [Add/Edit] button versus checking the checkbox in the plugin. In the plugin, if a previously disabled tab is re-enabled by checking the checkbox, any items that were present when the checkbox was unchecked are restored when it is re-checked. In ACT, re-enabling a disabled Results Tab creates a new empty tab.
+There is a minor difference between re-enabling a Results Tab using ACT's Custom Triggers tab __[Add/Edit]__ button versus checking the checkbox in the plugin. In the plugin, if a previously disabled tab is re-enabled by checking the checkbox, any items that were present when the checkbox was unchecked are restored when it is re-checked. In ACT, re-enabling a disabled Results Tab creates a new empty tab.
 
 
 ### Show Encounters
@@ -92,9 +94,48 @@ A right-click on a category brings up the category context menu as shown below:
 
 ![Category](images/cat-context.png)
 
-The _Disable all category triggers_ choice is presented if all of the triggers in the selected category are currently enabled. If any of the triggers in the selected category are currently disabled, the menu choice becomes _Enable all category triggers_.
+The first section of this menu affects the category itself.
 
-The second section of this menu is related to sharing data via EQII macros. Macros are disussed in the [EQII Macros](#share-via-eqii-macros) section. (The numbers in parentheses are how many of the total items can be shared in a macro.)
+The second section of the category context menu is related to sharing data via EQII macros.
+
+### Category Menus
+
+The _Delete entire category_ choice will delete all the triggers in the category and the category itself.
+
+The _Modify entire category_ opens a sub menu that controls enabling or disabling all of the triggers in the category.
+
+![entire-category](images/modify-category.png)
+
+The _Enable all triggers_ is equivalent to checking ACT's _Custom Triggers_ category level checkbox.
+
+The _Disable all triggers_ is equivalent to un-checking ACT's _Custom Triggers_ category level checkbox.
+
+#### Color-coded Zone Name
+The addition of a color-code on EQII zone names, e.g. __\\#00FF00Buried Takish'Hiz: Empire of Antiquity [Contested] 3__, complicates trigger sharing since EQII strips out the color code when pasting it into a chat window. So sharing a trigger with that zone name ends up changing the category name for the player receiving the trigger to __Buried Takish'Hiz: Empire of Antiquity [Contested] 3__. If the _Restrict to Category / Zone_ checkbox is checked, the trigger will not work for the recipient.
+
+The plugin provides a work-around.
+* Create a category that does not include the color code or the instance number, e.g. __Buried Takish'Hiz: Empire of Antiquity [Contested]__
+* Check the _Enable on zone-in_ menu.
+* Add triggers appropriate for the color coded zone.
+
+When checked, the _Enable on zone-in_ provides for the following:
+* Triggers can be collected under a category that does not contain either the color code or the instance number.
+* The plugin automatically enables and disables the triggers by modifying the _Restrict to Category / Zone_ setting when entering or leaving any instance that matches just the category name without a prefix color code or postfix instance number.
+* Pressing the __[Category/Zone]__ button in the [Edit All Fields](#edit-all-fields) dialog enters the category name without the color code or instance number.
+* Shared triggers work for other users of the plugin if they also enable this setting. 
+  * Players not using the plugin are best served when the plugin user shares the triggers while they are green (i.e. you are in the zone and the triggers are not restricted). The other player can then easily enable or disable the category using the category checkbox in ACT's _Custom Triggers_ tab.
+
+In the example above, when entering a zone that EQII identifies as __\\#00FF00Buried Takish'Hiz: Empire of Antiquity [Contested] 3__, the plugin ignores the __\\#00FF00__ and the __3__, matches the resulting category name and enables all of the triggers by unchecking their _Restrict to Category / Zone_ checkbox.
+
+The example above effectively replaces having copies of triggers in three (or more) different categories
+* __\\#00FF00Buried Takish'Hiz: Empire of Antiquity [Contested]__
+* __\\#00FF00Buried Takish'Hiz: Empire of Antiquity [Contested] 2__
+* __\\#00FF00Buried Takish'Hiz: Empire of Antiquity [Contested] 3__
+
+ with their _Restrict to Category / Zone_ checkbox checked. Except that color coded triggers cannot be properly shared.
+
+### Sharing Menus
+The second section of the category context menu is related to sharing data via EQII macros. Macros are disussed in the [EQII Macros](#share-via-eqii-macros) section. (The numbers in parentheses are how many of the total items can be shared in a macro.)
 
 To build the _Category Spell Timers_ menu, the plugin searches for spell timers whose __Category__ matches the clicked category name or whose __Custom Tooltip__ contains the category name.
 
@@ -104,7 +145,7 @@ To simply share a spell timer via XML copy/paste in EQII chat, right click the s
 
 Left-click the spell timer name to open ACT's __Spell Timers (Options)__ window with a search for that timer name.
 
-### Share Dialog
+#### Share Dialog
 The __Share Dialog...__ menu opens a dialog that can speed up sharing of triggers and timers, especially when macros don't work.
 
 If an EQII game window is found, the dialog initially opens with the __[Macro]__ items listed. Otherwise, the dialog initially opens with the __[Copy]__ items listed. The list can be switched between __[Copy]__ items and __[Macro]__ items by pressing the respective button.

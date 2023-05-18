@@ -1,4 +1,5 @@
-﻿using System.Xml.Serialization;
+﻿using System.Collections.Generic;
+using System.Xml.Serialization;
 
 namespace ACT_TriggerTree
 {
@@ -19,6 +20,8 @@ namespace ACT_TriggerTree
 
         [XmlElement]
         public bool ResultsPopup = false;
+
+        public List<string> autoCats = new List<string>();
 
     }
 

@@ -8,11 +8,11 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using System.Xml.Serialization;
 using System.Data;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms.DataVisualization.Charting;
 using System.Runtime.InteropServices;
@@ -35,7 +35,13 @@ namespace ACT_TriggerTree
         //trigger dictionary - list of triggers by Category name
         Dictionary<string, List<CustomTrigger>> treeDict;
 
+        //zone
         string zoneName = string.Empty;             //most recent zone name from the log file
+        string decoratedZoneName = string.Empty;    //includes color and instance #
+        Regex reCleanLogZone = new Regex(@"\(\d{10}\)\[.{24}\] You have entered (?::.+?:)?(?:\\#[0-9A-F]{6})?(?<zone>[^.0-9]+)", RegexOptions.Compiled);
+        Regex reCleanActZone = new Regex(@"(?::.+?:)?(?:\\#[0-9A-F]{6})?(?<zone>[^.0-9]+)", RegexOptions.Compiled);
+        bool zoneMatchedEQII = false;
+        WindowsFormsSynchronizationContext mUiContext = new WindowsFormsSynchronizationContext();
 
         ImageList treeImages = new ImageList();     //category folder images
         ImageList triggerImages = new ImageList();  //trigger images
@@ -104,6 +110,9 @@ namespace ACT_TriggerTree
         XmlSerializer xmlSerializer;
         Config config;
         private ToolStripMenuItem toggleEntireCategoryToolStripMenuItem;
+        private ToolStripMenuItem enableAllTriggersToolStripMenuItem;
+        private ToolStripMenuItem disableAllTriggersToolStripMenuItem;
+        private ToolStripMenuItem enableOnZoneinToolStripMenuItem;
 
         #region Designer Created Code (Avoid editing)
 
@@ -167,6 +176,7 @@ namespace ACT_TriggerTree
             this.contextMenuStripCat = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.copyZoneNameToClipboardToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.deleteEntireCategoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toggleEntireCategoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.raidShareCategoryMacroMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.groupShareCategoryMacroMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -177,7 +187,9 @@ namespace ACT_TriggerTree
             this.panel1 = new System.Windows.Forms.Panel();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.label2 = new System.Windows.Forms.Label();
-            this.toggleEntireCategoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.enableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.disableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.enableOnZoneinToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -532,6 +544,16 @@ namespace ACT_TriggerTree
             this.deleteEntireCategoryToolStripMenuItem.ToolTipText = "Delete the category and all its triggers";
             this.deleteEntireCategoryToolStripMenuItem.Click += new System.EventHandler(this.deleteEntireCategoryToolStripMenuItem_Click);
             // 
+            // toggleEntireCategoryToolStripMenuItem
+            // 
+            this.toggleEntireCategoryToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.enableAllTriggersToolStripMenuItem,
+            this.disableAllTriggersToolStripMenuItem,
+            this.enableOnZoneinToolStripMenuItem});
+            this.toggleEntireCategoryToolStripMenuItem.Name = "toggleEntireCategoryToolStripMenuItem";
+            this.toggleEntireCategoryToolStripMenuItem.Size = new System.Drawing.Size(251, 22);
+            this.toggleEntireCategoryToolStripMenuItem.Text = "Modify entire category";
+            // 
             // toolStripSeparator4
             // 
             this.toolStripSeparator4.Name = "toolStripSeparator4";
@@ -616,12 +638,27 @@ namespace ACT_TriggerTree
             this.label2.Text = "Double-click to edit trigger fields. Expand a trigger for checkbox and right-clic" +
     "k actions on sub-items.";
             // 
-            // toggleEntireCategoryToolStripMenuItem
+            // enableAllTriggersToolStripMenuItem
             // 
-            this.toggleEntireCategoryToolStripMenuItem.Name = "toggleEntireCategoryToolStripMenuItem";
-            this.toggleEntireCategoryToolStripMenuItem.Size = new System.Drawing.Size(251, 22);
-            this.toggleEntireCategoryToolStripMenuItem.Text = "Toggle entire category";
-            this.toggleEntireCategoryToolStripMenuItem.Click += new System.EventHandler(this.toggleEntireCategoryToolStripMenuItem_Click);
+            this.enableAllTriggersToolStripMenuItem.Name = "enableAllTriggersToolStripMenuItem";
+            this.enableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.enableAllTriggersToolStripMenuItem.Text = "Enable all triggers";
+            this.enableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.enableAllTriggersToolStripMenuItem_Click);
+            // 
+            // disableAllTriggersToolStripMenuItem
+            // 
+            this.disableAllTriggersToolStripMenuItem.Name = "disableAllTriggersToolStripMenuItem";
+            this.disableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.disableAllTriggersToolStripMenuItem.Text = "Disable all triggers";
+            this.disableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.disableAllTriggersToolStripMenuItem_Click);
+            // 
+            // enableOnZoneinToolStripMenuItem
+            // 
+            this.enableOnZoneinToolStripMenuItem.Name = "enableOnZoneinToolStripMenuItem";
+            this.enableOnZoneinToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.enableOnZoneinToolStripMenuItem.Text = "Enable on zone-in";
+            this.enableOnZoneinToolStripMenuItem.ToolTipText = "Also ignores color codes and instance numbers";
+            this.enableOnZoneinToolStripMenuItem.Click += new System.EventHandler(this.enableOnZoneinToolStripMenuItem_Click);
             // 
             // TriggerTree
             // 
@@ -726,13 +763,10 @@ namespace ACT_TriggerTree
 
             formResultsTabs = new FormResultsTabs(config);
 
-            PopulateCatsTree();
-
-            Debug.WriteLine(ActGlobals.oFormActMain.ZoneChangeRegex.ToString());
-            //Regex rezc = new Regex(@"\(\d{10}\)\[.{24}\] You have entered (?::.+?:)?(?:\\#[0-9A-F]{6})?(?<zone>.+)\.", RegexOptions.Compiled);
-            //ActGlobals.oFormActMain.ZoneChangeRegex = rezc;
+            PopulateCatsTree(null);
 
             ActGlobals.oFormActMain.OnLogLineRead += OFormActMain_OnLogLineRead;        //for zone change
+            ActGlobals.oFormActMain.LogFileChanged += OFormActMain_LogFileChanged;      //for zone change
             ActGlobals.oFormActMain.XmlSnippetAdded += OFormActMain_XmlSnippetAdded;    //for incoming shared trigger
 
             if (ActGlobals.oFormActMain.GetAutomaticUpdatesAllowed())
@@ -756,7 +790,11 @@ namespace ACT_TriggerTree
 
             // Unsubscribe from any events you listen to when exiting!
             ActGlobals.oFormActMain.OnLogLineRead -= OFormActMain_OnLogLineRead;
+            ActGlobals.oFormActMain.LogFileChanged -= OFormActMain_LogFileChanged;
             ActGlobals.oFormActMain.XmlSnippetAdded -= OFormActMain_XmlSnippetAdded;
+
+            foreach(string s in config.autoCats)
+                RestrictAllTriggers(s, true);
 
             SaveSettings();
 			lblStatus.Text = "Plugin Exited";
@@ -804,19 +842,69 @@ namespace ACT_TriggerTree
 
         private void OFormActMain_OnLogLineRead(bool isImport, LogLineEventArgs logInfo)
         {
-            //Go ahead and process imports so we switch to the current category.
-
-            //lines that ACT parses have a non-zero logInfo.detectedType
-            //we only need type == 0 non-combat lines for a zone change
-            if (logInfo.detectedType == 0 && logInfo.logLine.Length > logTimeStampLength)
+            // for EQII, the English parser regexArray[9] (i.e. detectedType 10) is the one that looks for a "You have entered" zone change
+            // so we only need to watch detectedType == 10 for a zone change
+            if (logInfo.detectedType == 10)
             {
-                //look for zone change
-                if (!string.IsNullOrEmpty(logInfo.detectedZone) && logInfo.detectedZone != zoneName)
+                // pull out just the zone name (remove color and instance #)
+                Match match = reCleanLogZone.Match(logInfo.logLine);
+                if (match.Success)
                 {
-                    zoneName = logInfo.detectedZone;
-                    UpdateCategoryColors(ActGlobals.oFormActMain, treeViewCats, true);
-                    UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
+                    zoneMatchedEQII = true;
+                    decoratedZoneName = logInfo.detectedZone;
+                    string cleanZoneName = match.Groups["zone"].Value.Trim();
+                    if (config.autoCats.Contains(cleanZoneName))
+                        zoneName = cleanZoneName;
+                    else
+                        zoneName = decoratedZoneName;
+                    mUiContext.Post(CheckAutoRestrict, null);
+                    mUiContext.Post(UpdateCategoryColors, true);
+                    mUiContext.Post(UpdateTriggerColors, null);
                 }
+            }
+            // to cover other parsers without costing the time to run the EQII regex
+            if(!zoneMatchedEQII)
+            {
+                //to reduce overhead, we only use type == 0 lines that ACT did not parse
+                if (logInfo.detectedType == 0 && logInfo.logLine.Length > logTimeStampLength)
+                {
+                    //look for zone difference between what we've seen before
+                    if (!string.IsNullOrEmpty(logInfo.detectedZone) && logInfo.detectedZone != zoneName)
+                    {
+                        zoneName = decoratedZoneName = logInfo.detectedZone;
+                        mUiContext.Post(UpdateCategoryColors, true);
+                        mUiContext.Post(UpdateTriggerColors, null);
+                    }
+                }
+            }
+        }
+
+        private void OFormActMain_LogFileChanged(bool IsImport, string NewLogFileName)
+        {
+            Match match = reCleanActZone.Match(ActGlobals.oFormActMain.CurrentZone);
+            if (match.Success)
+            {
+                zoneMatchedEQII = true;
+                decoratedZoneName = ActGlobals.oFormActMain.CurrentZone;
+                string cleanZoneName = match.Groups["zone"].Value.Trim();
+                if (config.autoCats.Contains(cleanZoneName))
+                    zoneName = cleanZoneName;
+                else
+                    zoneName = decoratedZoneName;
+            }
+            else
+                zoneName = decoratedZoneName = ActGlobals.oFormActMain.CurrentZone;
+            mUiContext.Post(CheckAutoRestrict, null);
+        }
+
+        private void CheckAutoRestrict(object o)
+        {
+            foreach (string s in config.autoCats)
+            {
+                if (s == zoneName)
+                    RestrictAllTriggers(s, false);
+                else
+                    RestrictAllTriggers(s, true);
             }
         }
 
@@ -825,7 +913,7 @@ namespace ACT_TriggerTree
             if (e.ShareType == "Trigger")
             {
                 //we need to rebuild if there is a new trigger share incoming
-                PopulateCatsTree();
+                mUiContext.Post(PopulateCatsTree, null);
             }
         }
 
@@ -891,7 +979,7 @@ namespace ACT_TriggerTree
 
         #region --------------- Category Tree
 
-        void PopulateCatsTree()
+        void PopulateCatsTree(object o)
         {
             //try to save the current selection
             string prevCat = string.Empty;
@@ -946,8 +1034,8 @@ namespace ACT_TriggerTree
                             // save the tab ctrl for adding back a removed tab
                             resultsTabCtrl = (TabControl)trigger.ResultsTab.Parent;
 
-                            // to keep up with Results Tabs enable/disable,
-                            // we need to monitor ACT's Add/Edit button
+                            // to keep up with Results-Tabs enable/disable,
+                            // we need to monitor ACT's Add/Edit &Remove buttons
                             TabPage trigtab = resultsTabCtrl.TabPages[0];
                             foreach (Control ctrl in trigtab.Controls)
                             {
@@ -970,7 +1058,7 @@ namespace ACT_TriggerTree
                     }
                 }
             }
-            UpdateCategoryColors(ActGlobals.oFormActMain, treeViewCats, false);
+            mUiContext.Post(UpdateCategoryColors, false);
 
             //try to restore previous selection
             if (!string.IsNullOrEmpty(prevCat))
@@ -998,48 +1086,40 @@ namespace ACT_TriggerTree
         private void RemoveButton_Click(object sender, EventArgs e)
         {
             // user pressed the ACT Custom Triggers Remove button
-            PopulateCatsTree();
+            PopulateCatsTree(null);
         }
 
         private void AddEditButton_Click(object sender, EventArgs e)
         {
             // user pressed the ACT Custom Triggers Add/Edit button
-            PopulateCatsTree();
+            PopulateCatsTree(null);
         }
 
-        delegate void UpdateCategoryColorsCallback(Form parent, TreeView target, bool autoSelect);
-        private void UpdateCategoryColors(Form parent, TreeView target, bool autoSelect)
+        private void UpdateCategoryColors(object o)
         {
-            if (target.InvokeRequired)
+            bool autoSelect = (bool)o;
+            foreach (TreeNode category in treeViewCats.Nodes)
             {
-                UpdateCategoryColorsCallback cb = new UpdateCategoryColorsCallback(UpdateCategoryColors);
-                parent.Invoke(cb, new object[] { parent, target, autoSelect });
-            }
-            else
-            {
-                foreach (TreeNode category in treeViewCats.Nodes)
+                category.BackColor = inactiveBackground; //default
+                category.Tag = false; //no active triggers
+                string key = category.Text;
+                List<CustomTrigger> list;
+                if(treeDict.TryGetValue(key, out list))
                 {
-                    category.BackColor = inactiveBackground; //default
-                    category.Tag = false; //no active triggers
-                    string key = category.Text;
-                    List<CustomTrigger> list;
-                    if(treeDict.TryGetValue(key, out list))
+                    //look through the triggers to determine if the category should be green
+                    foreach(CustomTrigger trigger in list)
                     {
-                        //look through the triggers to determine if the category should be green
-                        foreach(CustomTrigger trigger in list)
+                        if (trigger.Active)
                         {
-                            if (trigger.Active)
+                            if (trigger.RestrictToCategoryZone == false || key.Equals(zoneName) || key.Equals(decoratedZoneName))
                             {
-                                if (trigger.RestrictToCategoryZone == false || key.Equals(zoneName))
+                                category.BackColor = activeBackground;
+                                category.Tag = true; //active triggers in this category, for drawing the color
+                                if(key.Equals(zoneName) && autoSelect)
                                 {
-                                    category.BackColor = activeBackground;
-                                    category.Tag = true; //active triggers in this category, for drawing the color
-                                    if(key.Equals(zoneName) && autoSelect)
-                                    {
-                                        treeViewCats.SelectedNode = category;
-                                    }
-                                    break;
+                                    treeViewCats.SelectedNode = category;
                                 }
+                                break;
                             }
                         }
                     }
@@ -1341,11 +1421,7 @@ namespace ACT_TriggerTree
                             inactive++;
                     }
 
-                    if ((active > 0 && inactive > 0) || active == 0)
-                        toggleEntireCategoryToolStripMenuItem.Text = "Enable all category triggers";
-                    else if(inactive == 0)
-                        toggleEntireCategoryToolStripMenuItem.Text = "Disable all category triggers";
-
+                    enableOnZoneinToolStripMenuItem.Checked = config.autoCats.Contains(category);
 
                     if (valid == 0)
                     {
@@ -1533,29 +1609,87 @@ namespace ACT_TriggerTree
             return result;
         }
 
-        private void toggleEntireCategoryToolStripMenuItem_Click(object sender, EventArgs e)
+        private void RestrictAllTriggers(string catName, bool state)
+        {
+            List<CustomTrigger> triggers;
+            if (treeDict.TryGetValue(catName, out triggers))
+            {
+                foreach (CustomTrigger trigger in triggers)
+                {
+                    trigger.RestrictToCategoryZone = state;
+                    ActGlobals.oFormActMain.AddEditCustomTrigger(trigger);
+                }
+                if (catName == treeViewCats.SelectedNode.Text)
+                    UpdateTriggerList(catName);
+            }
+        }
+
+        private void EnableAllTriggers(string catName, bool state)
+        {
+            List<CustomTrigger> triggers;
+            if (treeDict.TryGetValue(catName, out triggers))
+            {
+                foreach (CustomTrigger trigger in triggers)
+                {
+                    trigger.Active = state;
+                    ActGlobals.oFormActMain.AddEditCustomTrigger(trigger);
+                }
+            }
+        }
+
+        private void enableAllTriggersToolStripMenuItem_Click(object sender, EventArgs e)
         {
             if (clickedCategoryNode != null)
             {
-                List<CustomTrigger> triggers;
+                EnableAllTriggers(clickedCategoryNode.Text, true);
+                UpdateCategoryColors(false);
+                if(clickedCategoryNode.Text == treeViewCats.SelectedNode.Text)
+                    UpdateTriggerList(clickedCategoryNode.Text);
+            }
+        }
+
+        private void disableAllTriggersToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (clickedCategoryNode != null)
+            {
+                EnableAllTriggers(clickedCategoryNode.Text, false);
+                UpdateCategoryColors(false);
+                if(clickedCategoryNode.Text == treeViewCats.SelectedNode.Text)
+                    UpdateTriggerList(clickedCategoryNode.Text);
+            }
+        }
+
+        private void enableOnZoneinToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (clickedCategoryNode != null)
+            {
                 string category = clickedCategoryNode.Text;
-                if (treeDict.TryGetValue(category, out triggers))
+                if (enableOnZoneinToolStripMenuItem.Checked)
                 {
-                    if(toggleEntireCategoryToolStripMenuItem.Text == "Enable all category triggers")
+                    RestrictAllTriggers(category, true);
+                    config.autoCats.Remove(category);
+                    enableOnZoneinToolStripMenuItem.Checked = false;
+                    if(config.autoCats.Count == 0)
+                        zoneMatchedEQII = false;
+                }
+                else
+                {
+                    config.autoCats.Add(category);
+                    enableOnZoneinToolStripMenuItem.Checked = true;
+                    // in case we are in the zone just enabled
+                    Match match = reCleanActZone.Match(ActGlobals.oFormActMain.CurrentZone);
+                    if (match.Success)
                     {
-                        foreach (CustomTrigger trigger in triggers)
-                        {
-                            trigger.Active = true;
-                        }
+                        zoneMatchedEQII = true;
+                        decoratedZoneName = ActGlobals.oFormActMain.CurrentZone;
+                        string cleanZoneName = match.Groups["zone"].Value.Trim();
+                        if (config.autoCats.Contains(cleanZoneName))
+                            zoneName = cleanZoneName;
+                        else
+                            zoneName = decoratedZoneName;
                     }
-                    else
-                    {
-                        foreach (CustomTrigger trigger in triggers)
-                        {
-                            trigger.Active = false;
-                        }
-                    }
-                    PopulateCatsTree();
+                    CheckAutoRestrict(null);
+                    UpdateCategoryColors(false);
                 }
             }
         }
@@ -1564,75 +1698,66 @@ namespace ACT_TriggerTree
 
         #region --------------- Triggers Tree
 
-        delegate void UpdateTriggerColorsCallback(Form parent, TreeView target);
-        private void UpdateTriggerColors(Form parent, TreeView target)
+        private void UpdateTriggerColors(object o)
         {
-            if (target.InvokeRequired)
+            if (treeViewTrigs.Nodes.Count > 0)
             {
-                UpdateTriggerColorsCallback cb = new UpdateTriggerColorsCallback(UpdateTriggerColors);
-                parent.Invoke(cb, new object[] { parent, target });
-            }
-            else
-            {
-                if (target.Nodes.Count > 0)
+                CustomTrigger trigger = treeViewTrigs.Nodes[0].Tag as CustomTrigger;
+                if (trigger != null)
                 {
-                    CustomTrigger trigger = target.Nodes[0].Tag as CustomTrigger;
-                    if (trigger != null)
+                    bool categoryMatch = trigger.Category.Equals(zoneName) || trigger.Category.Equals(decoratedZoneName);
+
+                    foreach (TreeNode node in treeViewTrigs.Nodes)
                     {
-                        bool categoryMatch = trigger.Category.Equals(zoneName);
+                        trigger = node.Tag as CustomTrigger;
 
-                        foreach (TreeNode node in target.Nodes)
+                        bool highlightFound = trigger.Key.Equals(keyLastFound);
+
+                        node.ForeColor = disabledColor;         //default
+
+                        if (highlightFound && node.Text.ToLower().Contains(textBoxTrigFind.Text))
+                            node.BackColor = foundBackground;
+                        else
+                            node.BackColor = notFoundBackground;
+
+                        bool isEffective = false;
+
+                        if (node.Checked)
                         {
-                            trigger = node.Tag as CustomTrigger;
-
-                            bool highlightFound = trigger.Key.Equals(keyLastFound);
-
-                            node.ForeColor = disabledColor;         //default
-
-                            if (highlightFound && node.Text.ToLower().Contains(textBoxTrigFind.Text))
-                                node.BackColor = foundBackground;
-                            else
-                                node.BackColor = notFoundBackground;
-
-                            bool isEffective = false;
-
-                            if (node.Checked)
-                            {
-                                //trigger is enabled
-                                // need restricted state from the child to see if it's actually in effect
-                                if(node.Nodes.Count > indexRestricted)
-                                { 
-                                    TreeNode child = node.Nodes[indexRestricted];
+                            //trigger is enabled
+                            // need restricted state from the child to see if it's actually in effect
+                            if(node.Nodes.Count > indexRestricted)
+                            { 
+                                TreeNode child = node.Nodes[indexRestricted];
                                 
-                                    if (child.Checked == false || categoryMatch)
-                                    {
-                                        node.ForeColor = activeColor;   //trigger is active
-                                        isEffective = true;
-                                    }
-                                    else
-                                    {
-                                        //trigger is enabled but we are in the wrong zone
-                                        node.ForeColor = inactiveColor;
-                                    }
+                                if (child.Checked == false || categoryMatch)
+                                {
+                                    node.ForeColor = activeColor;   //trigger is active
+                                    isEffective = true;
                                 }
-                            }
-                            //step through children to get their color right
-                            foreach (TreeNode child in node.Nodes)
-                            {
-                                if (isEffective)
-                                    child.ForeColor = activeColor;
                                 else
                                 {
-                                    if (node.Checked)
-                                        child.ForeColor = inactiveColor;
-                                    else
-                                        child.ForeColor = disabledColor;
+                                    //trigger is enabled but we are in the wrong zone
+                                    node.ForeColor = inactiveColor;
                                 }
-                                if (highlightFound && child.Text.ToLower().Contains(textBoxTrigFind.Text))
-                                    child.BackColor = foundBackground;
-                                else
-                                    child.BackColor = notFoundBackground;
                             }
+                        }
+                        //step through children to get their color right
+                        foreach (TreeNode child in node.Nodes)
+                        {
+                            if (isEffective)
+                                child.ForeColor = activeColor;
+                            else
+                            {
+                                if (node.Checked)
+                                    child.ForeColor = inactiveColor;
+                                else
+                                    child.ForeColor = disabledColor;
+                            }
+                            if (highlightFound && child.Text.ToLower().Contains(textBoxTrigFind.Text))
+                                child.BackColor = foundBackground;
+                            else
+                                child.BackColor = notFoundBackground;
                         }
                     }
                 }
@@ -1701,7 +1826,7 @@ namespace ACT_TriggerTree
                         parent.Nodes[indexTimerName].ImageIndex = parent.Nodes[indexTimerName].SelectedImageIndex = triggerBlankImage;
 
                     //set colors
-                    if (trigger.Active && (trigger.RestrictToCategoryZone == false || category.Equals(zoneName)))
+                    if (trigger.Active && (trigger.RestrictToCategoryZone == false || category.Equals(zoneName) || category.Equals(decoratedZoneName)))
                     {
                         parent.ForeColor = activeColor;
                         foreach (TreeNode child in parent.Nodes)
@@ -1739,13 +1864,26 @@ namespace ACT_TriggerTree
             if (this.Visible)
             {
                 //sync with outside changes if our tab becomes visible
-                PopulateCatsTree();
+                PopulateCatsTree(null);
 
                 if (string.IsNullOrEmpty(zoneName))
                 {
                     //we've never seen a zone change
                     // let's try to use wherever ACT thinks we are
-                    zoneName = ActGlobals.oFormActMain.CurrentZone;
+                    Match match = reCleanActZone.Match(ActGlobals.oFormActMain.CurrentZone);
+                    if (match.Success)
+                    {
+                        zoneMatchedEQII = true;
+                        decoratedZoneName = ActGlobals.oFormActMain.CurrentZone;
+                        string cleanZoneName = match.Groups["zone"].Value.Trim();
+                        if (config.autoCats.Contains(cleanZoneName))
+                            zoneName = cleanZoneName;
+                        else
+                            zoneName = decoratedZoneName;
+                        CheckAutoRestrict(null);
+                    }
+                    else
+                        zoneName = decoratedZoneName = ActGlobals.oFormActMain.CurrentZone;
                     if (!string.IsNullOrEmpty(zoneName))
                     {
                         TreeNode[] nodes = treeViewCats.Nodes.Find(zoneName, false);
@@ -1756,7 +1894,7 @@ namespace ACT_TriggerTree
                         }
                     }
                 }
-                UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
+                UpdateTriggerColors(null);
 
                 if (neverBeenVisible)
                 {
@@ -1784,8 +1922,8 @@ namespace ACT_TriggerTree
                 if (trigger != null)
                 {
                     trigger.Active = e.Node.Checked;
-                    UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
-                    UpdateCategoryColors(ActGlobals.oFormActMain, treeViewCats, false);
+                    UpdateTriggerColors(null);
+                    UpdateCategoryColors(false);
                     updateACT = true;
                 }
             }
@@ -1800,8 +1938,8 @@ namespace ACT_TriggerTree
                         if(e.Node.Index == indexRestricted)
                         {
                             trigger.RestrictToCategoryZone = e.Node.Checked;
-                            UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
-                            UpdateCategoryColors(ActGlobals.oFormActMain, treeViewCats, false);
+                            UpdateTriggerColors(null);
+                            UpdateCategoryColors(false);
                             updateACT = true;
                         }
                         else if(e.Node.Index == indexTimer)
@@ -1916,7 +2054,7 @@ namespace ACT_TriggerTree
                 if (args.editedTrigger.Tabbed)
                     UpdateResultsTab(args.editedTrigger);
 
-                PopulateCatsTree();
+                PopulateCatsTree(null);
                 if (args.result == FormEditTrigger.EventResult.CREATE_NEW)
                 {
                     if (args.editedTrigger.Category != origCategory)
@@ -2029,7 +2167,7 @@ namespace ACT_TriggerTree
             {
                 buttonFindNext.Enabled = false;
                 keyLastFound = string.Empty;
-                UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
+                UpdateTriggerColors(null);
             }
         }
 
@@ -2093,7 +2231,7 @@ namespace ACT_TriggerTree
                 }
                 catch { } //just in case there's a problem accessing ACT's dictionary, just quit this try
 
-                UpdateTriggerColors(ActGlobals.oFormActMain, treeViewTrigs);
+                UpdateTriggerColors(null);
                 if (result == FindResult.NOT_FOUND)
                     SimpleMessageBox.ShowDialog(ActGlobals.oFormActMain, String.Format(@"\b {0}\b0\line  not found", find), "Not Found");
             }
@@ -2210,7 +2348,8 @@ namespace ACT_TriggerTree
             if (treeViewCats.SelectedNode != null)
                 category = treeViewCats.SelectedNode.Text;
             CustomTrigger trigger = new CustomTrigger("new expression", category);
-            trigger.RestrictToCategoryZone = category.Contains("["); //set restrict if it kinda looks like a zone name
+            //set restrict if it kinda looks like a zone name
+            trigger.RestrictToCategoryZone = category.Contains("[") && decoratedZoneName == zoneName;
             FormEditTrigger formEditTrigger = new FormEditTrigger(trigger, zoneName);
             formEditTrigger.EditDoneEvent += Trigger_EditDoneEvent; //callback for when the edit is done
             formEditTrigger.haveOriginal = false; //disable the replace button since there is nothing to replace
@@ -2623,7 +2762,7 @@ namespace ACT_TriggerTree
                             resultsTabCtrl.TabPages.Remove(ct.ResultsTab);
                         ActGlobals.oFormActMain.CustomTriggers.Remove(key);
                         ActGlobals.oFormActMain.RebuildActiveCustomTriggers();
-                        PopulateCatsTree();
+                        PopulateCatsTree(null);
                         UpdateTriggerList(category);
                         result = true;
                     }
@@ -8623,6 +8762,8 @@ namespace ACT_TriggerTree
 
         [XmlElement]
         public bool ResultsPopup = false;
+
+        public List<string> autoCats = new List<string>();
 
     }
 
