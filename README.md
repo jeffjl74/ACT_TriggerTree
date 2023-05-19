@@ -1,5 +1,7 @@
 # Overview
-This plugin organizes Custom Triggers into a panel of categories and a panel of triggers in the selected category. This is simply a different view of exactly the same triggers that are listed in the Custom Triggers tab.
+This plugin organizes Custom Triggers into a panel of categories and a panel of triggers in the selected category. This is simply a different view of exactly the same triggers that are listed in the Custom Triggers tab. 
+
+It it available from ACT's __Plugin Listing__ tab __[Get Plugins]__ button, _(80) TriggerTree_.
 
 Below is a screenshot of the panels.
 
