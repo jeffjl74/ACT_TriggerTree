@@ -24,7 +24,7 @@ using System.Collections;
 [assembly: AssemblyTitle("Tree view of Custom Triggers")]
 [assembly: AssemblyDescription("An alternate interface for managing Custom Triggers")]
 [assembly: AssemblyCompany("Mineeme of Maj'Dul")]
-[assembly: AssemblyVersion("1.5.0.0")]
+[assembly: AssemblyVersion("1.6.0.0")]
 
 namespace ACT_TriggerTree
 {
@@ -177,6 +177,9 @@ namespace ACT_TriggerTree
             this.copyZoneNameToClipboardToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.deleteEntireCategoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toggleEntireCategoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.enableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.disableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.enableOnZoneinToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.raidShareCategoryMacroMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.groupShareCategoryMacroMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -187,9 +190,6 @@ namespace ACT_TriggerTree
             this.panel1 = new System.Windows.Forms.Panel();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.label2 = new System.Windows.Forms.Label();
-            this.enableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.disableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.enableOnZoneinToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -525,7 +525,7 @@ namespace ACT_TriggerTree
             this.toolStripSeparator7,
             this.categorySpellTimersMenuItem});
             this.contextMenuStripCat.Name = "contextMenuStrip2";
-            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 192);
+            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 170);
             this.contextMenuStripCat.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripCat_Opening);
             // 
             // copyZoneNameToClipboardToolStripMenuItem
@@ -553,6 +553,28 @@ namespace ACT_TriggerTree
             this.toggleEntireCategoryToolStripMenuItem.Name = "toggleEntireCategoryToolStripMenuItem";
             this.toggleEntireCategoryToolStripMenuItem.Size = new System.Drawing.Size(251, 22);
             this.toggleEntireCategoryToolStripMenuItem.Text = "Modify entire category";
+            // 
+            // enableAllTriggersToolStripMenuItem
+            // 
+            this.enableAllTriggersToolStripMenuItem.Name = "enableAllTriggersToolStripMenuItem";
+            this.enableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
+            this.enableAllTriggersToolStripMenuItem.Text = "Enable all triggers";
+            this.enableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.enableAllTriggersToolStripMenuItem_Click);
+            // 
+            // disableAllTriggersToolStripMenuItem
+            // 
+            this.disableAllTriggersToolStripMenuItem.Name = "disableAllTriggersToolStripMenuItem";
+            this.disableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
+            this.disableAllTriggersToolStripMenuItem.Text = "Disable all triggers";
+            this.disableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.disableAllTriggersToolStripMenuItem_Click);
+            // 
+            // enableOnZoneinToolStripMenuItem
+            // 
+            this.enableOnZoneinToolStripMenuItem.Name = "enableOnZoneinToolStripMenuItem";
+            this.enableOnZoneinToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
+            this.enableOnZoneinToolStripMenuItem.Text = "Enable on zone-in";
+            this.enableOnZoneinToolStripMenuItem.ToolTipText = "Also ignores color codes and instance numbers";
+            this.enableOnZoneinToolStripMenuItem.Click += new System.EventHandler(this.enableOnZoneinToolStripMenuItem_Click);
             // 
             // toolStripSeparator4
             // 
@@ -599,10 +621,10 @@ namespace ACT_TriggerTree
             this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label1.Location = new System.Drawing.Point(5, 3);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(559, 13);
+            this.label1.Size = new System.Drawing.Size(541, 13);
             this.label1.TabIndex = 0;
-            this.label1.Text = "Right-click a category or trigger for menu choices.  Right-click a blank line in " +
-    "the triggers pane to create a new trigger.";
+            this.label1.Text = "Right-click a category or trigger for menu choices.  Click the [+] button in the " +
+    "triggers pane to create a new trigger.";
             // 
             // panel1
             // 
@@ -637,28 +659,6 @@ namespace ACT_TriggerTree
             this.label2.TabIndex = 1;
             this.label2.Text = "Double-click to edit trigger fields. Expand a trigger for checkbox and right-clic" +
     "k actions on sub-items.";
-            // 
-            // enableAllTriggersToolStripMenuItem
-            // 
-            this.enableAllTriggersToolStripMenuItem.Name = "enableAllTriggersToolStripMenuItem";
-            this.enableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.enableAllTriggersToolStripMenuItem.Text = "Enable all triggers";
-            this.enableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.enableAllTriggersToolStripMenuItem_Click);
-            // 
-            // disableAllTriggersToolStripMenuItem
-            // 
-            this.disableAllTriggersToolStripMenuItem.Name = "disableAllTriggersToolStripMenuItem";
-            this.disableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.disableAllTriggersToolStripMenuItem.Text = "Disable all triggers";
-            this.disableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.disableAllTriggersToolStripMenuItem_Click);
-            // 
-            // enableOnZoneinToolStripMenuItem
-            // 
-            this.enableOnZoneinToolStripMenuItem.Name = "enableOnZoneinToolStripMenuItem";
-            this.enableOnZoneinToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.enableOnZoneinToolStripMenuItem.Text = "Enable on zone-in";
-            this.enableOnZoneinToolStripMenuItem.ToolTipText = "Also ignores color codes and instance numbers";
-            this.enableOnZoneinToolStripMenuItem.Click += new System.EventHandler(this.enableOnZoneinToolStripMenuItem_Click);
             // 
             // TriggerTree
             // 
@@ -915,6 +915,37 @@ namespace ACT_TriggerTree
                 //we need to rebuild if there is a new trigger share incoming
                 mUiContext.Post(PopulateCatsTree, null);
             }
+            else if(e.ShareType == "TrigTree")
+            {
+                // it's one of our triggers encoded to go into an EQII macro
+                CustomTrigger trigger = Macros.TriggerFromMacro(e.RawXml);
+                if(trigger != null)
+                {
+                    mUiContext.Post(UiPostEncodedTrigger, trigger);
+                }
+            }
+            else if(e.ShareType == "SpellTT")
+            {
+                // it's one of our timers encoded to go into an EQII macro
+                TimerData td = Macros.SpellTimerFromMacro(e.RawXml);
+                if(td != null)
+                {
+                    ActGlobals.oFormSpellTimers.AddEditTimerDef(td);
+                }
+            }
+        }
+
+        private void UiPostEncodedTrigger(object o)
+        {
+            CustomTrigger trigger = o as CustomTrigger;
+            if(o != null)
+            {
+                ActGlobals.oFormActMain.AddEditCustomTrigger(trigger);
+                if (trigger.Tabbed)
+                    UpdateResultsTab(trigger);
+
+                PopulateCatsTree(null);
+            }
         }
 
         void LoadSettings()
@@ -928,6 +959,7 @@ namespace ACT_TriggerTree
                         config = (Config)xmlSerializer.Deserialize(xfs);
                     }
                     toolStripButtonResults.Checked = config.ResultsPopup;
+                    Macros.AlternateEncoding = config.AlternateEncoding;
                 }
                 catch (Exception ex)
                 {
@@ -1501,9 +1533,23 @@ namespace ACT_TriggerTree
             List<CustomTrigger> triggers;
             if (treeDict.TryGetValue(category, out triggers))
             {
-                XmlCopyForm form = new XmlCopyForm(prefix, categoryTimers, triggers);
+                XmlCopyForm form = new XmlCopyForm(prefix, categoryTimers, triggers, config.AlternateEncoding);
+                form.AltEncodeCheckChanged += Form_AltEncodeCheckChanged;
                 form.Show();
                 PositionChildForm(form, whereCatMouseDown);
+            }
+        }
+
+        private void Form_AltEncodeCheckChanged(object sender, EventArgs e)
+        {
+            CheckBox checkbox = sender as CheckBox;
+            if(checkbox != null)
+            {
+                config.AlternateEncoding = checkbox.Checked;
+                Macros.AlternateEncoding = config.AlternateEncoding;
+                // fix the "can macro" display
+                string category = treeViewCats.SelectedNode.Text;
+                UpdateTriggerList(category);
             }
         }
 
@@ -1619,8 +1665,11 @@ namespace ACT_TriggerTree
                     trigger.RestrictToCategoryZone = state;
                     ActGlobals.oFormActMain.AddEditCustomTrigger(trigger);
                 }
-                if (catName == treeViewCats.SelectedNode.Text)
-                    UpdateTriggerList(catName);
+                if (treeViewCats.SelectedNode != null)
+                {
+                    if (catName == treeViewCats.SelectedNode.Text)
+                        UpdateTriggerList(catName);
+                }
             }
         }
 
@@ -7024,7 +7073,6 @@ namespace ACT_TriggerTree
     public partial class XmlCopyForm : Form
     {
         const int maxChatLen = 240;
-        //List<ListItem> chatSnippets;
         bool _loading = true;
         bool _preIncremet = false;
         bool _autoIncrementing = false;
@@ -7035,6 +7083,8 @@ namespace ACT_TriggerTree
         string _prefix;
         List<TimerData> _categoryTimers;
         List<CustomTrigger> _triggers;
+        bool _altEncoding;
+        public event EventHandler AltEncodeCheckChanged;
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         static extern bool SetForegroundWindow(IntPtr hWnd);
@@ -7053,13 +7103,14 @@ namespace ACT_TriggerTree
             }
         }
 
-        public XmlCopyForm(string prefix, List<TimerData> categoryTimers, List<CustomTrigger> triggers)
+        public XmlCopyForm(string prefix, List<TimerData> categoryTimers, List<CustomTrigger> triggers, bool altEncode)
         {
             InitializeComponent();
 
             _prefix = prefix;
             _triggers = triggers;
             _categoryTimers = categoryTimers;
+            _altEncoding = altEncode;
         }
 
         private void XmlCopyForm_Load(object sender, EventArgs e)
@@ -7076,6 +7127,10 @@ namespace ACT_TriggerTree
                     textBoxCustom.Text = _prefix;
                 }
             }
+
+            checkBoxAltEncode.Checked = _altEncoding;
+            toolTip1.SetToolTip(checkBoxAltEncode, "Enable macro alternate encoding.\nRecipients must be using TriggerTree.");
+            Macros.AlternateEncoding = _altEncoding;
 
             BuildList();
 
@@ -7345,7 +7400,9 @@ namespace ACT_TriggerTree
                         prefix = prefix + " ";
                 }
 
-                if(_totalTimers > 0 && _totalTriggers > 0)
+                if(checkBoxAltEncode.Checked)
+                    this.Text = String.Format("Share: ({0}/{1}) triggers, ({2}/{3}) timers", _totalTriggers, _totalTriggers, _totalTimers, _totalTimers);
+                else if (_totalTimers > 0 && _totalTriggers > 0)
                     this.Text = String.Format("XML Share: ({0}/{1}) triggers, ({2}/{3}) timers", _validTriggers, _totalTriggers, _validTimers, _totalTimers);
                 else if(_totalTriggers > 0)
                     this.Text = String.Format("XML Share: ({0}/{1}) triggers", _validTriggers, _totalTriggers);
@@ -7415,6 +7472,31 @@ namespace ACT_TriggerTree
                 }
             }
         }
+
+        private void checkBoxAltEncode_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!_loading)
+            {
+                _altEncoding = checkBoxAltEncode.Checked;
+                Macros.AlternateEncoding = _altEncoding;
+                if (AltEncodeCheckChanged != null)
+                {
+                    // notify our parent
+                    AltEncodeCheckChanged.Invoke(sender, e);
+                }
+                if (listBox1.Items.Count > 0)
+                {
+                    ListItem listItem = (ListItem)listBox1.Items[0];
+                    if (listItem.type == ItemType.Command)
+                    {
+                        // regenerate the macros
+                        BuildList();
+                        buttonMacro_Click(null, null);
+                    }
+                }
+            }
+
+        }
     }
 	#endregion XmlCopyForm.cs
 	#region XmlCopyForm.Designer.cs
@@ -7457,10 +7539,11 @@ namespace ACT_TriggerTree
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
             this.label1 = new System.Windows.Forms.Label();
             this.comboBoxGame = new System.Windows.Forms.ComboBox();
+            this.buttonMacro = new System.Windows.Forms.Button();
             this.textBoxCustom = new System.Windows.Forms.TextBox();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
-            this.buttonMacro = new System.Windows.Forms.Button();
+            this.checkBoxAltEncode = new System.Windows.Forms.CheckBox();
             this.statusStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -7563,6 +7646,18 @@ namespace ACT_TriggerTree
             this.comboBoxGame.TabIndex = 6;
             this.toolTip1.SetToolTip(this.comboBoxGame, "Game window to activate when the [Macro] or [Copy] button is pressed");
             // 
+            // buttonMacro
+            // 
+            this.buttonMacro.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.buttonMacro.Location = new System.Drawing.Point(15, 170);
+            this.buttonMacro.Name = "buttonMacro";
+            this.buttonMacro.Size = new System.Drawing.Size(75, 23);
+            this.buttonMacro.TabIndex = 7;
+            this.buttonMacro.Text = "Macro";
+            this.toolTip1.SetToolTip(this.buttonMacro, "Press to generate and list macro files");
+            this.buttonMacro.UseVisualStyleBackColor = true;
+            this.buttonMacro.Click += new System.EventHandler(this.buttonMacro_Click);
+            // 
             // textBoxCustom
             // 
             this.textBoxCustom.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
@@ -7589,17 +7684,16 @@ namespace ACT_TriggerTree
             this.toolStripStatusLabel1.Size = new System.Drawing.Size(118, 17);
             this.toolStripStatusLabel1.Text = "toolStripStatusLabel1";
             // 
-            // buttonMacro
+            // checkBoxAltEncode
             // 
-            this.buttonMacro.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.buttonMacro.Location = new System.Drawing.Point(15, 170);
-            this.buttonMacro.Name = "buttonMacro";
-            this.buttonMacro.Size = new System.Drawing.Size(75, 23);
-            this.buttonMacro.TabIndex = 7;
-            this.buttonMacro.Text = "Macro";
-            this.toolTip1.SetToolTip(this.buttonMacro, "Press to generate and list macro files");
-            this.buttonMacro.UseVisualStyleBackColor = true;
-            this.buttonMacro.Click += new System.EventHandler(this.buttonMacro_Click);
+            this.checkBoxAltEncode.AutoSize = true;
+            this.checkBoxAltEncode.Location = new System.Drawing.Point(194, 145);
+            this.checkBoxAltEncode.Name = "checkBoxAltEncode";
+            this.checkBoxAltEncode.Size = new System.Drawing.Size(86, 17);
+            this.checkBoxAltEncode.TabIndex = 11;
+            this.checkBoxAltEncode.Text = "Alt Encoding";
+            this.checkBoxAltEncode.UseVisualStyleBackColor = true;
+            this.checkBoxAltEncode.CheckedChanged += new System.EventHandler(this.checkBoxAltEncode_CheckedChanged);
             // 
             // XmlCopyForm
             // 
@@ -7607,6 +7701,7 @@ namespace ACT_TriggerTree
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(298, 219);
             this.ControlBox = false;
+            this.Controls.Add(this.checkBoxAltEncode);
             this.Controls.Add(this.buttonMacro);
             this.Controls.Add(this.comboBoxGame);
             this.Controls.Add(this.label1);
@@ -7645,6 +7740,7 @@ namespace ACT_TriggerTree
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.ComboBox comboBoxGame;
         private System.Windows.Forms.Button buttonMacro;
+        private System.Windows.Forms.CheckBox checkBoxAltEncode;
     }
 	#endregion XmlCopyForm.Designer.cs
 	#region HeaderListView.cs
@@ -8298,6 +8394,7 @@ namespace ACT_TriggerTree
     {
         public static List<char> invalidMacroChars = new List<char> { '<', '>', '\'', '\"', ';' };
         public static List<string> invalidMacroStrings = new List<string> { @"\#" };
+        public static bool AlternateEncoding;
 
         public static Bitmap GetActionBitmap()
         {
@@ -8396,6 +8493,9 @@ namespace ACT_TriggerTree
 
         public static bool IsInvalidMacro(List<string> strings)
         {
+            if (AlternateEncoding)
+                return false;
+
             foreach (char invalid in invalidMacroChars)
             {
                 foreach (string s in strings)
@@ -8414,7 +8514,7 @@ namespace ACT_TriggerTree
                 }
             }
 
-            return false; //all strings are valid in a macro
+            return false; //all the passed strings are valid in a macro
         }
 
         public static bool IsInvalidMacroTrigger(CustomTrigger trigger)
@@ -8448,7 +8548,7 @@ namespace ACT_TriggerTree
 
         public static string EncodeXml_ish(string text, bool encodeHash, bool encodePos, bool encodeSlashes)
         {
-            if (text == null)
+            if (string.IsNullOrEmpty(text))
                 return string.Empty;
 
             StringBuilder sb = new StringBuilder();
@@ -8507,6 +8607,61 @@ namespace ACT_TriggerTree
                 }
             }
             return sb.ToString();
+        }
+
+        // Encode with a scheme like HTML, but avoid characters that confuse or break
+        // ACT XML handing, EQII chat pasting, and EQII macros.
+        // Use ! to start and : to end a special charcter encode instead of & and ;
+        public static string EncodeCustom(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return string.Empty;
+
+            StringBuilder sb = new StringBuilder();
+            int len = text.Length;
+            for (int i = 0; i < len; i++)
+            {
+                switch (text[i])
+                {
+                    case '<':
+                        sb.Append("!lt:");
+                        break;
+                    case '>':
+                        sb.Append("!gt:");
+                        break;
+                    case '"':
+                        sb.Append("!quot:");
+                        break;
+                    case '&':
+                        sb.Append("!amp:");
+                        break;
+                    case '\'':
+                        sb.Append("!apos:");
+                        break;
+                    case '\\':
+                        sb.Append("!#92:");
+                        break;
+                    case ':':
+                        sb.Append("!#58:");
+                        break;
+                    case '!':
+                        sb.Append("!#33:");
+                        break;
+                    case ';':
+                        sb.Append("!#59:");
+                        break;
+                    default:
+                        sb.Append(text[i]);
+                        break;
+                }
+            }
+            return sb.ToString();
+        }
+
+        public static string DecodeShare(string text)
+        {
+            // convert incoming string to encoded HTML, then decode the HTML
+            return System.Net.WebUtility.HtmlDecode(text.Replace(':', ';').Replace('!', '&'));
         }
 
 
@@ -8569,19 +8724,100 @@ namespace ACT_TriggerTree
             {
                 //use single quotes because double quotes don't work
                 StringBuilder sb = new StringBuilder();
-                sb.Append(string.Format("<Trigger R='{0}'", trigger.ShortRegexString.Replace("\\\\", "\\\\\\\\")));
-                sb.Append(string.Format(" SD='{0}'", trigger.SoundData));
-                sb.Append(string.Format(" ST='{0}'", trigger.SoundType.ToString()));
-                sb.Append(string.Format(" CR='{0}'", trigger.RestrictToCategoryZone ? "T" : "F"));
-                sb.Append(string.Format(" C='{0}'", trigger.Category));
-                sb.Append(string.Format(" T='{0}'", trigger.Timer ? "T" : "F"));
-                sb.Append(string.Format(" TN='{0}'", trigger.TimerName));
-                sb.Append(string.Format(" Ta='{0}'", trigger.Tabbed ? "T" : "F"));
-                sb.Append(" />");
-
+                if(!AlternateEncoding)
+                {
+                    sb.Append(string.Format("<Trigger R='{0}'", trigger.ShortRegexString.Replace("\\\\", "\\\\\\\\")));
+                    sb.Append(string.Format(" SD='{0}'", trigger.SoundData));
+                    sb.Append(string.Format(" ST='{0}'", trigger.SoundType.ToString()));
+                    sb.Append(string.Format(" CR='{0}'", trigger.RestrictToCategoryZone ? "T" : "F"));
+                    sb.Append(string.Format(" C='{0}'", trigger.Category));
+                    sb.Append(string.Format(" T='{0}'", trigger.Timer ? "T" : "F"));
+                    sb.Append(string.Format(" TN='{0}'", trigger.TimerName));
+                    sb.Append(string.Format(" Ta='{0}'", trigger.Tabbed ? "T" : "F"));
+                    sb.Append(" />");
+                }
+                else
+                {
+                    sb.Append(string.Format("<TrigTree R='{0}'", EncodeCustom(trigger.ShortRegexString)));
+                    sb.Append(string.Format(" SD='{0}'", EncodeCustom(trigger.SoundData)));
+                    sb.Append(string.Format(" ST='{0}'", trigger.SoundType.ToString()));
+                    sb.Append(string.Format(" CR='{0}'", trigger.RestrictToCategoryZone ? "T" : "F"));
+                    sb.Append(string.Format(" C='{0}'", EncodeCustom(trigger.Category)));
+                    sb.Append(string.Format(" T='{0}'", trigger.Timer ? "T" : "F"));
+                    sb.Append(string.Format(" TN='{0}'", EncodeCustom(trigger.TimerName)));
+                    sb.Append(string.Format(" Ta='{0}'", trigger.Tabbed ? "T" : "F"));
+                    sb.Append(" />");
+                }
                 result = sb.ToString();
             }
             return result;
+        }
+
+        public static CustomTrigger TriggerFromMacro(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return null;
+            else
+            {
+                var xmlFields = ExtractXmlFields(text);
+                if(xmlFields == null)
+                    return null;
+                if (xmlFields.Count < 2)
+                    return null;
+
+                string re;
+                string category;
+                xmlFields.TryGetValue("R", out re);
+                xmlFields.TryGetValue("C", out category);
+                if (!string.IsNullOrEmpty(re) && !string.IsNullOrEmpty(category))
+                {
+                    CustomTrigger trigger = new CustomTrigger(DecodeShare(re), DecodeShare(category));
+                    foreach (var field in xmlFields)
+                    {
+                        switch (field.Key)
+                        {
+                            case "SD":
+                                trigger.SoundData = DecodeShare(field.Value);
+                                break;
+                            case "ST":
+                                trigger.SoundType = Int32.Parse(field.Value);
+                                break;
+                            case "CR":
+                                trigger.RestrictToCategoryZone = field.Value == "T" ? true : false;
+                                break;
+                            case "T":
+                                trigger.Timer = field.Value == "T" ? true : false;
+                                break;
+                            case "TN":
+                                trigger.TimerName = DecodeShare(field.Value);
+                                break;
+                            case "Ta":
+                                trigger.Tabbed = field.Value == "T" ? true : false;
+                                break;
+                        }
+                    }
+                    return trigger;
+                }
+                else
+                    return null;
+            }
+        }
+
+        public static Dictionary<string, string> ExtractXmlFields(string xmlString)
+        {
+            var fieldPattern = @"(\w+)='([^']*)'";
+            var fieldMatches = Regex.Matches(xmlString, fieldPattern);
+
+            var xmlFields = new Dictionary<string, string>();
+
+            foreach (Match match in fieldMatches)
+            {
+                string fieldName = match.Groups[1].Value;
+                string fieldValue = match.Groups[2].Value;
+                xmlFields[fieldName] = fieldValue;
+            }
+
+            return xmlFields;
         }
 
         public static string SpellTimerToMacro(TimerData timer)
@@ -8590,28 +8826,123 @@ namespace ACT_TriggerTree
             if (timer != null)
             {
                 StringBuilder sb = new StringBuilder();
-                sb.Append(string.Format("<Spell N='{0}'", timer.Name));
-                sb.Append(string.Format(" T='{0}'", timer.TimerValue));
-                sb.Append(string.Format(" OM='{0}'", timer.OnlyMasterTicks ? "T" : "F"));
-                sb.Append(string.Format(" R='{0}'", timer.RestrictToMe ? "T" : "F"));
-                sb.Append(string.Format(" A='{0}'", timer.AbsoluteTiming ? "T" : "F"));
-                sb.Append(string.Format(" WV='{0}'", timer.WarningValue));
-                sb.Append(string.Format(" RD='{0}'", timer.RadialDisplay ? "T" : "F"));
-                sb.Append(string.Format(" M='{0}'", timer.Modable ? "T" : "F"));
-                sb.Append(string.Format(" Tt='{0}'", timer.Tooltip));
-                sb.Append(string.Format(" FC='{0}'", timer.FillColor.ToArgb()));
-                sb.Append(string.Format(" RV='{0}'", timer.RemoveValue));
-                sb.Append(string.Format(" C='{0}'", timer.Category));
-                sb.Append(string.Format(" RC='{0}'", timer.RestrictToCategory ? "T" : "F"));
-                sb.Append(string.Format(" SS='{0}'", timer.StartSoundData));
-                sb.Append(string.Format(" WS='{0}'", timer.WarningSoundData));
-                sb.Append(" />");
+                if(!AlternateEncoding)
+                {
+                    sb.Append(string.Format("<Spell N='{0}'", timer.Name));
+                    sb.Append(string.Format(" T='{0}'", timer.TimerValue));
+                    sb.Append(string.Format(" OM='{0}'", timer.OnlyMasterTicks ? "T" : "F"));
+                    sb.Append(string.Format(" R='{0}'", timer.RestrictToMe ? "T" : "F"));
+                    sb.Append(string.Format(" A='{0}'", timer.AbsoluteTiming ? "T" : "F"));
+                    sb.Append(string.Format(" WV='{0}'", timer.WarningValue));
+                    sb.Append(string.Format(" RD='{0}'", timer.RadialDisplay ? "T" : "F"));
+                    sb.Append(string.Format(" M='{0}'", timer.Modable ? "T" : "F"));
+                    sb.Append(string.Format(" Tt='{0}'", timer.Tooltip));
+                    sb.Append(string.Format(" FC='{0}'", timer.FillColor.ToArgb()));
+                    sb.Append(string.Format(" RV='{0}'", timer.RemoveValue));
+                    sb.Append(string.Format(" C='{0}'", timer.Category));
+                    sb.Append(string.Format(" RC='{0}'", timer.RestrictToCategory ? "T" : "F"));
+                    sb.Append(string.Format(" SS='{0}'", timer.StartSoundData));
+                    sb.Append(string.Format(" WS='{0}'", timer.WarningSoundData));
+                    sb.Append(" />");
+                }
+                else
+                {
+                    sb.Append(string.Format("<SpellTT N='{0}'", EncodeCustom(timer.Name)));
+                    sb.Append(string.Format(" T='{0}'", timer.TimerValue));
+                    sb.Append(string.Format(" OM='{0}'", timer.OnlyMasterTicks ? "T" : "F"));
+                    sb.Append(string.Format(" R='{0}'", timer.RestrictToMe ? "T" : "F"));
+                    sb.Append(string.Format(" A='{0}'", timer.AbsoluteTiming ? "T" : "F"));
+                    sb.Append(string.Format(" WV='{0}'", timer.WarningValue));
+                    sb.Append(string.Format(" RD='{0}'", timer.RadialDisplay ? "T" : "F"));
+                    sb.Append(string.Format(" M='{0}'", timer.Modable ? "T" : "F"));
+                    sb.Append(string.Format(" Tt='{0}'", EncodeCustom(timer.Tooltip)));
+                    sb.Append(string.Format(" FC='{0}'", timer.FillColor.ToArgb()));
+                    sb.Append(string.Format(" RV='{0}'", timer.RemoveValue));
+                    sb.Append(string.Format(" C='{0}'", EncodeCustom(timer.Category)));
+                    sb.Append(string.Format(" RC='{0}'", timer.RestrictToCategory ? "T" : "F"));
+                    sb.Append(string.Format(" SS='{0}'", EncodeCustom(timer.StartSoundData)));
+                    sb.Append(string.Format(" WS='{0}'", EncodeCustom(timer.WarningSoundData)));
+                    sb.Append(" />");
+                }
 
                 result = sb.ToString();
             }
             return result;
         }
 
+        public static TimerData SpellTimerFromMacro(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return null;
+            else
+            {
+                var xmlFields = ExtractXmlFields(text);
+                if (xmlFields == null)
+                    return null;
+                if (xmlFields.Count < 2)
+                    return null;
+
+                string name;
+                string category;
+                xmlFields.TryGetValue("N", out name);
+                xmlFields.TryGetValue("C", out category);
+                if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(category))
+                {
+                    TimerData timer = new TimerData(DecodeShare(name), DecodeShare(category));
+                    foreach (var field in xmlFields)
+                    {
+                        switch (field.Key)
+                        {
+                            case "T":
+                                timer.TimerValue = Int32.Parse(field.Value);
+                                break;
+                            case "OM":
+                                timer.OnlyMasterTicks = field.Value == "T" ? true : false;
+                                break;
+                            case "R":
+                                timer.RestrictToMe = field.Value == "T" ? true : false;
+                                break;
+                            case "A":
+                                timer.AbsoluteTiming = field.Value == "T" ? true : false;
+                                break;
+                            case "WV":
+                                timer.WarningValue = Int32.Parse(field.Value);
+                                break;
+                            case "RD":
+                                timer.RadialDisplay = field.Value == "T" ? true : false;
+                                break;
+                            case "M":
+                                timer.Modable = field.Value == "T" ? true : false;
+                                break;
+                            case "Tt":
+                                timer.Tooltip= DecodeShare(field.Value);
+                                break;
+                            case "FC":
+                                timer.FillColor = Color.FromArgb(Int32.Parse(field.Value));
+                                break;
+                            case "RV":
+                                timer.RemoveValue = Int32.Parse(field.Value);
+                                if(timer.RemoveValue > 0)
+                                    timer.RemoveValue = -timer.RemoveValue; //positive # confuses ACT
+                                break;
+                            case "RC":
+                                timer.RestrictToCategory = field.Value == "T" ? true : false;
+                                break;
+                            case "SS":
+                                timer.StartSoundData = DecodeShare(field.Value);
+                                break;
+                            case "WS":
+                                timer.WarningSoundData = DecodeShare(field.Value);
+                                break;
+                        }
+                    }
+                    return timer;
+                }
+                else
+                    return null;
+            }
+
+        }
 
         public static int WriteCategoryMacroFile(string sayCmd, List<CustomTrigger> triggers, List<TimerData> categoryTimers, bool notifyTray = true)
         {
@@ -8762,6 +9093,9 @@ namespace ACT_TriggerTree
 
         [XmlElement]
         public bool ResultsPopup = false;
+
+        [XmlElement]
+        public bool AlternateEncoding = false;
 
         public List<string> autoCats = new List<string>();
 

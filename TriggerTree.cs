@@ -19,7 +19,7 @@ using System.Xml.Serialization;
 [assembly: AssemblyTitle("Tree view of Custom Triggers")]
 [assembly: AssemblyDescription("An alternate interface for managing Custom Triggers")]
 [assembly: AssemblyCompany("Mineeme of Maj'Dul")]
-[assembly: AssemblyVersion("1.5.0.0")]
+[assembly: AssemblyVersion("1.6.0.0")]
 
 namespace ACT_TriggerTree
 {
@@ -172,6 +172,9 @@ namespace ACT_TriggerTree
             this.copyZoneNameToClipboardToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.deleteEntireCategoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toggleEntireCategoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.enableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.disableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.enableOnZoneinToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.raidShareCategoryMacroMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.groupShareCategoryMacroMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -182,9 +185,6 @@ namespace ACT_TriggerTree
             this.panel1 = new System.Windows.Forms.Panel();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.label2 = new System.Windows.Forms.Label();
-            this.enableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.disableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.enableOnZoneinToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -520,7 +520,7 @@ namespace ACT_TriggerTree
             this.toolStripSeparator7,
             this.categorySpellTimersMenuItem});
             this.contextMenuStripCat.Name = "contextMenuStrip2";
-            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 192);
+            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 170);
             this.contextMenuStripCat.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripCat_Opening);
             // 
             // copyZoneNameToClipboardToolStripMenuItem
@@ -548,6 +548,28 @@ namespace ACT_TriggerTree
             this.toggleEntireCategoryToolStripMenuItem.Name = "toggleEntireCategoryToolStripMenuItem";
             this.toggleEntireCategoryToolStripMenuItem.Size = new System.Drawing.Size(251, 22);
             this.toggleEntireCategoryToolStripMenuItem.Text = "Modify entire category";
+            // 
+            // enableAllTriggersToolStripMenuItem
+            // 
+            this.enableAllTriggersToolStripMenuItem.Name = "enableAllTriggersToolStripMenuItem";
+            this.enableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
+            this.enableAllTriggersToolStripMenuItem.Text = "Enable all triggers";
+            this.enableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.enableAllTriggersToolStripMenuItem_Click);
+            // 
+            // disableAllTriggersToolStripMenuItem
+            // 
+            this.disableAllTriggersToolStripMenuItem.Name = "disableAllTriggersToolStripMenuItem";
+            this.disableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
+            this.disableAllTriggersToolStripMenuItem.Text = "Disable all triggers";
+            this.disableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.disableAllTriggersToolStripMenuItem_Click);
+            // 
+            // enableOnZoneinToolStripMenuItem
+            // 
+            this.enableOnZoneinToolStripMenuItem.Name = "enableOnZoneinToolStripMenuItem";
+            this.enableOnZoneinToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
+            this.enableOnZoneinToolStripMenuItem.Text = "Enable on zone-in";
+            this.enableOnZoneinToolStripMenuItem.ToolTipText = "Also ignores color codes and instance numbers";
+            this.enableOnZoneinToolStripMenuItem.Click += new System.EventHandler(this.enableOnZoneinToolStripMenuItem_Click);
             // 
             // toolStripSeparator4
             // 
@@ -594,10 +616,10 @@ namespace ACT_TriggerTree
             this.label1.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label1.Location = new System.Drawing.Point(5, 3);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(559, 13);
+            this.label1.Size = new System.Drawing.Size(541, 13);
             this.label1.TabIndex = 0;
-            this.label1.Text = "Right-click a category or trigger for menu choices.  Right-click a blank line in " +
-    "the triggers pane to create a new trigger.";
+            this.label1.Text = "Right-click a category or trigger for menu choices.  Click the [+] button in the " +
+    "triggers pane to create a new trigger.";
             // 
             // panel1
             // 
@@ -632,28 +654,6 @@ namespace ACT_TriggerTree
             this.label2.TabIndex = 1;
             this.label2.Text = "Double-click to edit trigger fields. Expand a trigger for checkbox and right-clic" +
     "k actions on sub-items.";
-            // 
-            // enableAllTriggersToolStripMenuItem
-            // 
-            this.enableAllTriggersToolStripMenuItem.Name = "enableAllTriggersToolStripMenuItem";
-            this.enableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.enableAllTriggersToolStripMenuItem.Text = "Enable all triggers";
-            this.enableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.enableAllTriggersToolStripMenuItem_Click);
-            // 
-            // disableAllTriggersToolStripMenuItem
-            // 
-            this.disableAllTriggersToolStripMenuItem.Name = "disableAllTriggersToolStripMenuItem";
-            this.disableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.disableAllTriggersToolStripMenuItem.Text = "Disable all triggers";
-            this.disableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.disableAllTriggersToolStripMenuItem_Click);
-            // 
-            // enableOnZoneinToolStripMenuItem
-            // 
-            this.enableOnZoneinToolStripMenuItem.Name = "enableOnZoneinToolStripMenuItem";
-            this.enableOnZoneinToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
-            this.enableOnZoneinToolStripMenuItem.Text = "Enable on zone-in";
-            this.enableOnZoneinToolStripMenuItem.ToolTipText = "Also ignores color codes and instance numbers";
-            this.enableOnZoneinToolStripMenuItem.Click += new System.EventHandler(this.enableOnZoneinToolStripMenuItem_Click);
             // 
             // TriggerTree
             // 
@@ -910,6 +910,37 @@ namespace ACT_TriggerTree
                 //we need to rebuild if there is a new trigger share incoming
                 mUiContext.Post(PopulateCatsTree, null);
             }
+            else if(e.ShareType == "TrigTree")
+            {
+                // it's one of our triggers encoded to go into an EQII macro
+                CustomTrigger trigger = Macros.TriggerFromMacro(e.RawXml);
+                if(trigger != null)
+                {
+                    mUiContext.Post(UiPostEncodedTrigger, trigger);
+                }
+            }
+            else if(e.ShareType == "SpellTT")
+            {
+                // it's one of our timers encoded to go into an EQII macro
+                TimerData td = Macros.SpellTimerFromMacro(e.RawXml);
+                if(td != null)
+                {
+                    ActGlobals.oFormSpellTimers.AddEditTimerDef(td);
+                }
+            }
+        }
+
+        private void UiPostEncodedTrigger(object o)
+        {
+            CustomTrigger trigger = o as CustomTrigger;
+            if(o != null)
+            {
+                ActGlobals.oFormActMain.AddEditCustomTrigger(trigger);
+                if (trigger.Tabbed)
+                    UpdateResultsTab(trigger);
+
+                PopulateCatsTree(null);
+            }
         }
 
         void LoadSettings()
@@ -923,6 +954,7 @@ namespace ACT_TriggerTree
                         config = (Config)xmlSerializer.Deserialize(xfs);
                     }
                     toolStripButtonResults.Checked = config.ResultsPopup;
+                    Macros.AlternateEncoding = config.AlternateEncoding;
                 }
                 catch (Exception ex)
                 {
@@ -1496,9 +1528,23 @@ namespace ACT_TriggerTree
             List<CustomTrigger> triggers;
             if (treeDict.TryGetValue(category, out triggers))
             {
-                XmlCopyForm form = new XmlCopyForm(prefix, categoryTimers, triggers);
+                XmlCopyForm form = new XmlCopyForm(prefix, categoryTimers, triggers, config.AlternateEncoding);
+                form.AltEncodeCheckChanged += Form_AltEncodeCheckChanged;
                 form.Show();
                 PositionChildForm(form, whereCatMouseDown);
+            }
+        }
+
+        private void Form_AltEncodeCheckChanged(object sender, EventArgs e)
+        {
+            CheckBox checkbox = sender as CheckBox;
+            if(checkbox != null)
+            {
+                config.AlternateEncoding = checkbox.Checked;
+                Macros.AlternateEncoding = config.AlternateEncoding;
+                // fix the "can macro" display
+                string category = treeViewCats.SelectedNode.Text;
+                UpdateTriggerList(category);
             }
         }
 
@@ -1614,8 +1660,11 @@ namespace ACT_TriggerTree
                     trigger.RestrictToCategoryZone = state;
                     ActGlobals.oFormActMain.AddEditCustomTrigger(trigger);
                 }
-                if (catName == treeViewCats.SelectedNode.Text)
-                    UpdateTriggerList(catName);
+                if (treeViewCats.SelectedNode != null)
+                {
+                    if (catName == treeViewCats.SelectedNode.Text)
+                        UpdateTriggerList(catName);
+                }
             }
         }
 

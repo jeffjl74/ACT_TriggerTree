@@ -39,10 +39,11 @@ namespace ACT_TriggerTree
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
             this.label1 = new System.Windows.Forms.Label();
             this.comboBoxGame = new System.Windows.Forms.ComboBox();
+            this.buttonMacro = new System.Windows.Forms.Button();
             this.textBoxCustom = new System.Windows.Forms.TextBox();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
-            this.buttonMacro = new System.Windows.Forms.Button();
+            this.checkBoxAltEncode = new System.Windows.Forms.CheckBox();
             this.statusStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -145,6 +146,18 @@ namespace ACT_TriggerTree
             this.comboBoxGame.TabIndex = 6;
             this.toolTip1.SetToolTip(this.comboBoxGame, "Game window to activate when the [Macro] or [Copy] button is pressed");
             // 
+            // buttonMacro
+            // 
+            this.buttonMacro.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.buttonMacro.Location = new System.Drawing.Point(15, 170);
+            this.buttonMacro.Name = "buttonMacro";
+            this.buttonMacro.Size = new System.Drawing.Size(75, 23);
+            this.buttonMacro.TabIndex = 7;
+            this.buttonMacro.Text = "Macro";
+            this.toolTip1.SetToolTip(this.buttonMacro, "Press to generate and list macro files");
+            this.buttonMacro.UseVisualStyleBackColor = true;
+            this.buttonMacro.Click += new System.EventHandler(this.buttonMacro_Click);
+            // 
             // textBoxCustom
             // 
             this.textBoxCustom.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
@@ -171,17 +184,16 @@ namespace ACT_TriggerTree
             this.toolStripStatusLabel1.Size = new System.Drawing.Size(118, 17);
             this.toolStripStatusLabel1.Text = "toolStripStatusLabel1";
             // 
-            // buttonMacro
+            // checkBoxAltEncode
             // 
-            this.buttonMacro.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.buttonMacro.Location = new System.Drawing.Point(15, 170);
-            this.buttonMacro.Name = "buttonMacro";
-            this.buttonMacro.Size = new System.Drawing.Size(75, 23);
-            this.buttonMacro.TabIndex = 7;
-            this.buttonMacro.Text = "Macro";
-            this.toolTip1.SetToolTip(this.buttonMacro, "Press to generate and list macro files");
-            this.buttonMacro.UseVisualStyleBackColor = true;
-            this.buttonMacro.Click += new System.EventHandler(this.buttonMacro_Click);
+            this.checkBoxAltEncode.AutoSize = true;
+            this.checkBoxAltEncode.Location = new System.Drawing.Point(194, 145);
+            this.checkBoxAltEncode.Name = "checkBoxAltEncode";
+            this.checkBoxAltEncode.Size = new System.Drawing.Size(86, 17);
+            this.checkBoxAltEncode.TabIndex = 11;
+            this.checkBoxAltEncode.Text = "Alt Encoding";
+            this.checkBoxAltEncode.UseVisualStyleBackColor = true;
+            this.checkBoxAltEncode.CheckedChanged += new System.EventHandler(this.checkBoxAltEncode_CheckedChanged);
             // 
             // XmlCopyForm
             // 
@@ -189,6 +201,7 @@ namespace ACT_TriggerTree
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(298, 219);
             this.ControlBox = false;
+            this.Controls.Add(this.checkBoxAltEncode);
             this.Controls.Add(this.buttonMacro);
             this.Controls.Add(this.comboBoxGame);
             this.Controls.Add(this.label1);
@@ -227,5 +240,6 @@ namespace ACT_TriggerTree
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.ComboBox comboBoxGame;
         private System.Windows.Forms.Button buttonMacro;
+        private System.Windows.Forms.CheckBox checkBoxAltEncode;
     }
 }

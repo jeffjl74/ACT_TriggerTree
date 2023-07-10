@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Text;
-using System.Windows.Forms;
+using System.Text.RegularExpressions;
 
 namespace ACT_TriggerTree
 {
@@ -12,6 +12,7 @@ namespace ACT_TriggerTree
     {
         public static List<char> invalidMacroChars = new List<char> { '<', '>', '\'', '\"', ';' };
         public static List<string> invalidMacroStrings = new List<string> { @"\#" };
+        public static bool AlternateEncoding;
 
         public static Bitmap GetActionBitmap()
         {
@@ -110,6 +111,9 @@ namespace ACT_TriggerTree
 
         public static bool IsInvalidMacro(List<string> strings)
         {
+            if (AlternateEncoding)
+                return false;
+
             foreach (char invalid in invalidMacroChars)
             {
                 foreach (string s in strings)
@@ -128,7 +132,7 @@ namespace ACT_TriggerTree
                 }
             }
 
-            return false; //all strings are valid in a macro
+            return false; //all the passed strings are valid in a macro
         }
 
         public static bool IsInvalidMacroTrigger(CustomTrigger trigger)
@@ -162,7 +166,7 @@ namespace ACT_TriggerTree
 
         public static string EncodeXml_ish(string text, bool encodeHash, bool encodePos, bool encodeSlashes)
         {
-            if (text == null)
+            if (string.IsNullOrEmpty(text))
                 return string.Empty;
 
             StringBuilder sb = new StringBuilder();
@@ -221,6 +225,61 @@ namespace ACT_TriggerTree
                 }
             }
             return sb.ToString();
+        }
+
+        // Encode with a scheme like HTML, but avoid characters that confuse or break
+        // ACT XML handing, EQII chat pasting, and EQII macros.
+        // Use ! to start and : to end a special charcter encode instead of & and ;
+        public static string EncodeCustom(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return string.Empty;
+
+            StringBuilder sb = new StringBuilder();
+            int len = text.Length;
+            for (int i = 0; i < len; i++)
+            {
+                switch (text[i])
+                {
+                    case '<':
+                        sb.Append("!lt:");
+                        break;
+                    case '>':
+                        sb.Append("!gt:");
+                        break;
+                    case '"':
+                        sb.Append("!quot:");
+                        break;
+                    case '&':
+                        sb.Append("!amp:");
+                        break;
+                    case '\'':
+                        sb.Append("!apos:");
+                        break;
+                    case '\\':
+                        sb.Append("!#92:");
+                        break;
+                    case ':':
+                        sb.Append("!#58:");
+                        break;
+                    case '!':
+                        sb.Append("!#33:");
+                        break;
+                    case ';':
+                        sb.Append("!#59:");
+                        break;
+                    default:
+                        sb.Append(text[i]);
+                        break;
+                }
+            }
+            return sb.ToString();
+        }
+
+        public static string DecodeShare(string text)
+        {
+            // convert incoming string to encoded HTML, then decode the HTML
+            return System.Net.WebUtility.HtmlDecode(text.Replace(':', ';').Replace('!', '&'));
         }
 
 
@@ -283,19 +342,100 @@ namespace ACT_TriggerTree
             {
                 //use single quotes because double quotes don't work
                 StringBuilder sb = new StringBuilder();
-                sb.Append(string.Format("<Trigger R='{0}'", trigger.ShortRegexString.Replace("\\\\", "\\\\\\\\")));
-                sb.Append(string.Format(" SD='{0}'", trigger.SoundData));
-                sb.Append(string.Format(" ST='{0}'", trigger.SoundType.ToString()));
-                sb.Append(string.Format(" CR='{0}'", trigger.RestrictToCategoryZone ? "T" : "F"));
-                sb.Append(string.Format(" C='{0}'", trigger.Category));
-                sb.Append(string.Format(" T='{0}'", trigger.Timer ? "T" : "F"));
-                sb.Append(string.Format(" TN='{0}'", trigger.TimerName));
-                sb.Append(string.Format(" Ta='{0}'", trigger.Tabbed ? "T" : "F"));
-                sb.Append(" />");
-
+                if(!AlternateEncoding)
+                {
+                    sb.Append(string.Format("<Trigger R='{0}'", trigger.ShortRegexString.Replace("\\\\", "\\\\\\\\")));
+                    sb.Append(string.Format(" SD='{0}'", trigger.SoundData));
+                    sb.Append(string.Format(" ST='{0}'", trigger.SoundType.ToString()));
+                    sb.Append(string.Format(" CR='{0}'", trigger.RestrictToCategoryZone ? "T" : "F"));
+                    sb.Append(string.Format(" C='{0}'", trigger.Category));
+                    sb.Append(string.Format(" T='{0}'", trigger.Timer ? "T" : "F"));
+                    sb.Append(string.Format(" TN='{0}'", trigger.TimerName));
+                    sb.Append(string.Format(" Ta='{0}'", trigger.Tabbed ? "T" : "F"));
+                    sb.Append(" />");
+                }
+                else
+                {
+                    sb.Append(string.Format("<TrigTree R='{0}'", EncodeCustom(trigger.ShortRegexString)));
+                    sb.Append(string.Format(" SD='{0}'", EncodeCustom(trigger.SoundData)));
+                    sb.Append(string.Format(" ST='{0}'", trigger.SoundType.ToString()));
+                    sb.Append(string.Format(" CR='{0}'", trigger.RestrictToCategoryZone ? "T" : "F"));
+                    sb.Append(string.Format(" C='{0}'", EncodeCustom(trigger.Category)));
+                    sb.Append(string.Format(" T='{0}'", trigger.Timer ? "T" : "F"));
+                    sb.Append(string.Format(" TN='{0}'", EncodeCustom(trigger.TimerName)));
+                    sb.Append(string.Format(" Ta='{0}'", trigger.Tabbed ? "T" : "F"));
+                    sb.Append(" />");
+                }
                 result = sb.ToString();
             }
             return result;
+        }
+
+        public static CustomTrigger TriggerFromMacro(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return null;
+            else
+            {
+                var xmlFields = ExtractXmlFields(text);
+                if(xmlFields == null)
+                    return null;
+                if (xmlFields.Count < 2)
+                    return null;
+
+                string re;
+                string category;
+                xmlFields.TryGetValue("R", out re);
+                xmlFields.TryGetValue("C", out category);
+                if (!string.IsNullOrEmpty(re) && !string.IsNullOrEmpty(category))
+                {
+                    CustomTrigger trigger = new CustomTrigger(DecodeShare(re), DecodeShare(category));
+                    foreach (var field in xmlFields)
+                    {
+                        switch (field.Key)
+                        {
+                            case "SD":
+                                trigger.SoundData = DecodeShare(field.Value);
+                                break;
+                            case "ST":
+                                trigger.SoundType = Int32.Parse(field.Value);
+                                break;
+                            case "CR":
+                                trigger.RestrictToCategoryZone = field.Value == "T" ? true : false;
+                                break;
+                            case "T":
+                                trigger.Timer = field.Value == "T" ? true : false;
+                                break;
+                            case "TN":
+                                trigger.TimerName = DecodeShare(field.Value);
+                                break;
+                            case "Ta":
+                                trigger.Tabbed = field.Value == "T" ? true : false;
+                                break;
+                        }
+                    }
+                    return trigger;
+                }
+                else
+                    return null;
+            }
+        }
+
+        public static Dictionary<string, string> ExtractXmlFields(string xmlString)
+        {
+            var fieldPattern = @"(\w+)='([^']*)'";
+            var fieldMatches = Regex.Matches(xmlString, fieldPattern);
+
+            var xmlFields = new Dictionary<string, string>();
+
+            foreach (Match match in fieldMatches)
+            {
+                string fieldName = match.Groups[1].Value;
+                string fieldValue = match.Groups[2].Value;
+                xmlFields[fieldName] = fieldValue;
+            }
+
+            return xmlFields;
         }
 
         public static string SpellTimerToMacro(TimerData timer)
@@ -304,28 +444,123 @@ namespace ACT_TriggerTree
             if (timer != null)
             {
                 StringBuilder sb = new StringBuilder();
-                sb.Append(string.Format("<Spell N='{0}'", timer.Name));
-                sb.Append(string.Format(" T='{0}'", timer.TimerValue));
-                sb.Append(string.Format(" OM='{0}'", timer.OnlyMasterTicks ? "T" : "F"));
-                sb.Append(string.Format(" R='{0}'", timer.RestrictToMe ? "T" : "F"));
-                sb.Append(string.Format(" A='{0}'", timer.AbsoluteTiming ? "T" : "F"));
-                sb.Append(string.Format(" WV='{0}'", timer.WarningValue));
-                sb.Append(string.Format(" RD='{0}'", timer.RadialDisplay ? "T" : "F"));
-                sb.Append(string.Format(" M='{0}'", timer.Modable ? "T" : "F"));
-                sb.Append(string.Format(" Tt='{0}'", timer.Tooltip));
-                sb.Append(string.Format(" FC='{0}'", timer.FillColor.ToArgb()));
-                sb.Append(string.Format(" RV='{0}'", timer.RemoveValue));
-                sb.Append(string.Format(" C='{0}'", timer.Category));
-                sb.Append(string.Format(" RC='{0}'", timer.RestrictToCategory ? "T" : "F"));
-                sb.Append(string.Format(" SS='{0}'", timer.StartSoundData));
-                sb.Append(string.Format(" WS='{0}'", timer.WarningSoundData));
-                sb.Append(" />");
+                if(!AlternateEncoding)
+                {
+                    sb.Append(string.Format("<Spell N='{0}'", timer.Name));
+                    sb.Append(string.Format(" T='{0}'", timer.TimerValue));
+                    sb.Append(string.Format(" OM='{0}'", timer.OnlyMasterTicks ? "T" : "F"));
+                    sb.Append(string.Format(" R='{0}'", timer.RestrictToMe ? "T" : "F"));
+                    sb.Append(string.Format(" A='{0}'", timer.AbsoluteTiming ? "T" : "F"));
+                    sb.Append(string.Format(" WV='{0}'", timer.WarningValue));
+                    sb.Append(string.Format(" RD='{0}'", timer.RadialDisplay ? "T" : "F"));
+                    sb.Append(string.Format(" M='{0}'", timer.Modable ? "T" : "F"));
+                    sb.Append(string.Format(" Tt='{0}'", timer.Tooltip));
+                    sb.Append(string.Format(" FC='{0}'", timer.FillColor.ToArgb()));
+                    sb.Append(string.Format(" RV='{0}'", timer.RemoveValue));
+                    sb.Append(string.Format(" C='{0}'", timer.Category));
+                    sb.Append(string.Format(" RC='{0}'", timer.RestrictToCategory ? "T" : "F"));
+                    sb.Append(string.Format(" SS='{0}'", timer.StartSoundData));
+                    sb.Append(string.Format(" WS='{0}'", timer.WarningSoundData));
+                    sb.Append(" />");
+                }
+                else
+                {
+                    sb.Append(string.Format("<SpellTT N='{0}'", EncodeCustom(timer.Name)));
+                    sb.Append(string.Format(" T='{0}'", timer.TimerValue));
+                    sb.Append(string.Format(" OM='{0}'", timer.OnlyMasterTicks ? "T" : "F"));
+                    sb.Append(string.Format(" R='{0}'", timer.RestrictToMe ? "T" : "F"));
+                    sb.Append(string.Format(" A='{0}'", timer.AbsoluteTiming ? "T" : "F"));
+                    sb.Append(string.Format(" WV='{0}'", timer.WarningValue));
+                    sb.Append(string.Format(" RD='{0}'", timer.RadialDisplay ? "T" : "F"));
+                    sb.Append(string.Format(" M='{0}'", timer.Modable ? "T" : "F"));
+                    sb.Append(string.Format(" Tt='{0}'", EncodeCustom(timer.Tooltip)));
+                    sb.Append(string.Format(" FC='{0}'", timer.FillColor.ToArgb()));
+                    sb.Append(string.Format(" RV='{0}'", timer.RemoveValue));
+                    sb.Append(string.Format(" C='{0}'", EncodeCustom(timer.Category)));
+                    sb.Append(string.Format(" RC='{0}'", timer.RestrictToCategory ? "T" : "F"));
+                    sb.Append(string.Format(" SS='{0}'", EncodeCustom(timer.StartSoundData)));
+                    sb.Append(string.Format(" WS='{0}'", EncodeCustom(timer.WarningSoundData)));
+                    sb.Append(" />");
+                }
 
                 result = sb.ToString();
             }
             return result;
         }
 
+        public static TimerData SpellTimerFromMacro(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return null;
+            else
+            {
+                var xmlFields = ExtractXmlFields(text);
+                if (xmlFields == null)
+                    return null;
+                if (xmlFields.Count < 2)
+                    return null;
+
+                string name;
+                string category;
+                xmlFields.TryGetValue("N", out name);
+                xmlFields.TryGetValue("C", out category);
+                if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(category))
+                {
+                    TimerData timer = new TimerData(DecodeShare(name), DecodeShare(category));
+                    foreach (var field in xmlFields)
+                    {
+                        switch (field.Key)
+                        {
+                            case "T":
+                                timer.TimerValue = Int32.Parse(field.Value);
+                                break;
+                            case "OM":
+                                timer.OnlyMasterTicks = field.Value == "T" ? true : false;
+                                break;
+                            case "R":
+                                timer.RestrictToMe = field.Value == "T" ? true : false;
+                                break;
+                            case "A":
+                                timer.AbsoluteTiming = field.Value == "T" ? true : false;
+                                break;
+                            case "WV":
+                                timer.WarningValue = Int32.Parse(field.Value);
+                                break;
+                            case "RD":
+                                timer.RadialDisplay = field.Value == "T" ? true : false;
+                                break;
+                            case "M":
+                                timer.Modable = field.Value == "T" ? true : false;
+                                break;
+                            case "Tt":
+                                timer.Tooltip= DecodeShare(field.Value);
+                                break;
+                            case "FC":
+                                timer.FillColor = Color.FromArgb(Int32.Parse(field.Value));
+                                break;
+                            case "RV":
+                                timer.RemoveValue = Int32.Parse(field.Value);
+                                if(timer.RemoveValue > 0)
+                                    timer.RemoveValue = -timer.RemoveValue; //positive # confuses ACT
+                                break;
+                            case "RC":
+                                timer.RestrictToCategory = field.Value == "T" ? true : false;
+                                break;
+                            case "SS":
+                                timer.StartSoundData = DecodeShare(field.Value);
+                                break;
+                            case "WS":
+                                timer.WarningSoundData = DecodeShare(field.Value);
+                                break;
+                        }
+                    }
+                    return timer;
+                }
+                else
+                    return null;
+            }
+
+        }
 
         public static int WriteCategoryMacroFile(string sayCmd, List<CustomTrigger> triggers, List<TimerData> categoryTimers, bool notifyTray = true)
         {

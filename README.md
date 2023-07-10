@@ -16,14 +16,8 @@ Additional features of the plugin:
 * When entering a zone in game, if there is a Category that matches the zone name, that Category is automatically selected.
 * The __Find__ boxes at the top of the Category and Trigger panes provide incremental searches.
 
-### Version 1.5.0 Changes:
-* Added the [category context menus](#category-menus) to
-  * Enable/disable all triggers in the category providing the function of the category-level checkbox in ACT.
-  * Add an option to handle EQII zone names like __\\#00FF00Buried Takish'Hiz: Empire of Antiquity [Contested] 3__
-* Added two buttons at the top left of the triggers panel:
-  * The "plus" button provides an alternate way to open the [edit trigger dialog](#edit-all-fields) for a new trigger.
-  * The "windows" button enables a popup [alternate view of the "Results Tabs"](#results-tab) of ACT's Custom Triggers.
-* Rework handling of Custom Triggers Results Tabs checkboxes for better coordination with ACT, including an alternate view.
+### Version 1.6.0 Changes:
+* Added an alternate encoding scheme to work around the problems when [sharing](#share-dialog) triggers using EQII macros.
 
 ## Editing Triggers
 Trigger details are available by clicking the + next to the trigger.  A context menu is provided via a right-click on a trigger, as shown below.
@@ -152,11 +146,15 @@ The __Share Dialog...__ menu opens a dialog that can speed up sharing of trigger
 
 If an EQII game window is found, the dialog initially opens with the __[Macro]__ items listed. Otherwise, the dialog initially opens with the __[Copy]__ items listed. The list can be switched between __[Copy]__ items and __[Macro]__ items by pressing the respective button.
 
-An example usage where the zone name prevents macros is shown below:
+An example usage where the zone name contains an apostrophe and prevents macros is shown below:
 
 ![Share](images/xml-share.png)
 
 The dialog contains a list of all of the regular expressions for the category's enabled triggers, and the names of the category's spell timers. Pressing the __[Copy]__ button copies the XML for the selected item to the clipboard. For subsequent __[Copy]__ button presses, the next item is automatically selected, then copied. The prefix selected by the radio buttons provides the command to paste the XML into the group, raid, or custom chat channel.
+
+With the `Alt Encoding` checkbox checked, the plugin can put all triggers and spell timers in macros. ACT will not recognize the alternate encoding scheme and __any recipients must be running version 1.6 of the TriggerTree plugin to successfully receive the data__. An example of the share dialog with alternate encoding enabled is shown below:
+
+![Alt-Share](images/alt-xml-share.png)
 
 If the plugin finds any running Everquest2 game(s), the __Game Window:__ list contains those window handle(s). If the __Game Window:__ selection is not blank, pressing the __[Copy]__ or __[Macro]__ button will also activate the selected game window. Once the game window is activated, the chat box can be activated by pressing the `Enter` key. (`Enter` is the default key binding. Use whatever key is set in _Options->Controls->Chat Keys->Begin Chat_.) The user can then press `Ctrl-v` to paste and `Enter` to complete the command.
 
@@ -174,13 +172,13 @@ The __[Macro]__ button provides a quick way to activate the macro file(s) in the
 
 
 ## Share via EQII Macros
-Ideally, it would be possible to make a macro containing all of the zone's triggers and spell timers for sharing with the group (or raid) in a single step. 
-
-Unfortunately this won't always work since macros won't handle certain characters and character sequences. 
+EQII macros won't handle certain characters and character sequences. 
 * The problem characters are:
     > ' " ; < >
 * The problem character sequence is:
   > \\#
+
+If sharing with players that do not use the TriggerTree plugin, these problem characters must be avoided.
 
 The trigger pane shows which triggers and spell timers can be shared via macro by displaying the 'macro play' icon 
 next to the checkbox for the regular expression and timer name. 
@@ -191,7 +189,11 @@ When editing a trigger, the problem fields are indicated by the red circled 'mac
 ![Bad Macro](images/bad-macro.png)
 
 ### Macro Workarounds
-In the cases where the zone name contains an apostrophe, there's not much recourse. It can't be shared in a macro.
+The easiest work-around is for all players to use version 1.6 or newer of the TriggerTree plugin and check the `Alt Encoding` checkbox in the [share dialog](#share-dialog). The alternate encoding will allow all characters to be shared in a macro.
+
+If `Alt Encoding` is not possible, the following paragraphs describe some other possible work-arounds in ACT encoded macros.
+
+In the cases where the zone name contains an apostrophe, there's not much recourse. It can't be shared in an ACT encoded macro.
 
 But in many cases, it is possible to work around the problem characters by changing the trigger.
 * If the trigger __Regular Expression__ contains prohibited characters, it can often be rewritten to remove those characters. In many cases the offending characters can just be removed from the beginning or end of the trigger without affecting its usefulness. Example alternate approaches for when that's not feasable include:
@@ -219,6 +221,8 @@ The __Category__ context menu for spell timers searches for timers with a matchi
 
 ### Share Menus
 With macro-valid triggers or timers, a context menu selection of the _Raidsay Share Macro_ or _Groupsay Share Macro_ menu will create a macro to share all available and enabled triggers and spell timers. Then in an EQII chat window enter `/do_file_commands triggers.txt` to share everything with the raid. Any invalid items are simply left out of the macro file.
+
+The _Share Dialog_ context menu provides a [dialog](#share-dialog) for sharing via both macros and copy/paste.
 
 EQII macros are limited to 16 lines. When sharing more than 16 items, multiple files are created. Items 1-16 are in file `triggers.txt`. Items 17-32 are in file `triggers1.txt`, etc.  The __Notifications__ tab in ACT lists which file(s) were used.
 

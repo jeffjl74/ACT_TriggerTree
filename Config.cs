@@ -21,6 +21,9 @@ namespace ACT_TriggerTree
         [XmlElement]
         public bool ResultsPopup = false;
 
+        [XmlElement]
+        public bool AlternateEncoding = false;
+
         public List<string> autoCats = new List<string>();
 
     }

@@ -10,7 +10,6 @@ namespace ACT_TriggerTree
     public partial class XmlCopyForm : Form
     {
         const int maxChatLen = 240;
-        //List<ListItem> chatSnippets;
         bool _loading = true;
         bool _preIncremet = false;
         bool _autoIncrementing = false;
@@ -21,6 +20,8 @@ namespace ACT_TriggerTree
         string _prefix;
         List<TimerData> _categoryTimers;
         List<CustomTrigger> _triggers;
+        bool _altEncoding;
+        public event EventHandler AltEncodeCheckChanged;
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         static extern bool SetForegroundWindow(IntPtr hWnd);
@@ -39,13 +40,14 @@ namespace ACT_TriggerTree
             }
         }
 
-        public XmlCopyForm(string prefix, List<TimerData> categoryTimers, List<CustomTrigger> triggers)
+        public XmlCopyForm(string prefix, List<TimerData> categoryTimers, List<CustomTrigger> triggers, bool altEncode)
         {
             InitializeComponent();
 
             _prefix = prefix;
             _triggers = triggers;
             _categoryTimers = categoryTimers;
+            _altEncoding = altEncode;
         }
 
         private void XmlCopyForm_Load(object sender, EventArgs e)
@@ -62,6 +64,10 @@ namespace ACT_TriggerTree
                     textBoxCustom.Text = _prefix;
                 }
             }
+
+            checkBoxAltEncode.Checked = _altEncoding;
+            toolTip1.SetToolTip(checkBoxAltEncode, "Enable macro alternate encoding.\nRecipients must be using TriggerTree.");
+            Macros.AlternateEncoding = _altEncoding;
 
             BuildList();
 
@@ -331,7 +337,9 @@ namespace ACT_TriggerTree
                         prefix = prefix + " ";
                 }
 
-                if(_totalTimers > 0 && _totalTriggers > 0)
+                if(checkBoxAltEncode.Checked)
+                    this.Text = String.Format("Share: ({0}/{1}) triggers, ({2}/{3}) timers", _totalTriggers, _totalTriggers, _totalTimers, _totalTimers);
+                else if (_totalTimers > 0 && _totalTriggers > 0)
                     this.Text = String.Format("XML Share: ({0}/{1}) triggers, ({2}/{3}) timers", _validTriggers, _totalTriggers, _validTimers, _totalTimers);
                 else if(_totalTriggers > 0)
                     this.Text = String.Format("XML Share: ({0}/{1}) triggers", _validTriggers, _totalTriggers);
@@ -400,6 +408,31 @@ namespace ACT_TriggerTree
                     }
                 }
             }
+        }
+
+        private void checkBoxAltEncode_CheckedChanged(object sender, EventArgs e)
+        {
+            if (!_loading)
+            {
+                _altEncoding = checkBoxAltEncode.Checked;
+                Macros.AlternateEncoding = _altEncoding;
+                if (AltEncodeCheckChanged != null)
+                {
+                    // notify our parent
+                    AltEncodeCheckChanged.Invoke(sender, e);
+                }
+                if (listBox1.Items.Count > 0)
+                {
+                    ListItem listItem = (ListItem)listBox1.Items[0];
+                    if (listItem.type == ItemType.Command)
+                    {
+                        // regenerate the macros
+                        BuildList();
+                        buttonMacro_Click(null, null);
+                    }
+                }
+            }
+
         }
     }
 }
