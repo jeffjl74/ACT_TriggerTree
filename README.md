@@ -16,8 +16,8 @@ Additional features of the plugin:
 * When entering a zone in game, if there is a Category that matches the zone name, that Category is automatically selected.
 * The __Find__ boxes at the top of the Category and Trigger panes provide incremental searches.
 
-### Version 1.6.0 Changes:
-* Added an alternate encoding scheme to work around the problems when [sharing](#share-dialog) triggers using EQII macros.
+### Version 1.6.1 Changes:
+* Fix sharing alternate encoded spell timers so they work without having to restart ACT.
 
 ## Editing Triggers
 Trigger details are available by clicking the + next to the trigger.  A context menu is provided via a right-click on a trigger, as shown below.

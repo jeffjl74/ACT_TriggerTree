@@ -169,6 +169,7 @@ namespace ACT_TriggerTree
                 if (spellTime != 0)
                 {
                     ActGlobals.oFormSpellTimers.AddEditTimerDef(td1);
+                    ActGlobals.oFormSpellTimers.RebuildSpellTreeView();
 
                     ActGlobals.oFormSpellTimers.SearchSpellTreeView(textBoxTimerName.Text);
                     ActGlobals.oFormSpellTimers.Visible = true;

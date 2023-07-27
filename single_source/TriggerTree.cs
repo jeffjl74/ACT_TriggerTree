@@ -24,7 +24,7 @@ using System.Collections;
 [assembly: AssemblyTitle("Tree view of Custom Triggers")]
 [assembly: AssemblyDescription("An alternate interface for managing Custom Triggers")]
 [assembly: AssemblyCompany("Mineeme of Maj'Dul")]
-[assembly: AssemblyVersion("1.6.0.0")]
+[assembly: AssemblyVersion("1.6.1.0")]
 
 namespace ACT_TriggerTree
 {
@@ -931,6 +931,7 @@ namespace ACT_TriggerTree
                 if(td != null)
                 {
                     ActGlobals.oFormSpellTimers.AddEditTimerDef(td);
+                    ActGlobals.oFormSpellTimers.RebuildSpellTreeView();
                 }
             }
         }
@@ -5985,6 +5986,7 @@ namespace ACT_TriggerTree
                 if (spellTime != 0)
                 {
                     ActGlobals.oFormSpellTimers.AddEditTimerDef(td1);
+                    ActGlobals.oFormSpellTimers.RebuildSpellTreeView();
 
                     ActGlobals.oFormSpellTimers.SearchSpellTreeView(textBoxTimerName.Text);
                     ActGlobals.oFormSpellTimers.Visible = true;
