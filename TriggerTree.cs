@@ -19,13 +19,13 @@ using System.Xml.Serialization;
 [assembly: AssemblyTitle("Tree view of Custom Triggers")]
 [assembly: AssemblyDescription("An alternate interface for managing Custom Triggers")]
 [assembly: AssemblyCompany("Mineeme of Maj'Dul")]
-[assembly: AssemblyVersion("1.6.1.0")]
+[assembly: AssemblyVersion("1.6.2.0")]
 
 namespace ACT_TriggerTree
 {
     public class TriggerTree : UserControl, IActPluginV1
 	{
-        const int logTimeStampLength = 39;          //# of chars in the timestamp
+        int logTimeStampLength = ActGlobals.oFormActMain.TimeStampLen;          //# of chars in the timestamp
 
         //trigger dictionary - list of triggers by Category name
         Dictionary<string, List<CustomTrigger>> treeDict;
@@ -33,8 +33,8 @@ namespace ACT_TriggerTree
         //zone
         string zoneName = string.Empty;             //most recent zone name from the log file
         string decoratedZoneName = string.Empty;    //includes color and instance #
-        Regex reCleanLogZone = new Regex(@"\(\d{10}\)\[.{24}\] You have entered (?::.+?:)?(?:\\#[0-9A-F]{6})?(?<zone>[^.0-9]+)", RegexOptions.Compiled);
-        Regex reCleanActZone = new Regex(@"(?::.+?:)?(?:\\#[0-9A-F]{6})?(?<zone>[^.0-9]+)", RegexOptions.Compiled);
+        static Regex reCleanLogZone = new Regex(@"\(\d{10}\)\[.{24}\] You have entered (?::.+?:)?(?<decoration>\\#[0-9A-F]{6})?(?<zone>[^.0-9]+)", RegexOptions.Compiled);
+        public static Regex reCleanActZone = new Regex(@"(?::.+?:)?(?<decoration>\\#[0-9A-F]{6})?(?<zone>[^.0-9]+)", RegexOptions.Compiled);
         bool zoneMatchedEQII = false;
         WindowsFormsSynchronizationContext mUiContext = new WindowsFormsSynchronizationContext();
 
@@ -174,7 +174,6 @@ namespace ACT_TriggerTree
             this.toggleEntireCategoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.enableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.disableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.enableOnZoneinToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.raidShareCategoryMacroMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.groupShareCategoryMacroMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -185,6 +184,7 @@ namespace ACT_TriggerTree
             this.panel1 = new System.Windows.Forms.Panel();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.label2 = new System.Windows.Forms.Label();
+            this.enableOnZoneinToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
@@ -512,6 +512,7 @@ namespace ACT_TriggerTree
             this.contextMenuStripCat.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.copyZoneNameToClipboardToolStripMenuItem,
             this.deleteEntireCategoryToolStripMenuItem,
+            this.enableOnZoneinToolStripMenuItem,
             this.toggleEntireCategoryToolStripMenuItem,
             this.toolStripSeparator4,
             this.raidShareCategoryMacroMenuItem,
@@ -520,7 +521,7 @@ namespace ACT_TriggerTree
             this.toolStripSeparator7,
             this.categorySpellTimersMenuItem});
             this.contextMenuStripCat.Name = "contextMenuStrip2";
-            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 170);
+            this.contextMenuStripCat.Size = new System.Drawing.Size(252, 214);
             this.contextMenuStripCat.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripCat_Opening);
             // 
             // copyZoneNameToClipboardToolStripMenuItem
@@ -543,8 +544,7 @@ namespace ACT_TriggerTree
             // 
             this.toggleEntireCategoryToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.enableAllTriggersToolStripMenuItem,
-            this.disableAllTriggersToolStripMenuItem,
-            this.enableOnZoneinToolStripMenuItem});
+            this.disableAllTriggersToolStripMenuItem});
             this.toggleEntireCategoryToolStripMenuItem.Name = "toggleEntireCategoryToolStripMenuItem";
             this.toggleEntireCategoryToolStripMenuItem.Size = new System.Drawing.Size(251, 22);
             this.toggleEntireCategoryToolStripMenuItem.Text = "Modify entire category";
@@ -552,24 +552,16 @@ namespace ACT_TriggerTree
             // enableAllTriggersToolStripMenuItem
             // 
             this.enableAllTriggersToolStripMenuItem.Name = "enableAllTriggersToolStripMenuItem";
-            this.enableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
+            this.enableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.enableAllTriggersToolStripMenuItem.Text = "Enable all triggers";
             this.enableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.enableAllTriggersToolStripMenuItem_Click);
             // 
             // disableAllTriggersToolStripMenuItem
             // 
             this.disableAllTriggersToolStripMenuItem.Name = "disableAllTriggersToolStripMenuItem";
-            this.disableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
+            this.disableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
             this.disableAllTriggersToolStripMenuItem.Text = "Disable all triggers";
             this.disableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.disableAllTriggersToolStripMenuItem_Click);
-            // 
-            // enableOnZoneinToolStripMenuItem
-            // 
-            this.enableOnZoneinToolStripMenuItem.Name = "enableOnZoneinToolStripMenuItem";
-            this.enableOnZoneinToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
-            this.enableOnZoneinToolStripMenuItem.Text = "Enable on zone-in";
-            this.enableOnZoneinToolStripMenuItem.ToolTipText = "Also ignores color codes and instance numbers";
-            this.enableOnZoneinToolStripMenuItem.Click += new System.EventHandler(this.enableOnZoneinToolStripMenuItem_Click);
             // 
             // toolStripSeparator4
             // 
@@ -654,6 +646,13 @@ namespace ACT_TriggerTree
             this.label2.TabIndex = 1;
             this.label2.Text = "Double-click to edit trigger fields. Expand a trigger for checkbox and right-clic" +
     "k actions on sub-items.";
+            // 
+            // enableOnZoneinToolStripMenuItem
+            // 
+            this.enableOnZoneinToolStripMenuItem.Name = "enableOnZoneinToolStripMenuItem";
+            this.enableOnZoneinToolStripMenuItem.Size = new System.Drawing.Size(251, 22);
+            this.enableOnZoneinToolStripMenuItem.Text = "Enable on zone-in";
+            this.enableOnZoneinToolStripMenuItem.Click += new System.EventHandler(this.enableOnZoneinToolStripMenuItem_Click);
             // 
             // TriggerTree
             // 
@@ -916,7 +915,10 @@ namespace ACT_TriggerTree
                 CustomTrigger trigger = Macros.TriggerFromMacro(e.RawXml);
                 if(trigger != null)
                 {
+                    if(Macros.EnableOnZoneIn && !config.autoCats.Contains(trigger.Category))
+                        config.autoCats.Add(trigger.Category);
                     mUiContext.Post(UiPostEncodedTrigger, trigger);
+                    e.Handled = true;
                 }
             }
             else if(e.ShareType == "SpellTT")
@@ -927,6 +929,7 @@ namespace ACT_TriggerTree
                 {
                     ActGlobals.oFormSpellTimers.AddEditTimerDef(td);
                     ActGlobals.oFormSpellTimers.RebuildSpellTreeView();
+                    e.Handled = true;
                 }
             }
         }
@@ -1529,7 +1532,7 @@ namespace ACT_TriggerTree
             List<CustomTrigger> triggers;
             if (treeDict.TryGetValue(category, out triggers))
             {
-                XmlCopyForm form = new XmlCopyForm(prefix, categoryTimers, triggers, config.AlternateEncoding);
+                XmlCopyForm form = new XmlCopyForm(prefix, categoryTimers, triggers, config.AlternateEncoding, config.autoCats.Contains(category));
                 form.AltEncodeCheckChanged += Form_AltEncodeCheckChanged;
                 form.Show();
                 PositionChildForm(form, whereCatMouseDown);
@@ -1727,7 +1730,7 @@ namespace ACT_TriggerTree
                     {
                         zoneMatchedEQII = true;
                         decoratedZoneName = ActGlobals.oFormActMain.CurrentZone;
-                        string cleanZoneName = match.Groups["zone"].Value.Trim();
+                        string cleanZoneName = match.Groups["zone"].Value.TrimEnd();
                         if (config.autoCats.Contains(cleanZoneName))
                             zoneName = cleanZoneName;
                         else
@@ -2389,15 +2392,17 @@ namespace ACT_TriggerTree
 
         private FormEditTrigger NewTrigger()
         {
-            string category = " General";
-            if (treeViewCats.SelectedNode != null)
+            string category = ActGlobals.oFormActMain.CurrentZone;
+            if(treeViewCats.SelectedNode != null)
                 category = treeViewCats.SelectedNode.Text;
+
             CustomTrigger trigger = new CustomTrigger("new expression", category);
             //set restrict if it kinda looks like a zone name
-            trigger.RestrictToCategoryZone = category.Contains("[") && decoratedZoneName == zoneName;
-            FormEditTrigger formEditTrigger = new FormEditTrigger(trigger, zoneName);
+            trigger.RestrictToCategoryZone = category.Contains("[");
+            FormEditTrigger formEditTrigger = new FormEditTrigger(trigger, category, config);
             formEditTrigger.EditDoneEvent += Trigger_EditDoneEvent; //callback for when the edit is done
             formEditTrigger.haveOriginal = false; //disable the replace button since there is nothing to replace
+            formEditTrigger.catDict = treeDict;
             formEditTrigger.Show(this);
             return formEditTrigger;
         }
@@ -2424,8 +2429,9 @@ namespace ACT_TriggerTree
             {
                 if (selectedTriggerNode.Parent == null)
                 {
-                    FormEditTrigger formEditTrigger = new FormEditTrigger(selectedTriggerNode.Tag as CustomTrigger, zoneName);
+                    FormEditTrigger formEditTrigger = new FormEditTrigger(selectedTriggerNode.Tag as CustomTrigger, treeViewCats.SelectedNode.Text, config);
                     formEditTrigger.EditDoneEvent += Trigger_EditDoneEvent; //callback for when the edit is done
+                    formEditTrigger.catDict = treeDict;
                     formEditTrigger.Show(this);
                     if(lastEditLoc.IsEmpty && lastEditSize.IsEmpty)
                         PositionChildForm(formEditTrigger, whereTrigMouseDown);
@@ -2667,8 +2673,9 @@ namespace ACT_TriggerTree
                         t = selectedTriggerNode.Tag as CustomTrigger;
                     else
                         t = selectedTriggerNode.Parent.Tag as CustomTrigger;
-                    FormEditTrigger formEditTrigger = new FormEditTrigger(t, zoneName);
+                    FormEditTrigger formEditTrigger = new FormEditTrigger(t, treeViewCats.SelectedNode.Text, config);
                     formEditTrigger.EditDoneEvent += Trigger_EditDoneEvent; //callback for when the edit is done
+                    formEditTrigger.catDict = treeDict;
                     formEditTrigger.Show(this);
                     if (lastEditLoc.IsEmpty && lastEditSize.IsEmpty)
                         PositionChildForm(formEditTrigger, whereTrigMouseDown);
@@ -2809,6 +2816,17 @@ namespace ACT_TriggerTree
                         ActGlobals.oFormActMain.RebuildActiveCustomTriggers();
                         PopulateCatsTree(null);
                         UpdateTriggerList(category);
+                        //if the category disappeared, remove it from the "enable on zone-in" list
+                        int autoIndex = -1;
+                        for (int i= 0; i < config.autoCats.Count; i++)
+                        {
+                            string s = config.autoCats[i];
+                            if (!treeDict.ContainsKey(s))
+                                autoIndex = i;
+                        }
+                        if (autoIndex > -1)
+                            config.autoCats.RemoveAt(autoIndex);
+
                         result = true;
                     }
                 }

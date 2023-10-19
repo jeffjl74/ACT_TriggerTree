@@ -1,7 +1,7 @@
 # Overview
 This plugin organizes Custom Triggers into a panel of categories and a panel of triggers in the selected category. This is simply a different view of exactly the same triggers that are listed in the Custom Triggers tab. 
 
-It it available from ACT's __Plugin Listing__ tab __[Get Plugins]__ button, _(80) TriggerTree_.
+It is available from ACT's __Plugin Listing__ tab __[Get Plugins]__ button, _(80) TriggerTree_.
 
 Below is a screenshot of the panels.
 
@@ -16,8 +16,16 @@ Additional features of the plugin:
 * When entering a zone in game, if there is a Category that matches the zone name, that Category is automatically selected.
 * The __Find__ boxes at the top of the Category and Trigger panes provide incremental searches.
 
-### Version 1.6.1 Changes:
-* Fix sharing alternate encoded spell timers so they work without having to restart ACT.
+### Version 1.6.2 Changes:
+* In the _Show Encounters_ list in the _Edit Trigger_ dialog, fix testing and filtering for regular expressions containing a ^ start of string anchor to match how the ACT English Parser implements it (i.e. the start of the string is after the timestamp).
+* Fix sharing from the [Share Dialog](#share-dialog) __[Macro]__ button when the recipient does not have the sender on their whitelist.
+* Since EQII seems commited to adding [color codes to zone names](#color-coded-zone-name), some tweaks to handling them:
+    * Move the _Enable on zone-in_ [up one menu level](#category-menus) to be more accessible.
+    * Automatically strip the color code when using the [Category/Zone>>] button in the [_Edit Trigger_ dialog](#edit-all-fields).
+    * When creating a new trigger in a new category using the _Edit Trigger_ dialog and you are currently in a color-coded zone, strip the color code off the _Category Zone_ and set the _Enable on zone-in_ for the category.
+    * When creating a new trigger for a color-coded zone, set the _Restrict to Category / Zone_ checkbox appropriately depending upon whether you are currently in that zone.
+    * When sharing a trigger via EQII macros using the category's _Share Dialog_ with the _Alt Encoding_ checkbox checked, also share the _Enable on zone-in_ setting for the category. 
+
 
 ## Editing Triggers
 Trigger details are available by clicking the + next to the trigger.  A context menu is provided via a right-click on a trigger, as shown below.
@@ -98,6 +106,8 @@ The second section of the category context menu is related to sharing data via E
 
 The _Delete entire category_ choice will delete all the triggers in the category and the category itself.
 
+The _Enable on zone-in_ choice provides a work-around for EQII [color coded zone names](#color-coded-zone-name).
+
 The _Modify entire category_ opens a sub menu that controls enabling or disabling all of the triggers in the category.
 
 ![entire-category](images/modify-category.png)
@@ -142,17 +152,17 @@ To simply share a spell timer via XML copy/paste in EQII chat, right click the s
 Left-click the spell timer name to open ACT's __Spell Timers (Options)__ window with a search for that timer name.
 
 #### Share Dialog
-The __Share Dialog...__ menu opens a dialog that can speed up sharing of triggers and timers, especially when macros don't work.
+The __Share Dialog...__ menu opens a dialog that can speed up sharing of triggers and timers. And with the _Alt Encoding_ checkbox checked, triggers and timers that otherwise [could not go into an EQII macro](#share-via-eqii-macros), will go into a macro.
 
 If an EQII game window is found, the dialog initially opens with the __[Macro]__ items listed. Otherwise, the dialog initially opens with the __[Copy]__ items listed. The list can be switched between __[Copy]__ items and __[Macro]__ items by pressing the respective button.
 
-An example usage where the zone name contains an apostrophe and prevents macros is shown below:
+An example usage where the _Alt Encoding_ checkbox has never been checked and the zone name contains an apostrophe which restricts macros is shown below:
 
 ![Share](images/xml-share.png)
 
 The dialog contains a list of all of the regular expressions for the category's enabled triggers, and the names of the category's spell timers. Pressing the __[Copy]__ button copies the XML for the selected item to the clipboard. For subsequent __[Copy]__ button presses, the next item is automatically selected, then copied. The prefix selected by the radio buttons provides the command to paste the XML into the group, raid, or custom chat channel.
 
-With the `Alt Encoding` checkbox checked, the plugin can put all triggers and spell timers in macros. ACT will not recognize the alternate encoding scheme and __any recipients must be running version 1.6 of the TriggerTree plugin to successfully receive the data__. An example of the share dialog with alternate encoding enabled is shown below:
+When the __[Macro]__ button is activated, the `Alt Encoding` checkbox is shown. With the `Alt Encoding` checkbox checked, the plugin can put all triggers and spell timers in macros, including those with [problem characters](#share-via-eqii-macros). ACT alone will not recognize the alternate encoding scheme and __any recipients must be running TriggerTree plugin version 1.6 or newer to successfully receive the data__. An example of the share dialog with alternate encoding enabled is shown below:
 
 ![Alt-Share](images/alt-xml-share.png)
 

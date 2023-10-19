@@ -21,6 +21,7 @@ namespace ACT_TriggerTree
         List<TimerData> _categoryTimers;
         List<CustomTrigger> _triggers;
         bool _altEncoding;
+        bool _enableOnZoneIn;
         public event EventHandler AltEncodeCheckChanged;
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
@@ -40,7 +41,7 @@ namespace ACT_TriggerTree
             }
         }
 
-        public XmlCopyForm(string prefix, List<TimerData> categoryTimers, List<CustomTrigger> triggers, bool altEncode)
+        public XmlCopyForm(string prefix, List<TimerData> categoryTimers, List<CustomTrigger> triggers, bool altEncode, bool enableOnZoneIn)
         {
             InitializeComponent();
 
@@ -48,6 +49,7 @@ namespace ACT_TriggerTree
             _triggers = triggers;
             _categoryTimers = categoryTimers;
             _altEncoding = altEncode;
+            _enableOnZoneIn = enableOnZoneIn;
         }
 
         private void XmlCopyForm_Load(object sender, EventArgs e)
@@ -66,8 +68,10 @@ namespace ACT_TriggerTree
             }
 
             checkBoxAltEncode.Checked = _altEncoding;
+            checkBoxAltEncode.Visible = false; //default, will show if macro button is activated
             toolTip1.SetToolTip(checkBoxAltEncode, "Enable macro alternate encoding.\nRecipients must be using TriggerTree.");
             Macros.AlternateEncoding = _altEncoding;
+            Macros.EnableOnZoneIn = _enableOnZoneIn;
 
             BuildList();
 
@@ -185,6 +189,7 @@ namespace ACT_TriggerTree
                 toolTip1.SetToolTip(buttonCopy, "Press to copy the selected XML item to the clipboard");
                 BuildList();
             }
+            checkBoxAltEncode.Visible = false;
         }
 
         private void NextListItem(string prefix)
@@ -368,6 +373,7 @@ namespace ACT_TriggerTree
                     listBox1.SelectedIndex = 0;
                 }
             }
+            checkBoxAltEncode.Visible = true;
         }
 
         private void radioButtonG_CheckedChanged(object sender, EventArgs e)

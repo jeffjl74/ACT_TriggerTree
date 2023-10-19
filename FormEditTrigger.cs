@@ -15,14 +15,16 @@ namespace ACT_TriggerTree
 {
     public partial class FormEditTrigger : Form
     {
-        const int logTimeStampLength = 39;  //# of chars in the log file timestamp
+        static int logTimeStampLength = ActGlobals.oFormActMain.TimeStampLen;  //# of chars in the log file timestamp
         const string logTimeStampRegexStr = @"^\(\d{10}\)\[.{24}\] ";
         Regex parsePaste = new Regex(logTimeStampRegexStr + @"(?<expr>[^\r\n]*)", RegexOptions.Compiled);
 
         CustomTrigger editingTrigger;       //a copy of the original trigger
         CustomTrigger undoTrigger;          //a reference to the original trigger
-        string zoneCategory;
+        string decoratedCategory;
+        string cleanCategory;
         bool regexChanged = false;          //track for replace / create new
+        bool zoneChanged = false;
         bool initializing = true;           //oncheck() methods do not need to do anything during shown()
         bool ignoreTextChange = false;      //don't propagate programatic find text change
         TreeNode lastSelectedNode;          //for better tree node highlighting
@@ -36,6 +38,10 @@ namespace ACT_TriggerTree
 
         //set by owner
         public bool haveOriginal = true;    //set false by parent when creating a brand new trigger
+        public bool zoneNameIsDecorated = false;
+        public Dictionary<string, List<CustomTrigger>> catDict;
+        Config _config;
+
         int logMenuRow = -1;                //context menu location in the log line grid view
 
         //encounter treeview scrolls inappropriately, use this to fix it
@@ -48,19 +54,39 @@ namespace ACT_TriggerTree
             InitializeComponent();
         }
 
-        public FormEditTrigger(CustomTrigger trigger, string category)
+        public FormEditTrigger(CustomTrigger trigger, string category, Config config)
         {
             InitializeComponent();
 
-            zoneCategory = category;
+            zoneNameIsDecorated = IsCategoryDecorated(category);
             undoTrigger = trigger;
+            _config = config;
             //make a new trigger that we can modify without changing the original trigger
             editingTrigger = new CustomTrigger(trigger.RegEx.ToString(), trigger.SoundType, trigger.SoundData, trigger.Timer, trigger.TimerName, trigger.Tabbed);
-            editingTrigger.Category = trigger.Category;
+            editingTrigger.Category = cleanCategory;
             editingTrigger.RestrictToCategoryZone = trigger.RestrictToCategoryZone;
+            if(zoneNameIsDecorated)
+            {
+                if(ActGlobals.oFormActMain.CurrentZone == decoratedCategory)
+                    editingTrigger.RestrictToCategoryZone = false;
+            }
 
             macroIcons.Images.Add(Macros.GetActionBitmap());
             macroIcons.Images.Add(Macros.GetActionNotBitmap());
+        }
+
+        private bool IsCategoryDecorated(string category)
+        {
+            bool result = false;
+            decoratedCategory = cleanCategory = category;
+            Match match = TriggerTree.reCleanActZone.Match(category);
+            if (match.Success)
+            {
+                cleanCategory = match.Groups["zone"].Value.TrimEnd();
+                if (!string.IsNullOrEmpty(match.Groups["decoration"].Value))
+                    result = true;
+            }
+            return result;
         }
 
         private void FormEditTrigger_Shown(object sender, EventArgs e)
@@ -213,6 +239,22 @@ namespace ACT_TriggerTree
                     return;
                 }
 
+                if(result == EventResult.CREATE_NEW && zoneChanged)
+                {
+                    //do we need to set "Enable on zone-in"?
+                    if(zoneNameIsDecorated)
+                    {
+                        //is it already set?
+                        if(!_config.autoCats.Contains(cleanCategory))
+                        {
+                            //is this a brand new category?
+                            //(don't change the setting if the user has already set it)
+                            if (catDict != null && !catDict.ContainsKey(cleanCategory))
+                                _config.autoCats.Add(cleanCategory);
+                        }
+                    }
+                }
+
                 if (regexChanged)
                 {
                     if(string.IsNullOrEmpty(textBoxRegex.Text.Trim()))
@@ -279,12 +321,9 @@ namespace ACT_TriggerTree
 
         private void buttonZone_Click(object sender, EventArgs e)
         {
-            if (!string.IsNullOrEmpty(zoneCategory.Trim()))
-            {
-                textBoxCategory.Text = zoneCategory;
-                //set the restricted checkbox if the string kinda looks like an EQII zone name
-                checkBoxRestrict.Checked = zoneCategory.Contains("[");
-            }
+            zoneNameIsDecorated = IsCategoryDecorated(ActGlobals.oFormActMain.CurrentZone);
+            // this will trigger the text changed event
+            textBoxCategory.Text = cleanCategory;
         }
 
         private void buttonPlay_Click(object sender, EventArgs e)
@@ -467,11 +506,18 @@ namespace ACT_TriggerTree
         {
             if (!initializing)
             {
+                zoneChanged = true;
                 editingTrigger.Category = textBoxCategory.Text;
                 buttonReplace.Enabled = true;
                 buttonUpdateCreate.Text = "Create New";
                 buttonUpdateCreate.Enabled = true;
                 buttonReplace.Enabled = haveOriginal;
+                checkBoxRestrict.Checked = editingTrigger.Category.Contains("[");
+                if (zoneNameIsDecorated)
+                {
+                    if (ActGlobals.oFormActMain.CurrentZone == decoratedCategory)
+                        checkBoxRestrict.Checked = false;
+                }
 
                 if (string.IsNullOrEmpty(editingTrigger.Category))
                     pictureBoxCat.Visible = false;
@@ -482,7 +528,6 @@ namespace ACT_TriggerTree
                         pictureBoxCat.Image = macroIcons.Images[1];
                     else
                         pictureBoxCat.Image = macroIcons.Images[0];
-
                 }
             }
         }
@@ -514,7 +559,7 @@ namespace ACT_TriggerTree
                 editingTrigger.RestrictToCategoryZone = checkBoxRestrict.Checked;
                 buttonUpdateCreate.Enabled = true;
             }
-            if (!editingTrigger.RestrictToCategoryZone || zoneCategory.Equals(editingTrigger.Category))
+            if (!editingTrigger.RestrictToCategoryZone || decoratedCategory.Equals(editingTrigger.Category))
                 textBoxRegex.ForeColor =  activeColor;
             else
                 textBoxRegex.ForeColor = inactiveColor;
@@ -573,7 +618,7 @@ namespace ACT_TriggerTree
                 }
                 if (ok)
                 {
-                    if (!editingTrigger.RestrictToCategoryZone || zoneCategory.Equals(editingTrigger.Category))
+                    if (!editingTrigger.RestrictToCategoryZone || decoratedCategory.Equals(editingTrigger.Category))
                         textBoxRegex.ForeColor = activeColor;
                     else
                         textBoxRegex.ForeColor = inactiveColor;
@@ -829,7 +874,7 @@ namespace ACT_TriggerTree
             {
                 for (int i = 0; i < lineCount; i++)
                 {
-                    if(re.Match(list[i].LogLine).Success)
+                    if(re.Match(list[i].LogLine.Substring(logTimeStampLength)).Success)
                         dt.Rows.Add(list[i].LogLine);
                 }
             }
@@ -934,10 +979,10 @@ namespace ACT_TriggerTree
                 int zoneIndex = Int32.Parse(treeViewEncounters.SelectedNode.Parent.Tag.ToString());
                 ZoneData zoneData = ActGlobals.oFormActMain.ZoneList[zoneIndex];
                 string zone = zoneData.ZoneName;
-                if (!zone.Equals(textBoxCategory.Text))
+                if (!textBoxCategory.Text.Equals(zone) && !textBoxCategory.Text.Equals(cleanCategory))
                 {
                     textBoxCategory.Text = zone;
-                    checkBoxRestrict.Checked = zoneCategory.Contains("[");
+                    checkBoxRestrict.Checked = decoratedCategory.Contains("[");
                 }
             }
 
@@ -952,7 +997,7 @@ namespace ACT_TriggerTree
             try
             {
                 //use the regex on the log line selected by the right click
-                string line = dataGridViewLines.Rows[logMenuRow].Cells["LogLine"].Value.ToString();
+                string line = dataGridViewLines.Rows[logMenuRow].Cells["LogLine"].Value.ToString().Substring(logTimeStampLength);
                 Regex re = new Regex(textBoxRegex.Text);
                 Match match = re.Match(line);
                 if(match.Success)

@@ -13,6 +13,7 @@ namespace ACT_TriggerTree
         public static List<char> invalidMacroChars = new List<char> { '<', '>', '\'', '\"', ';' };
         public static List<string> invalidMacroStrings = new List<string> { @"\#" };
         public static bool AlternateEncoding;
+        public static bool EnableOnZoneIn;
 
         public static Bitmap GetActionBitmap()
         {
@@ -364,6 +365,8 @@ namespace ACT_TriggerTree
                     sb.Append(string.Format(" T='{0}'", trigger.Timer ? "T" : "F"));
                     sb.Append(string.Format(" TN='{0}'", EncodeCustom(trigger.TimerName)));
                     sb.Append(string.Format(" Ta='{0}'", trigger.Tabbed ? "T" : "F"));
+                    if (EnableOnZoneIn)
+                        sb.Append(string.Format(" Z='{0}'", "T"));
                     sb.Append(" />");
                 }
                 result = sb.ToString();
@@ -411,6 +414,9 @@ namespace ACT_TriggerTree
                                 break;
                             case "Ta":
                                 trigger.Tabbed = field.Value == "T" ? true : false;
+                                break;
+                            case "Z":
+                                EnableOnZoneIn = field.Value == "T" ? true : false;
                                 break;
                         }
                     }
