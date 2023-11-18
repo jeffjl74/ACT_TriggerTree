@@ -71,6 +71,7 @@
             this.dataGridViewLines = new System.Windows.Forms.DataGridView();
             this.checkBoxLogLines = new System.Windows.Forms.CheckBox();
             this.treeViewEncounters = new System.Windows.Forms.TreeView();
+            this.textBoxFindLine = new ACT_TriggerTree.TextBoxX();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.pictureBoxTts = new System.Windows.Forms.PictureBox();
             this.label4 = new System.Windows.Forms.Label();
@@ -83,6 +84,7 @@
             this.splitContainerLog = new System.Windows.Forms.SplitContainer();
             this.panelLogLines = new System.Windows.Forms.Panel();
             this.panelLogFind = new System.Windows.Forms.Panel();
+            this.checkBoxFilterRegex = new System.Windows.Forms.CheckBox();
             this.label5 = new System.Windows.Forms.Label();
             this.panelRegex = new System.Windows.Forms.Panel();
             this.labelGridHelp = new System.Windows.Forms.Label();
@@ -92,8 +94,7 @@
             this.testWithRegularExpressionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.showTimeDifferencesMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.checkBoxFilterRegex = new System.Windows.Forms.CheckBox();
-            this.textBoxFindLine = new ACT_TriggerTree.TextBoxX();
+            this.MakeVictim = new System.Windows.Forms.ToolStripMenuItem();
             this.contextMenuRegex.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridViewLines)).BeginInit();
             this.groupBox1.SuspendLayout();
@@ -141,9 +142,10 @@
             this.toolStripSeparator3,
             this.MakeNumbered,
             this.MakePlayer,
-            this.MakeAttacker});
+            this.MakeAttacker,
+            this.MakeVictim});
             this.contextMenuRegex.Name = "contextMenuStrip1";
-            this.contextMenuRegex.Size = new System.Drawing.Size(278, 220);
+            this.contextMenuRegex.Size = new System.Drawing.Size(278, 264);
             this.contextMenuRegex.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStrip1_Opening);
             // 
             // Undo
@@ -611,6 +613,22 @@
             this.treeViewEncounters.TabIndex = 0;
             this.treeViewEncounters.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.treeViewEncounters_AfterSelect);
             // 
+            // textBoxFindLine
+            // 
+            this.textBoxFindLine.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxFindLine.ButtonTextClear = true;
+            this.helpProvider1.SetHelpString(this.textBoxFindLine, "Filter log lines to show only those containing this text (no wildcards). For exam" +
+        "ple: \'#\' to show colored lines. \'says,\' (include the comma) to show mob dialog.");
+            this.textBoxFindLine.Location = new System.Drawing.Point(47, 3);
+            this.textBoxFindLine.Name = "textBoxFindLine";
+            this.helpProvider1.SetShowHelp(this.textBoxFindLine, true);
+            this.textBoxFindLine.Size = new System.Drawing.Size(355, 20);
+            this.textBoxFindLine.TabIndex = 1;
+            this.toolTip1.SetToolTip(this.textBoxFindLine, "Show lines containing text. Examples: \'#\' for colored lines. \'says,\' for mob dial" +
+        "og.");
+            this.textBoxFindLine.TextChanged += new System.EventHandler(this.textBoxFindLine_TextChanged);
+            // 
             // groupBox1
             // 
             this.groupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
@@ -744,6 +762,18 @@
             this.panelLogFind.Size = new System.Drawing.Size(487, 27);
             this.panelLogFind.TabIndex = 3;
             // 
+            // checkBoxFilterRegex
+            // 
+            this.checkBoxFilterRegex.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.checkBoxFilterRegex.AutoSize = true;
+            this.checkBoxFilterRegex.Location = new System.Drawing.Point(408, 4);
+            this.checkBoxFilterRegex.Name = "checkBoxFilterRegex";
+            this.checkBoxFilterRegex.Size = new System.Drawing.Size(72, 17);
+            this.checkBoxFilterRegex.TabIndex = 3;
+            this.checkBoxFilterRegex.Text = "By Regex";
+            this.checkBoxFilterRegex.UseVisualStyleBackColor = true;
+            this.checkBoxFilterRegex.CheckedChanged += new System.EventHandler(this.checkBoxFilterRegex_CheckedChanged);
+            // 
             // label5
             // 
             this.label5.AutoSize = true;
@@ -842,33 +872,12 @@
             this.showTimeDifferencesMenuItem.ToolTipText = "Histogram of the time difference between filtered log lines";
             this.showTimeDifferencesMenuItem.Click += new System.EventHandler(this.showTimeDifferencesToolStripMenuItem_Click);
             // 
-            // checkBoxFilterRegex
+            // MakeVictim
             // 
-            this.checkBoxFilterRegex.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.checkBoxFilterRegex.AutoSize = true;
-            this.checkBoxFilterRegex.Location = new System.Drawing.Point(408, 4);
-            this.checkBoxFilterRegex.Name = "checkBoxFilterRegex";
-            this.checkBoxFilterRegex.Size = new System.Drawing.Size(72, 17);
-            this.checkBoxFilterRegex.TabIndex = 3;
-            this.checkBoxFilterRegex.Text = "By Regex";
-            this.checkBoxFilterRegex.UseVisualStyleBackColor = true;
-            this.checkBoxFilterRegex.CheckedChanged += new System.EventHandler(this.checkBoxFilterRegex_CheckedChanged);
-            // 
-            // textBoxFindLine
-            // 
-            this.textBoxFindLine.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxFindLine.ButtonTextClear = true;
-            this.helpProvider1.SetHelpString(this.textBoxFindLine, "Filter log lines to show only those containing this text (no wildcards). For exam" +
-        "ple: \'#\' to show colored lines. \'says,\' (include the comma) to show mob dialog.");
-            this.textBoxFindLine.Location = new System.Drawing.Point(47, 3);
-            this.textBoxFindLine.Name = "textBoxFindLine";
-            this.helpProvider1.SetShowHelp(this.textBoxFindLine, true);
-            this.textBoxFindLine.Size = new System.Drawing.Size(355, 20);
-            this.textBoxFindLine.TabIndex = 1;
-            this.toolTip1.SetToolTip(this.textBoxFindLine, "Show lines containing text. Examples: \'#\' for colored lines. \'says,\' for mob dial" +
-        "og.");
-            this.textBoxFindLine.TextChanged += new System.EventHandler(this.textBoxFindLine_TextChanged);
+            this.MakeVictim.Name = "MakeVictim";
+            this.MakeVictim.Size = new System.Drawing.Size(277, 22);
+            this.MakeVictim.Text = "Make (?<victim>\\w+) capture group";
+            this.MakeVictim.Click += new System.EventHandler(this.MakeVictimw_Click);
             // 
             // FormEditTrigger
             // 
@@ -977,6 +986,7 @@
         private System.Windows.Forms.PictureBox pictureBoxTimer;
         private TextBoxX textBoxFindLine;
         private System.Windows.Forms.CheckBox checkBoxFilterRegex;
+        private System.Windows.Forms.ToolStripMenuItem MakeVictim;
     }
 }
 

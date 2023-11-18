@@ -669,6 +669,7 @@ namespace ACT_TriggerTree
                 contextMenuRegex.Items["MakeNumbered"].Enabled = false;
                 contextMenuRegex.Items["MakePlayer"].Enabled = false;
                 contextMenuRegex.Items["MakeAttacker"].Enabled = false;
+                contextMenuRegex.Items["MakeVictim"].Enabled = false;
             }
             else
             {
@@ -678,6 +679,7 @@ namespace ACT_TriggerTree
                 contextMenuRegex.Items["MakeNumbered"].Enabled = true;
                 contextMenuRegex.Items["MakePlayer"].Enabled = true;
                 contextMenuRegex.Items["MakeAttacker"].Enabled = true;
+                contextMenuRegex.Items["MakeVictim"].Enabled = true;
             }
 
             //can't paste if there is nothing in the clipboard
@@ -741,6 +743,12 @@ namespace ACT_TriggerTree
         {
             //use .Paste() to enable Undo
             textBoxRegex.Paste(@"(?<attacker>\w+)");
+        }
+
+        private void MakeVictimw_Click(object sender, EventArgs e)
+        {
+            //use .Paste() to enable Undo
+            textBoxRegex.Paste(@"(?<victim>\w+)");
         }
 
         private void textBoxRegex_MouseDoubleClick(object sender, MouseEventArgs e)
@@ -1033,8 +1041,13 @@ namespace ACT_TriggerTree
                     {
                         if (checkBoxTimer.Checked)
                         {
-                            string player = ActGlobals.charName;
-                            ActGlobals.oFormSpellTimers.NotifySpell(player, textBoxTimer.Text, false, player, true);
+                            string victim = match.Groups["victim"].Value.ToString();
+                            if(string.IsNullOrEmpty(victim))
+                                victim = ActGlobals.charName;
+                            string attacker = match.Groups["attacker"].Value.ToString();
+                            if (string.IsNullOrEmpty(attacker))
+                                attacker = victim;
+                            ActGlobals.oFormSpellTimers.NotifySpell(attacker, textBoxTimer.Text, false, victim, true);
                         }
                         if(checkBoxResultsTab.Checked)
                         {

@@ -16,16 +16,9 @@ Additional features of the plugin:
 * When entering a zone in game, if there is a Category that matches the zone name, that Category is automatically selected.
 * The __Find__ boxes at the top of the Category and Trigger panes provide incremental searches.
 
-### Version 1.6.2 Changes:
-* In the _Show Encounters_ list in the _Edit Trigger_ dialog, fix testing and filtering for regular expressions containing a ^ start of string anchor to match how the ACT English Parser implements it (i.e. the start of the string is after the timestamp).
-* Fix sharing from the [Share Dialog](#share-dialog) __[Macro]__ button when the recipient does not have the sender on their whitelist.
-* Since EQII seems commited to adding [color codes to zone names](#color-coded-zone-name), some tweaks to handling them:
-    * Move the _Enable on zone-in_ [up one menu level](#category-menus) to be more accessible.
-    * Automatically strip the color code when using the [Category/Zone>>] button in the [_Edit Trigger_ dialog](#edit-all-fields).
-    * When creating a new trigger in a new category using the _Edit Trigger_ dialog and you are currently in a color-coded zone, strip the color code off the _Category Zone_ and set the _Enable on zone-in_ for the category.
-    * When creating a new trigger for a color-coded zone, set the _Restrict to Category / Zone_ checkbox appropriately depending upon whether you are currently in that zone.
-    * When sharing a trigger via EQII macros using the category's _Share Dialog_ with the _Alt Encoding_ checkbox checked, also share the _Enable on zone-in_ setting for the category. 
-
+### Version 1.6.3 Changes:
+* Fix zone instance number parsing.
+* Fix $\{attacker} and $\{victim} capture group replacement when testing a trigger that starts a spell timer.
 
 ## Editing Triggers
 Trigger details are available by clicking the + next to the trigger.  A context menu is provided via a right-click on a trigger, as shown below.
@@ -56,7 +49,7 @@ Features of the edit trigger dialog:
 	![Regex Context](images/regex-context.png)
 
 * Capture groups in the __Regular Expression__ are automatically added to the drop down list next to the TTS button (e,g, the 1 shown in the [Edit All screenshot](#edit-all-fields) which represents the __(\d+)__ in the expression). They may be inserted into the TTS expression via the insert button to the right of the drop down. 
-	* Note that named capture groups such as `(?<player>\w+)` cannot be saved to an EQII macro due to the brackets.
+	* Note that named capture groups such as `(?<player>\w+)` cannot be saved to an EQII macro due to the brackets unless the _Alt Encoding_ checkbox in the __Share Dialog__ is used.
 
 ### Results Tabs
 When the trigger's __Add Results tab__ checkbox is checked, ACT adds a tab next to the __Triggers__ tab. The tab is named using the __Timer / Tab Name__ and lists data from log lines that match the trigger.
