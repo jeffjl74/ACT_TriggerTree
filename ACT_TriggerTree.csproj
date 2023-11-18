@@ -124,6 +124,9 @@
     <Compile Include="TriggerTree.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="TriggerTree.Designer.cs">
+      <DependentUpon>TriggerTree.cs</DependentUpon>
+    </Compile>
     <Compile Include="XmlCopyForm.cs">
       <SubType>Form</SubType>
     </Compile>

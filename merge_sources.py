@@ -3,7 +3,7 @@ from os import O_APPEND
 from typing import OrderedDict
 
 
-files = ['TriggerTree.cs']
+files = ['TriggerTree.cs', 'TriggerTree.Designer.cs']
 files.extend(['FormEditTrigger.cs', 'FormEditTrigger.Designer.cs'])
 files.extend(['FormEditSound.cs', 'FormEditSound.Designer.cs'])
 files.extend(['FormEditTimer.cs', 'FormEditTimer.Designer.cs'])
