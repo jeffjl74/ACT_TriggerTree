@@ -19,7 +19,7 @@ using System.Xml.Serialization;
 [assembly: AssemblyTitle("Tree view of Custom Triggers")]
 [assembly: AssemblyDescription("An alternate interface for managing Custom Triggers")]
 [assembly: AssemblyCompany("Mineeme of Maj'Dul")]
-[assembly: AssemblyVersion("1.6.2.0")]
+[assembly: AssemblyVersion("1.6.3.0")]
 
 namespace ACT_TriggerTree
 {
@@ -33,8 +33,8 @@ namespace ACT_TriggerTree
         //zone
         string zoneName = string.Empty;             //most recent zone name from the log file
         string decoratedZoneName = string.Empty;    //includes color and instance #
-        static Regex reCleanLogZone = new Regex(@"\(\d{10}\)\[.{24}\] You have entered (?::.+?:)?(?<decoration>\\#[0-9A-F]{6})?(?<zone>[^.0-9]+)", RegexOptions.Compiled);
-        public static Regex reCleanActZone = new Regex(@"(?::.+?:)?(?<decoration>\\#[0-9A-F]{6})?(?<zone>[^.0-9]+)", RegexOptions.Compiled);
+        static Regex reCleanLogZone = new Regex(@"\(\d{10}\)\[.{24}\] You have entered (?::.+?:)?(?<decoration>\\#[0-9A-F]{6})?(?<zone>.+?)(?: \d+)?\.", RegexOptions.Compiled);
+        public static Regex reCleanActZone =                               new Regex(@"(?::.+?:)?(?<decoration>\\#[0-9A-F]{6})?(?<zone>.+?)(?: \d+)?$", RegexOptions.Compiled);
         bool zoneMatchedEQII = false;
         WindowsFormsSynchronizationContext mUiContext = new WindowsFormsSynchronizationContext();
 
