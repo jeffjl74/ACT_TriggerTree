@@ -20,9 +20,10 @@ namespace ACT_TriggerTree
         string _prefix;
         List<TimerData> _categoryTimers;
         List<CustomTrigger> _triggers;
-        bool _altEncoding;
-        bool _enableOnZoneIn;
-        public event EventHandler AltEncodeCheckChanged;
+        //bool _enableOnZoneIn;
+        Config _config;
+        string _groupName;
+        //public event EventHandler AltEncodeCheckChanged;
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         static extern bool SetForegroundWindow(IntPtr hWnd);
@@ -41,15 +42,16 @@ namespace ACT_TriggerTree
             }
         }
 
-        public XmlCopyForm(string prefix, List<TimerData> categoryTimers, List<CustomTrigger> triggers, bool altEncode, bool enableOnZoneIn)
+        public XmlCopyForm(string prefix, List<TimerData> categoryTimers, List<CustomTrigger> triggers, Config config, string groupName)
         {
             InitializeComponent();
 
             _prefix = prefix;
             _triggers = triggers;
             _categoryTimers = categoryTimers;
-            _altEncoding = altEncode;
-            _enableOnZoneIn = enableOnZoneIn;
+            _config = config;
+            _groupName = groupName;
+            Macros.AlternateEncoding = config.AlternateEncoding;
         }
 
         private void XmlCopyForm_Load(object sender, EventArgs e)
@@ -67,11 +69,8 @@ namespace ACT_TriggerTree
                 }
             }
 
-            checkBoxAltEncode.Checked = _altEncoding;
-            checkBoxAltEncode.Visible = false; //default, will show if macro button is activated
-            toolTip1.SetToolTip(checkBoxAltEncode, "Enable macro alternate encoding.\nRecipients must be using TriggerTree.");
-            Macros.AlternateEncoding = _altEncoding;
-            Macros.EnableOnZoneIn = _enableOnZoneIn;
+            Macros.AlternateEncoding = _config.AlternateEncoding;
+            //Macros.EnableOnZoneIn = _enableOnZoneIn;
 
             BuildList();
 
@@ -156,6 +155,8 @@ namespace ACT_TriggerTree
 
             if (_validTimers == 0 && _validTriggers == 0)
                 buttonMacro.Enabled = false;
+            else
+                buttonMacro.Enabled = true;
         }
 
         private void buttonCopy_Click(object sender, EventArgs e)
@@ -189,7 +190,6 @@ namespace ACT_TriggerTree
                 toolTip1.SetToolTip(buttonCopy, "Press to copy the selected XML item to the clipboard");
                 BuildList();
             }
-            checkBoxAltEncode.Visible = false;
         }
 
         private void NextListItem(string prefix)
@@ -342,7 +342,7 @@ namespace ACT_TriggerTree
                         prefix = prefix + " ";
                 }
 
-                if(checkBoxAltEncode.Checked)
+                if(_config.AlternateEncoding)
                     this.Text = String.Format("Share: ({0}/{1}) triggers, ({2}/{3}) timers", _totalTriggers, _totalTriggers, _totalTimers, _totalTimers);
                 else if (_totalTimers > 0 && _totalTriggers > 0)
                     this.Text = String.Format("XML Share: ({0}/{1}) triggers, ({2}/{3}) timers", _validTriggers, _totalTriggers, _validTimers, _totalTimers);
@@ -351,7 +351,7 @@ namespace ACT_TriggerTree
                 else if(_totalTimers > 0)
                     this.Text = String.Format("XML Share: ({2}/{3}) timers", _validTimers, _totalTimers);
 
-                int count = Macros.WriteCategoryMacroFile(prefix, _triggers, _categoryTimers, false);
+                int count = Macros.WriteCategoryMacroFile(prefix, _triggers, _categoryTimers, _config, _groupName, false);
                 listBox1.Items.Clear();
                 for (int i = 0; i < count; i++)
                 {
@@ -371,9 +371,9 @@ namespace ACT_TriggerTree
                 if (listBox1.Items.Count > 0)
                 {
                     listBox1.SelectedIndex = 0;
+                    toolStripStatusLabel1.Text = "Press [Macro] to copy selection to clipboard";
                 }
             }
-            checkBoxAltEncode.Visible = true;
         }
 
         private void radioButtonG_CheckedChanged(object sender, EventArgs e)
@@ -416,29 +416,19 @@ namespace ACT_TriggerTree
             }
         }
 
-        private void checkBoxAltEncode_CheckedChanged(object sender, EventArgs e)
+        public void AltEncodingChanged()
         {
-            if (!_loading)
+            if (listBox1.Items.Count > 0)
             {
-                _altEncoding = checkBoxAltEncode.Checked;
-                Macros.AlternateEncoding = _altEncoding;
-                if (AltEncodeCheckChanged != null)
-                {
-                    // notify our parent
-                    AltEncodeCheckChanged.Invoke(sender, e);
-                }
-                if (listBox1.Items.Count > 0)
-                {
-                    ListItem listItem = (ListItem)listBox1.Items[0];
-                    if (listItem.type == ItemType.Command)
-                    {
-                        // regenerate the macros
-                        BuildList();
-                        buttonMacro_Click(null, null);
-                    }
-                }
+                // regenerate
+                bool wasMacros = false;
+                ListItem listItem = (ListItem)listBox1.Items[0];
+                if (listItem.type == ItemType.Command)
+                    wasMacros = true;
+                BuildList();
+                if(wasMacros)
+                    buttonMacro_Click(null, null);
             }
-
         }
     }
 }

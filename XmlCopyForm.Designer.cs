@@ -43,7 +43,6 @@ namespace ACT_TriggerTree
             this.textBoxCustom = new System.Windows.Forms.TextBox();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
-            this.checkBoxAltEncode = new System.Windows.Forms.CheckBox();
             this.statusStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -66,7 +65,7 @@ namespace ACT_TriggerTree
             this.buttonCopy.Name = "buttonCopy";
             this.buttonCopy.Size = new System.Drawing.Size(75, 23);
             this.buttonCopy.TabIndex = 8;
-            this.buttonCopy.Text = "Copy";
+            this.buttonCopy.Text = "&Copy";
             this.toolTip1.SetToolTip(this.buttonCopy, "Press to copy the selected XML item to the clipboard");
             this.buttonCopy.UseVisualStyleBackColor = true;
             this.buttonCopy.Click += new System.EventHandler(this.buttonCopy_Click);
@@ -78,7 +77,7 @@ namespace ACT_TriggerTree
             this.buttonDone.Name = "buttonDone";
             this.buttonDone.Size = new System.Drawing.Size(75, 23);
             this.buttonDone.TabIndex = 9;
-            this.buttonDone.Text = "Done";
+            this.buttonDone.Text = "&Done";
             this.buttonDone.UseVisualStyleBackColor = true;
             this.buttonDone.Click += new System.EventHandler(this.buttonDone_Click);
             // 
@@ -153,7 +152,7 @@ namespace ACT_TriggerTree
             this.buttonMacro.Name = "buttonMacro";
             this.buttonMacro.Size = new System.Drawing.Size(75, 23);
             this.buttonMacro.TabIndex = 7;
-            this.buttonMacro.Text = "Macro";
+            this.buttonMacro.Text = "&Macro";
             this.toolTip1.SetToolTip(this.buttonMacro, "Press to generate and list macro files");
             this.buttonMacro.UseVisualStyleBackColor = true;
             this.buttonMacro.Click += new System.EventHandler(this.buttonMacro_Click);
@@ -184,24 +183,12 @@ namespace ACT_TriggerTree
             this.toolStripStatusLabel1.Size = new System.Drawing.Size(118, 17);
             this.toolStripStatusLabel1.Text = "toolStripStatusLabel1";
             // 
-            // checkBoxAltEncode
-            // 
-            this.checkBoxAltEncode.AutoSize = true;
-            this.checkBoxAltEncode.Location = new System.Drawing.Point(194, 145);
-            this.checkBoxAltEncode.Name = "checkBoxAltEncode";
-            this.checkBoxAltEncode.Size = new System.Drawing.Size(86, 17);
-            this.checkBoxAltEncode.TabIndex = 11;
-            this.checkBoxAltEncode.Text = "Alt Encoding";
-            this.checkBoxAltEncode.UseVisualStyleBackColor = true;
-            this.checkBoxAltEncode.CheckedChanged += new System.EventHandler(this.checkBoxAltEncode_CheckedChanged);
-            // 
             // XmlCopyForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(298, 219);
             this.ControlBox = false;
-            this.Controls.Add(this.checkBoxAltEncode);
             this.Controls.Add(this.buttonMacro);
             this.Controls.Add(this.comboBoxGame);
             this.Controls.Add(this.label1);
@@ -240,6 +227,5 @@ namespace ACT_TriggerTree
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.ComboBox comboBoxGame;
         private System.Windows.Forms.Button buttonMacro;
-        private System.Windows.Forms.CheckBox checkBoxAltEncode;
     }
 }

@@ -7,6 +7,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -15,22 +16,21 @@ using System.Xml.Serialization;
 using System.Data;
 using System.Threading.Tasks;
 using System.Windows.Forms.DataVisualization.Charting;
-using System.Runtime.InteropServices;
 using System.Collections;
 // reference:System.Windows.Forms.DataVisualization.dll
 // reference:System.Core.dll
+// reference:System.Linq.dll
 
 
 [assembly: AssemblyTitle("Tree view of Custom Triggers")]
 [assembly: AssemblyDescription("An alternate interface for managing Custom Triggers")]
 [assembly: AssemblyCompany("Mineeme of Maj'Dul")]
-[assembly: AssemblyVersion("1.6.3.0")]
+[assembly: AssemblyVersion("1.7.0.0")]
 
 namespace ACT_TriggerTree
 {
     public partial class TriggerTree : UserControl, IActPluginV1
 	{
-        int logTimeStampLength = ActGlobals.oFormActMain.TimeStampLen;          //# of chars in the timestamp
 
         //trigger dictionary - list of triggers by Category name
         Dictionary<string, List<CustomTrigger>> treeDict;
@@ -38,10 +38,18 @@ namespace ACT_TriggerTree
         //zone
         string zoneName = string.Empty;             //most recent zone name from the log file
         string decoratedZoneName = string.Empty;    //includes color and instance #
-        static Regex reCleanLogZone = new Regex(@"\(\d{10}\)\[.{24}\] You have entered (?::.+?:)?(?<decoration>\\#[0-9A-F]{6})?(?<zone>.+?)(?: \d+)?\.", RegexOptions.Compiled);
-        public static Regex reCleanActZone =                               new Regex(@"(?::.+?:)?(?<decoration>\\#[0-9A-F]{6})?(?<zone>.+?)(?: \d+)?$", RegexOptions.Compiled);
-        bool zoneMatchedEQII = false;
+        public static Regex reCleanActZone = new Regex(@"(?::.+?:)?(?<decoration>\\#[0-9A-F]{6})?(?<zone>.+?)(?<instance> \d+)?$", RegexOptions.Compiled);
         WindowsFormsSynchronizationContext mUiContext = new WindowsFormsSynchronizationContext();
+        System.Timers.Timer zoneTimer = new System.Timers.Timer(1000);
+
+        //category groups support
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, UInt32 Msg, IntPtr wParam, IntPtr lParam);
+        UInt32 WM_VSCROLL = 277;
+        public static string defaultGroupName = " Default Group";
+        enum CatGrpEditType { NONE, ADD_NEW, RENAME_OLD }
+        CatGrpEditType catGrpEditType = CatGrpEditType.NONE;
+        internal class TriggerGrp { public CustomTrigger trigger; public string groupName; }
 
         ImageList treeImages = new ImageList();     //category folder images
         ImageList triggerImages = new ImageList();  //trigger images
@@ -61,9 +69,10 @@ namespace ACT_TriggerTree
         int indexResultsTab = 3;                      //child index for the Alert Tab child
         int indexTimerName = 4;                     //child index for the Timer/Tab child
 
-        Color activeBackground = Color.LightGreen;  //background for a category that contains active triggers
-        Brush activeBackgroundBrush = new SolidBrush(Color.LightGreen);
-        Color inactiveBackground = Color.White;     //background for a category with only inactive triggers
+        static Color activeBackground = Color.LightGreen;  //background for a category that contains active triggers
+        Brush activeBackgroundBrush = new SolidBrush(activeBackground);
+        static Color inactiveBackground = Color.White;     //background for a category with only inactive triggers
+        Brush inactiveBackgroundBrush = new SolidBrush(inactiveBackground);
         Color foundBackground = Color.Gold;         //background for a found trigger
         Color notFoundBackground = Color.White;     //background for triggers
         Color activeColor = Color.Green;            //trigger that will alert if seen in the log
@@ -74,6 +83,7 @@ namespace ACT_TriggerTree
         TreeNode clickedCategoryNode = null;
         Point whereTrigMouseDown;                   //screen location for the trigger tree context menu
         Point whereCatMouseDown;
+        List<XmlCopyForm> openShareDialogs = new List<XmlCopyForm>(); //track open dialogs
         bool isDoubleClick = false;                 //to intercept the double click on a trigger
         Point lastEditLoc = new Point();
         Size lastEditSize = new Size();
@@ -86,6 +96,7 @@ namespace ACT_TriggerTree
 
         //trigger macro file stuff
         public static string doFileName = "triggers.txt";         //macro file name
+
         //menu tooltips
         string invalidTriggerText = "Trigger or Category contains character(s) {0} or string {1} which are invalid in a macro file";
         string validTriggerText = "Make a triggers.txt macro file to share trigger with the ";
@@ -104,15 +115,12 @@ namespace ACT_TriggerTree
         Button addEditButton = null;
         Button removeButton = null;
 
-        Label lblStatus;                            // The status label that appears in ACT's Plugin tab
+        Label lblStatus;                            // save a reference to the status label that appears in ACT's Plugin tab
 
+        // settings
         string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\TriggerTree.config.xml");
         XmlSerializer xmlSerializer;
         Config config;
-        private ToolStripMenuItem toggleEntireCategoryToolStripMenuItem;
-        private ToolStripMenuItem enableAllTriggersToolStripMenuItem;
-        private ToolStripMenuItem disableAllTriggersToolStripMenuItem;
-        private ToolStripMenuItem enableOnZoneinToolStripMenuItem;
 
         public TriggerTree()
 		{
@@ -142,10 +150,15 @@ namespace ACT_TriggerTree
 
             formResultsTabs = new FormResultsTabs(config);
 
+            toolStripButtonAltEncoding.ToolTipText = "Enable alternate encoding so all triggers can go in a macro.\nRecipients must be using TriggerTree.";
+
             PopulateCatsTree(null);
 
-            ActGlobals.oFormActMain.OnLogLineRead += OFormActMain_OnLogLineRead;        //for zone change
-            ActGlobals.oFormActMain.LogFileChanged += OFormActMain_LogFileChanged;      //for zone change
+            zoneTimer.Elapsed += ZoneTimer_Elapsed;
+            zoneTimer.SynchronizingObject = ActGlobals.oFormActMain;
+            zoneTimer.Enabled = true;
+            zoneTimer.Start();
+
             ActGlobals.oFormActMain.XmlSnippetAdded += OFormActMain_XmlSnippetAdded;    //for incoming shared trigger
 
             if (ActGlobals.oFormActMain.GetAutomaticUpdatesAllowed())
@@ -168,8 +181,6 @@ namespace ACT_TriggerTree
                 removeButton.Click -= RemoveButton_Click;
 
             // Unsubscribe from any events you listen to when exiting!
-            ActGlobals.oFormActMain.OnLogLineRead -= OFormActMain_OnLogLineRead;
-            ActGlobals.oFormActMain.LogFileChanged -= OFormActMain_LogFileChanged;
             ActGlobals.oFormActMain.XmlSnippetAdded -= OFormActMain_XmlSnippetAdded;
 
             foreach(string s in config.autoCats)
@@ -195,8 +206,11 @@ namespace ACT_TriggerTree
                     DialogResult result = SimpleMessageBox.Show(new Point(screen.Width / 2 - 100, screen.Height / 2 - 100),
                           @"There is an update for TriggerTree."
                         + @"\line Update it now?"
-                        + @"\line (If there is an update to ACT"
-                        + @"\line you should click No and update ACT first.)"
+                        + @"\line\line{\b This release adds another level to the category tree "
+                        + @"\line to help organize categories. All existing categories "
+                        + @"will be moved to the {\ul Default Group} folder.}"
+                        + @"\line\line If there is an update to ACT"
+                        + @"\line you should click No and update ACT first."
                         + @"\line\line Release notes at project website:"
                         + @"{\line\ql https://github.com/jeffjl74/ACT_TriggerTree#overview}"
                         , "Trigger Tree New Version", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
@@ -219,61 +233,32 @@ namespace ACT_TriggerTree
             }
         }
 
-        private void OFormActMain_OnLogLineRead(bool isImport, LogLineEventArgs logInfo)
+        private void ZoneTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
-            // for EQII, the English parser regexArray[9] (i.e. detectedType 10) is the one that looks for a "You have entered" zone change
-            // so we only need to watch detectedType == 10 for a zone change
-            if (logInfo.detectedType == 10)
+            if (!string.IsNullOrEmpty(ActGlobals.oFormActMain.CurrentZone) && ActGlobals.oFormActMain.CurrentZone != decoratedZoneName)
             {
-                // pull out just the zone name (remove color and instance #)
-                Match match = reCleanLogZone.Match(logInfo.logLine);
+                Match match = reCleanActZone.Match(ActGlobals.oFormActMain.CurrentZone);
                 if (match.Success)
                 {
-                    zoneMatchedEQII = true;
-                    decoratedZoneName = logInfo.detectedZone;
-                    string cleanZoneName = match.Groups["zone"].Value.Trim();
-                    if (config.autoCats.Contains(cleanZoneName))
-                        zoneName = cleanZoneName;
-                    else
-                        zoneName = decoratedZoneName;
-                    mUiContext.Post(CheckAutoRestrict, null);
-                    mUiContext.Post(UpdateCategoryColors, true);
-                    mUiContext.Post(UpdateTriggerColors, null);
-                }
-            }
-            // to cover other parsers without costing the time to run the EQII regex
-            if(!zoneMatchedEQII)
-            {
-                //to reduce overhead, we only use type == 0 lines that ACT did not parse
-                if (logInfo.detectedType == 0 && logInfo.logLine.Length > logTimeStampLength)
-                {
-                    //look for zone difference between what we've seen before
-                    if (!string.IsNullOrEmpty(logInfo.detectedZone) && logInfo.detectedZone != zoneName)
+                    bool isDecorated = !string.IsNullOrEmpty(match.Groups["decoration"].Value) || !string.IsNullOrEmpty(match.Groups["instance"].Value);
+                    if(isDecorated)
                     {
-                        zoneName = decoratedZoneName = logInfo.detectedZone;
-                        mUiContext.Post(UpdateCategoryColors, true);
-                        mUiContext.Post(UpdateTriggerColors, null);
+                        decoratedZoneName = ActGlobals.oFormActMain.CurrentZone;
+                        string cleanZoneName = match.Groups["zone"].Value.Trim();
+                        if (config.autoCats.Contains(cleanZoneName))
+                            zoneName = cleanZoneName;
+                        else
+                            zoneName = decoratedZoneName;
                     }
+                    else
+                        zoneName = decoratedZoneName = ActGlobals.oFormActMain.CurrentZone;
                 }
-            }
-        }
-
-        private void OFormActMain_LogFileChanged(bool IsImport, string NewLogFileName)
-        {
-            Match match = reCleanActZone.Match(ActGlobals.oFormActMain.CurrentZone);
-            if (match.Success)
-            {
-                zoneMatchedEQII = true;
-                decoratedZoneName = ActGlobals.oFormActMain.CurrentZone;
-                string cleanZoneName = match.Groups["zone"].Value.Trim();
-                if (config.autoCats.Contains(cleanZoneName))
-                    zoneName = cleanZoneName;
                 else
-                    zoneName = decoratedZoneName;
+                    zoneName = decoratedZoneName = ActGlobals.oFormActMain.CurrentZone;
+                mUiContext.Post(CheckAutoRestrict, null);
+                mUiContext.Post(UpdateTriggerColors, null);
+                mUiContext.Post(UpdateCategoryColors, true);
             }
-            else
-                zoneName = decoratedZoneName = ActGlobals.oFormActMain.CurrentZone;
-            mUiContext.Post(CheckAutoRestrict, null);
         }
 
         private void CheckAutoRestrict(object o)
@@ -302,7 +287,8 @@ namespace ACT_TriggerTree
                 {
                     if(Macros.EnableOnZoneIn && !config.autoCats.Contains(trigger.Category))
                         config.autoCats.Add(trigger.Category);
-                    mUiContext.Post(UiPostEncodedTrigger, trigger);
+                    TriggerGrp tg = new TriggerGrp { trigger = trigger, groupName = Macros.GroupName };
+                    mUiContext.Post(UiPostEncodedTrigger, tg);
                     e.Handled = true;
                 }
             }
@@ -321,12 +307,14 @@ namespace ACT_TriggerTree
 
         private void UiPostEncodedTrigger(object o)
         {
-            CustomTrigger trigger = o as CustomTrigger;
+            TriggerGrp tg = o as TriggerGrp;
             if(o != null)
             {
-                ActGlobals.oFormActMain.AddEditCustomTrigger(trigger);
-                if (trigger.Tabbed)
-                    UpdateResultsTab(trigger);
+                if (!string.IsNullOrEmpty(tg.groupName))
+                    config.catGroupings.AddCatIfNotGrouped(tg.groupName, tg.trigger.Category);
+                ActGlobals.oFormActMain.AddEditCustomTrigger(tg.trigger);
+                if (tg.trigger.Tabbed)
+                    UpdateResultsTab(tg.trigger);
 
                 PopulateCatsTree(null);
             }
@@ -343,6 +331,7 @@ namespace ACT_TriggerTree
                         config = (Config)xmlSerializer.Deserialize(xfs);
                     }
                     toolStripButtonResults.Checked = config.ResultsPopup;
+                    toolStripButtonAltEncoding.Checked = config.AlternateEncoding;
                     Macros.AlternateEncoding = config.AlternateEncoding;
                 }
                 catch (Exception ex)
@@ -417,6 +406,10 @@ namespace ACT_TriggerTree
             treeDict = new Dictionary<string, List<CustomTrigger>>();
             treeViewCats.Nodes.Clear();
 
+            config.catGroupings.Sort((x, y) => x.GroupName.CompareTo(y.GroupName));
+            foreach (ConfigCatGroup grp in config.catGroupings)
+                treeViewCats.Nodes.Add(grp.GroupName, grp.GroupName);
+
             int keyCount = ActGlobals.oFormActMain.CustomTriggers.Keys.Count;
             for(int i=0; i<keyCount; i++)
             {
@@ -428,11 +421,23 @@ namespace ACT_TriggerTree
                     //add this category if not already there
                     if(!treeDict.ContainsKey(category))
                     {
+                        string group = config.catGroupings.GetGroupName(category);
+                        if (string.IsNullOrEmpty(group))
+                        {
+                            group = defaultGroupName;
+                            config.catGroupings.AddCatIfNotGrouped(group, category);
+                        }
+                        
                         treeDict.Add(category, new List<CustomTrigger>());
+
                         //add the category to the tree
-                        TreeNode node = treeViewCats.Nodes.Add(category);
-                        node.ImageIndex = 0;    //closed folder
-                        node.Name = category;   //for .Find()
+                        TreeNode[] tn = treeViewCats.Nodes.Find(group, false);
+                        if (tn.Length > 0)
+                        {
+                            TreeNode node = tn[0].Nodes.Add(category);
+                            node.ImageIndex = 0;    //closed folder
+                            node.Name = category;   //for .Find()
+                        }
                     }
                     //add this trigger to the category's list of triggers
                     List<CustomTrigger> list;
@@ -474,12 +479,50 @@ namespace ACT_TriggerTree
                     }
                 }
             }
+
+            // use persistent setting to expand/collapse group nodes
+            foreach(TreeNode ttn in treeViewCats.Nodes)
+            {
+                ConfigCatGroup ccg = config.catGroupings[ttn.Text];
+                if(ccg != null)
+                {
+                    if (ccg.Collapsed)
+                        ttn.Collapse();
+                    else
+                        ttn.Expand();
+                }
+            }
+
+            // make sure all categories in the config.catGroupings list still exist
+            // (e.g. cleanup if an entire category was deleted via the Custom Triggers tab)
+            foreach (ConfigCatGroup grp in config.catGroupings)
+            {
+                int count = grp.Cats.Count;
+                for(int i = count-1; i >= 0; i--)
+                {
+                    string cat = grp.Cats[i];
+                    if(!treeDict.ContainsKey(cat))
+                    {
+                        grp.Cats.Remove(cat);
+                    }
+                }
+            }
+
+            // same cleanup for auto-zone categories
+            int acount = config.autoCats.Count;
+            for(int i = acount-1; i >= 0; i--)
+            {
+                string cat = config.autoCats[i];
+                if (!treeDict.ContainsKey(cat))
+                    config.autoCats.Remove(cat);
+            }
+
             mUiContext.Post(UpdateCategoryColors, false);
 
             //try to restore previous selection
             if (!string.IsNullOrEmpty(prevCat))
             {
-                TreeNode[] nodes = treeViewCats.Nodes.Find(prevCat, false);
+                TreeNode[] nodes = treeViewCats.Nodes.Find(prevCat, true);
                 if (nodes.Length > 0)
                 {
                     treeViewCats.SelectedNode = nodes[0];
@@ -514,8 +557,19 @@ namespace ACT_TriggerTree
         private void UpdateCategoryColors(object o)
         {
             bool autoSelect = (bool)o;
-            foreach (TreeNode category in treeViewCats.Nodes)
+            List<TreeNode> allnodes = EnumerateAllTreeNodes<TreeNode>(treeViewCats);
+            foreach (TreeNode category in allnodes)
             {
+                if (category.Level == 0)
+                {
+                    // the level 0 nodes will all be at the top of the list
+                    // so just set them not-green for now
+                    category.BackColor = inactiveBackground; //color it right now
+                    category.Tag = false;                    //color it in _DrawNode()
+
+                    continue; // green is handled at child level
+                }
+
                 category.BackColor = inactiveBackground; //default
                 category.Tag = false; //no active triggers
                 string key = category.Text;
@@ -527,10 +581,26 @@ namespace ACT_TriggerTree
                     {
                         if (trigger.Active)
                         {
-                            if (trigger.RestrictToCategoryZone == false || key.Equals(zoneName) || key.Equals(decoratedZoneName))
+                            if (trigger.RestrictToCategoryZone == false 
+                                || key.Equals(zoneName)
+                                || key.Equals(decoratedZoneName))
                             {
                                 category.BackColor = activeBackground;
-                                category.Tag = true; //active triggers in this category, for drawing the color
+                                category.Tag = true; //active-triggers-in-this-category flag for treeViewCats__DrawNode()
+                                if (category.Parent != null)
+                                {
+                                    if (category.Parent.IsExpanded == false)
+                                    {                                    
+                                        // color a collpased group name whose group of categories contain active triggers
+                                        category.Parent.BackColor = activeBackground;
+                                        category.Parent.Tag = true;
+                                    }
+                                    else
+                                    {
+                                        category.Parent.BackColor = inactiveBackground;
+                                        category.Parent.Tag = false;
+                                    }
+                                }
                                 if(key.Equals(zoneName) && autoSelect)
                                 {
                                     treeViewCats.SelectedNode = category;
@@ -543,35 +613,56 @@ namespace ACT_TriggerTree
             }
         }
 
+        List<T> EnumerateAllTreeNodes<T>(TreeView tree, T parentNode = null) where T : TreeNode
+        {
+            if (parentNode != null && parentNode.Nodes.Count == 0)
+                return new List<T>() { };
+
+            TreeNodeCollection nodes = parentNode != null ? parentNode.Nodes : tree.Nodes;
+            List<T> childList = nodes.Cast<T>().ToList();
+
+            List<T> result = new List<T>();
+            result.AddRange(childList);
+
+            //Recursion on each child node
+            childList.ForEach(n => result.AddRange(EnumerateAllTreeNodes(tree, n)));
+
+            return result;
+        }
+
         private void treeViewCats_DrawNode(object sender, DrawTreeNodeEventArgs e)
         {
             if (e.Node == null) return;
 
+            var font = e.Node.NodeFont ?? e.Node.TreeView.Font;
+
+            // the .Bounds seems a bit too wide, measure with whatever font we ended up with
+            SizeF size = e.Graphics.MeasureString(e.Node.Text, font);
+            Rectangle rect = e.Bounds;
+            rect.Width = (int)Math.Ceiling(size.Width);
 
             // if treeview's HideSelection property is "True", 
             // this will always returns "False" on unfocused treeview
             var selected = (e.State & TreeNodeStates.Selected) == TreeNodeStates.Selected;
-            var unfocused = !e.Node.TreeView.Focused;
             bool green = e.Node.Tag == null ? false : (bool)e.Node.Tag;
 
-            // keep the focused highlight if selected and unfocused
+            // keep the focused highlight if selected regardless of focus
             // draw green background if not selected and triggers are active
             // otherwise, default colors
-            if (selected && unfocused)
+            if (selected)
             {
-                var font = e.Node.NodeFont ?? e.Node.TreeView.Font;
-                e.Graphics.FillRectangle(SystemBrushes.Highlight, e.Bounds);
-                TextRenderer.DrawText(e.Graphics, e.Node.Text, font, e.Bounds, SystemColors.HighlightText, TextFormatFlags.GlyphOverhangPadding);
+                e.Graphics.FillRectangle(SystemBrushes.Highlight, rect);
+                e.Graphics.DrawString(e.Node.Text, font, Brushes.White, new Point(rect.X, rect.Y));
             }
             else if (!selected && green)
             {
-                var font = e.Node.NodeFont ?? e.Node.TreeView.Font;
-                e.Graphics.FillRectangle(activeBackgroundBrush, e.Bounds);
-                TextRenderer.DrawText(e.Graphics, e.Node.Text, font, e.Bounds, SystemColors.ControlText, TextFormatFlags.GlyphOverhangPadding);
+                e.Graphics.FillRectangle(activeBackgroundBrush, rect);
+                e.Graphics.DrawString(e.Node.Text, font, Brushes.Black, new Point(rect.X, rect.Y));
             }
             else
             {
-                e.DrawDefault = true;
+                e.Graphics.FillRectangle(inactiveBackgroundBrush, rect);
+                e.Graphics.DrawString(e.Node.Text, font, Brushes.Black, new Point(rect.X, rect.Y));
             }
         }
 
@@ -653,6 +744,7 @@ namespace ACT_TriggerTree
 
                 UpdateTriggerList(category);
                 treeViewCats.SelectedNode.BackColor = activeBackground;
+                toolStripButtonInfo.Checked = false;
             }
         }
 
@@ -660,16 +752,42 @@ namespace ACT_TriggerTree
         {
             if (clickedCategoryNode != null)
             {
-                string category = clickedCategoryNode.Text;
-                if (SimpleMessageBox.Show(ActGlobals.oFormActMain, "Delete category '" + category + "' and all its triggers?", "Are you sure?",
-                    MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes)
+                if (clickedCategoryNode.Level == 0)
                 {
-                    List<CustomTrigger> triggers;
-                    if (treeDict.TryGetValue(category, out triggers))
+                    // move any categories under this group to the default group
+                    string categoryGroup = clickedCategoryNode.Text;
+                    try
                     {
-                        foreach (CustomTrigger trigger in triggers)
+                        ConfigCatGroup defGrp = config.catGroupings[defaultGroupName];
+                        ConfigCatGroup deletedGrp = config.catGroupings[categoryGroup];
+                        defGrp.Cats.AddRange(deletedGrp.Cats);
+                        config.catGroupings.Remove(deletedGrp);
+                    }
+                    catch { }
+                    PopulateCatsTree(null);
+                }
+                else
+                {
+                    string category = clickedCategoryNode.Text;
+                    if (SimpleMessageBox.Show(ActGlobals.oFormActMain, @"Delete category \b " + category + @"\b0  and all its triggers?", "Are you sure?",
+                                    MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes)
+                    {
+                        string grpName = config.catGroupings.GetGroupName(category);
+                        ConfigCatGroup catGrp = config.catGroupings[grpName];
+                        if (catGrp != null)
+                            catGrp.Cats.Remove(category);
+
+                        List<CustomTrigger> triggers;
+                        if (treeDict.TryGetValue(category, out triggers))
                         {
-                            DeleteTrigger(trigger, true);
+                            foreach (CustomTrigger trigger in triggers)
+                            {
+                                DeleteTrigger(trigger, true, false);
+                            }
+                            PopulateCatsTree(null);
+                            TreeNode sel = treeViewCats.SelectedNode;
+                            if(sel == null && treeViewCats.Nodes.Count > 0)
+                                treeViewCats.SelectedNode = treeViewCats.Nodes[0];
                         }
                     }
                 }
@@ -714,7 +832,8 @@ namespace ACT_TriggerTree
             string find = textBoxCatFind.Text.ToLower();
             if (!string.IsNullOrEmpty(find))
             {
-                foreach (TreeNode node in treeViewCats.Nodes)
+                List<TreeNode> allnodes = EnumerateAllTreeNodes<TreeNode>(treeViewCats);
+                foreach (TreeNode node in allnodes)
                 {
                     if (resume && !foundLast)
                     {
@@ -739,7 +858,7 @@ namespace ACT_TriggerTree
                 }
                 if (!found)
                 {
-                    SimpleMessageBox.ShowDialog(ActGlobals.oFormActMain, String.Format(@"\b {0}\b0\line Not found", find), "Not Found");
+                    SimpleMessageBox.Show(ActGlobals.oFormActMain, String.Format(@"\b {0}\b0\line Not found", find), "Not Found");
                 }
             }
         }
@@ -777,12 +896,35 @@ namespace ACT_TriggerTree
         {
             if (clickedCategoryNode != null)
             {
-                List<CustomTrigger> triggers;
-                string category = clickedCategoryNode.Text;
-                if (treeDict.TryGetValue(category, out triggers))
+                List<string> groupedCats = new List<string>();
+                string categoryGroupName;
+
+                if (clickedCategoryNode.Level == 0)
                 {
-                    Macros.WriteCategoryMacroFile(sayCmd, triggers, categoryTimers, true);
+                    // it's a group name
+                    categoryGroupName = clickedCategoryNode.Text;
+                    foreach (TreeNode node in clickedCategoryNode.Nodes)
+                    {
+                        groupedCats.Add(node.Text);
+                    }
                 }
+                else
+                {
+                    // single category
+                    categoryGroupName = clickedCategoryNode.Parent.Text;
+                    groupedCats.Add(clickedCategoryNode.Text);
+                }
+
+                List<CustomTrigger> allTriggers = new List<CustomTrigger>();
+                foreach(string category in groupedCats)
+                {
+                    List<CustomTrigger> triggers;
+                    if (treeDict.TryGetValue(category, out triggers))
+                    {
+                        allTriggers.AddRange(triggers);
+                    }
+                }
+                Macros.WriteCategoryMacroFile(sayCmd, allTriggers, categoryTimers, config, categoryGroupName, true);
             }
         }
 
@@ -790,72 +932,114 @@ namespace ACT_TriggerTree
         {
             if (clickedCategoryNode != null)
             {
-                string category = clickedCategoryNode.Text;
                 int canMacroTimer = 0;
                 int cannotMacroTimer = 0;
-
-                //get tagged spell timers for the category
                 categorySpellTimersMenuItem.DropDownItems.Clear();
-                categoryTimers = FindCategoryTimers(category);
-
-                //count triggers for the menu text
-                List<CustomTrigger> triggers;
+                List<string> groupedCats = new List<string>();
+                categoryTimers = new List<TimerData>();
                 int valid = 0;
                 int invalid = 0;
                 int active = 0;
                 int inactive = 0;
-                if (treeDict.TryGetValue(category, out triggers))
+                catGrpEditType = CatGrpEditType.NONE;
+                Macros.AlternateEncoding = config.AlternateEncoding;
+
+                if (clickedCategoryNode.Level == 0)
                 {
-                    foreach (CustomTrigger trigger in triggers)
+                    // it's a group name
+                    deleteEntireCategoryToolStripMenuItem.Text = "Delete Category Group";
+                    deleteEntireCategoryToolStripMenuItem.ToolTipText = "Moves child categories the the Default Group";
+                    renameGroupToolStripMenuItem.Visible = true;
+                    enableOnZoneinToolStripMenuItem.Visible = false;
+                    toggleEntireCategoryToolStripMenuItem.Visible = false;
+                    foreach (TreeNode node in clickedCategoryNode.Nodes)
                     {
-                        if (trigger.Active)
-                        {
-                            active++;
-                            if (!Macros.IsInvalidMacroTrigger(trigger))
-                            {
-                                valid++;
-                                groupShareCategoryMacroMenuItem.Enabled = true;
-                                raidShareCategoryMacroMenuItem.Enabled = true;
-                                groupShareCategoryMacroMenuItem.ToolTipText = validCategoryText + "group";
-                                raidShareCategoryMacroMenuItem.ToolTipText = validCategoryText + "raid";
-                                //break;
-                            }
-                            else
-                                invalid++;
-                            // find timers that are activated by a trigger
-                            List<TimerData> timers = TriggerTree.FindTimers(trigger);
-                            foreach (TimerData timer in timers)
-                            {
-                                if (!categoryTimers.Contains(timer))
-                                {
-                                    categoryTimers.Add(timer);
-                                }
-                            }
-
-                        }
-                        else
-                            inactive++;
+                        groupedCats.Add(node.Text);
                     }
-
-                    enableOnZoneinToolStripMenuItem.Checked = config.autoCats.Contains(category);
-
-                    if (valid == 0)
+                    if(groupedCats.Count == 0)
                     {
-                        groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", 0, valid + invalid);
+                        groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", 0, 0);
                         groupShareCategoryMacroMenuItem.Enabled = false;
-                        raidShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Raidsay", 0, valid + invalid);
+                        raidShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Raidsay", 0, 0);
                         raidShareCategoryMacroMenuItem.Enabled = false;
                         groupShareCategoryMacroMenuItem.ToolTipText =
                             string.Format(invalidCategoryText, string.Join(" ", Macros.invalidMacroChars), string.Join(" ", Macros.invalidMacroStrings));
                         raidShareCategoryMacroMenuItem.ToolTipText =
                             string.Format(invalidCategoryText, string.Join(" ", Macros.invalidMacroChars), string.Join(" ", Macros.invalidMacroStrings));
                     }
-                    else
+                }
+                else
+                {
+                    // single category
+                    deleteEntireCategoryToolStripMenuItem.Text = "Delete Entire Category";
+                    deleteEntireCategoryToolStripMenuItem.ToolTipText = "Delete the category and all its triggers";
+                    enableOnZoneinToolStripMenuItem.Visible = true;
+                    toggleEntireCategoryToolStripMenuItem.Visible = true;
+                    renameGroupToolStripMenuItem.Visible = false;
+                    groupedCats.Add(clickedCategoryNode.Text);
+                }
+
+                foreach(string category in groupedCats)
+                {
+                    //get tagged spell timers for the category
+                    categoryTimers.AddRange(FindCategoryTimers(category));
+
+                    //count triggers for the menu text
+                    List<CustomTrigger> triggers;
+                    if (treeDict.TryGetValue(category, out triggers))
                     {
-                        groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", valid + canMacroTimer, valid + canMacroTimer + invalid + cannotMacroTimer);
-                        raidShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Raidsay", valid + canMacroTimer, valid + canMacroTimer + invalid + cannotMacroTimer);
+                        foreach (CustomTrigger trigger in triggers)
+                        {
+                            if (trigger.Active)
+                            {
+                                active++;
+                                if (!Macros.IsInvalidMacroTrigger(trigger))
+                                {
+                                    valid++;
+                                    groupShareCategoryMacroMenuItem.Enabled = true;
+                                    raidShareCategoryMacroMenuItem.Enabled = true;
+                                    groupShareCategoryMacroMenuItem.ToolTipText = validCategoryText + "group";
+                                    raidShareCategoryMacroMenuItem.ToolTipText = validCategoryText + "raid";
+                                    //break;
+                                }
+                                else
+                                    invalid++;
+                                // find timers that are activated by a trigger
+                                List<TimerData> timers = TriggerTree.FindTimers(trigger);
+                                foreach (TimerData timer in timers)
+                                {
+                                    if (!categoryTimers.Contains(timer))
+                                    {
+                                        categoryTimers.Add(timer);
+                                    }
+                                }
+
+                            }
+                            else
+                                inactive++;
+                        }
+
+                        enableOnZoneinToolStripMenuItem.Checked = config.autoCats.Contains(category);
+
+                        if (valid == 0)
+                        {
+                            groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", 0, valid + invalid);
+                            groupShareCategoryMacroMenuItem.Enabled = false;
+                            raidShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Raidsay", 0, valid + invalid);
+                            raidShareCategoryMacroMenuItem.Enabled = false;
+                            groupShareCategoryMacroMenuItem.ToolTipText =
+                                string.Format(invalidCategoryText, string.Join(" ", Macros.invalidMacroChars), string.Join(" ", Macros.invalidMacroStrings));
+                            raidShareCategoryMacroMenuItem.ToolTipText =
+                                string.Format(invalidCategoryText, string.Join(" ", Macros.invalidMacroChars), string.Join(" ", Macros.invalidMacroStrings));
+                        }
+                        else
+                        {
+                            groupShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Groupsay", valid + canMacroTimer, valid + canMacroTimer + invalid + cannotMacroTimer);
+                            raidShareCategoryMacroMenuItem.Text = string.Format(catMacroText, "Raidsay", valid + canMacroTimer, valid + canMacroTimer + invalid + cannotMacroTimer);
+                        }
                     }
                 }
+
 
                 // add spell timers menus
                 if (categoryTimers.Count == 0)
@@ -906,34 +1090,48 @@ namespace ACT_TriggerTree
 
         private void shareDialogMenuItem_Click(object sender, EventArgs e)
         {
-            string category = clickedCategoryNode.Text;
-            string prefix = "/g "; 
-            if (category.Contains("["))
+            if (clickedCategoryNode != null)
             {
-                if (category.Contains("Raid"))
-                    prefix = "/r ";
-            }
+                List<string> groupedCats = new List<string>();
+                string groupName;
+                string prefix = "/g ";
 
-            List<CustomTrigger> triggers;
-            if (treeDict.TryGetValue(category, out triggers))
-            {
-                XmlCopyForm form = new XmlCopyForm(prefix, categoryTimers, triggers, config.AlternateEncoding, config.autoCats.Contains(category));
-                form.AltEncodeCheckChanged += Form_AltEncodeCheckChanged;
+                if (clickedCategoryNode.Level == 0)
+                {
+                    // it's a group name
+                    groupName = clickedCategoryNode.Text;
+                    foreach (TreeNode node in clickedCategoryNode.Nodes)
+                    {
+                        groupedCats.Add(node.Text);
+                    }
+                }
+                else
+                {
+                    // single category
+                    groupName = clickedCategoryNode.Parent.Text;
+                    groupedCats.Add(clickedCategoryNode.Text);
+                    if (clickedCategoryNode.Text.Contains("["))
+                    {
+                        if (clickedCategoryNode.Text.Contains("Raid"))
+                            prefix = "/r ";
+                    }
+                }
+
+                List<CustomTrigger> allTriggers = new List<CustomTrigger>();
+                foreach (string category in groupedCats)
+                {
+                    List<CustomTrigger> triggers;
+                    if (treeDict.TryGetValue(category, out triggers))
+                    {
+                        allTriggers.AddRange(triggers);
+                    }
+                }
+                XmlCopyForm form = new XmlCopyForm(prefix, categoryTimers, allTriggers, config, groupName);
+                // remember open dialogs so changing the alt-encoding can be processed
+                openShareDialogs.Add(form);
+                form.FormClosed += (s, ev) => { openShareDialogs.Remove(form); };
                 form.Show();
                 PositionChildForm(form, whereCatMouseDown);
-            }
-        }
-
-        private void Form_AltEncodeCheckChanged(object sender, EventArgs e)
-        {
-            CheckBox checkbox = sender as CheckBox;
-            if(checkbox != null)
-            {
-                config.AlternateEncoding = checkbox.Checked;
-                Macros.AlternateEncoding = config.AlternateEncoding;
-                // fix the "can macro" display
-                string category = treeViewCats.SelectedNode.Text;
-                UpdateTriggerList(category);
             }
         }
 
@@ -1102,8 +1300,6 @@ namespace ACT_TriggerTree
                     RestrictAllTriggers(category, true);
                     config.autoCats.Remove(category);
                     enableOnZoneinToolStripMenuItem.Checked = false;
-                    if(config.autoCats.Count == 0)
-                        zoneMatchedEQII = false;
                 }
                 else
                 {
@@ -1113,7 +1309,6 @@ namespace ACT_TriggerTree
                     Match match = reCleanActZone.Match(ActGlobals.oFormActMain.CurrentZone);
                     if (match.Success)
                     {
-                        zoneMatchedEQII = true;
                         decoratedZoneName = ActGlobals.oFormActMain.CurrentZone;
                         string cleanZoneName = match.Groups["zone"].Value.TrimEnd();
                         if (config.autoCats.Contains(cleanZoneName))
@@ -1127,9 +1322,184 @@ namespace ACT_TriggerTree
             }
         }
 
+        private void treeViewCats_AfterLabelEdit(object sender, NodeLabelEditEventArgs e)
+        {
+            if(e.Label != null && e.Label.Length > 0)
+            {
+                List<TreeNode> allnodes = EnumerateAllTreeNodes<TreeNode>(treeViewCats);
+                //ConfigCatGroup labelGrp = config.catGroupings.FirstOrDefault(x => x.GroupName.ToLower() == e.Label.ToLower());
+                TreeNode matchingNodes = allnodes.FirstOrDefault(x => x.Text.ToLower() == e.Label.ToLower());
+                if (catGrpEditType == CatGrpEditType.ADD_NEW)
+                {
+                    if (matchingNodes == null)
+                    {
+                        e.Node.EndEdit(false);
+                        treeViewCats.LabelEdit = false;
+                        config.catGroupings.AddGroup(e.Label);
+                        mUiContext.Post(PopulateCatsTree, null);
+                    }
+                    else
+                    {
+                        e.CancelEdit = true;
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, "Duplicate folder names are not allowed", "New Node");
+                        e.Node.EndEdit(true);
+                        e.Node.Remove();
+                    }
+                }
+                else if(catGrpEditType == CatGrpEditType.RENAME_OLD)
+                {
+                    if (matchingNodes != null && e.Node.Text != e.Label)
+                    {
+                        // we already have a group with this name
+                        e.CancelEdit = true;
+                        SimpleMessageBox.Show(ActGlobals.oFormActMain, "Duplicate folder names are not allowed", "Node Edit");
+                    }
+                    else
+                    {
+                        ConfigCatGroup existingGrp = config.catGroupings[e.Node.Text];
+                        if(existingGrp != null)
+                            existingGrp.GroupName = e.Label;
+                        e.Node.EndEdit(false);
+                        treeViewCats.LabelEdit = false;
+                        mUiContext.Post(PopulateCatsTree, null);
+                    }
+                }
+            }
+            else
+            {
+                // this is an abort (user probably hit ESC), just stop
+                e.CancelEdit = true;
+                if(catGrpEditType == CatGrpEditType.ADD_NEW)
+                {
+                    if(e.Node != null)
+                        e.Node.Remove();
+                }
+            }
+        }
+
+        private void treeViewCats_ItemDrag(object sender, ItemDragEventArgs e)
+        {
+            TreeNode node = e.Item as TreeNode;
+            if (node != null)
+            {
+                if (node.Level == 0)
+                    return; // can't drag group
+               DoDragDrop(e.Item, DragDropEffects.Move);
+            }
+        }
+
+        private void treeViewCats_DragEnter(object sender, DragEventArgs e)
+        {
+            e.Effect = DragDropEffects.None;
+        }
+
+        private void treeViewCats_DragOver(object sender, DragEventArgs e)
+        {
+            TreeView tv = sender as TreeView;
+
+            // Retrieve the client coordinates of the drop location.
+            Point targetPoint = tv.PointToClient(new Point(e.X, e.Y));
+
+            // Retrieve the node at the drop location.
+            TreeNode targetNode = tv.GetNodeAt(targetPoint);
+
+            // Retrieve the node that was dragged.
+            TreeNode draggedNode = (TreeNode)e.Data.GetData(typeof(TreeNode));
+
+            if (draggedNode == null || targetNode == null || draggedNode.Equals(targetNode))
+                e.Effect = DragDropEffects.None;
+
+            else if (targetNode.Level == 0 && !draggedNode.Parent.Equals(targetNode))
+                e.Effect = DragDropEffects.Move;
+
+            else if (targetNode.Parent != null && !draggedNode.Parent.Equals(targetNode.Parent))
+                e.Effect = DragDropEffects.Move;
+
+            else
+                e.Effect = DragDropEffects.None;
+
+            if ((targetPoint.Y + 20) > tv.Height)
+            {
+                // scroll down
+                SendMessage(tv.Handle, WM_VSCROLL, (IntPtr)1, (IntPtr)0);
+            }
+            else if (targetPoint.Y < 20)
+            {
+                // scroll up
+                SendMessage(tv.Handle, WM_VSCROLL, (IntPtr)0, (IntPtr)0);
+            }
+        }
+
+        private void treeViewCats_DragDrop(object sender, DragEventArgs e)
+        {
+            TreeView tv = sender as TreeView;
+
+            // Retrieve the client coordinates of the drop location.
+            Point targetPoint = tv.PointToClient(new Point(e.X, e.Y));
+
+            // Retrieve the node at the drop location.
+            TreeNode targetNode = tv.GetNodeAt(targetPoint);
+
+            // Retrieve the node that was dragged.
+            TreeNode draggedNode = (TreeNode)e.Data.GetData(typeof(TreeNode));
+
+            if (draggedNode == null || targetNode == null || draggedNode.Equals(targetNode))
+                return;
+
+            // only allowing dragging between groups
+            // the nodes must have different level 0 nodes
+            if ((targetNode.Parent != null && draggedNode.Parent != null && !draggedNode.Parent.Equals(targetNode.Parent))
+                || (targetNode.Level == 0 && !draggedNode.Parent.Equals(targetNode)))
+            {
+                string sourceGroup = draggedNode.Parent.Text;
+                string destGroup = targetNode.Level == 0 ? targetNode.Text : targetNode.Parent.Text;
+                config.catGroupings.PutCatInGroup(destGroup, draggedNode.Text);
+                PopulateCatsTree(null);
+                SaveSettings();
+            }
+        }
+
+        private void toolStripButtonNewGrp_Click(object sender, EventArgs e)
+        {
+            TreeNode add = new TreeNode("New Group");
+            treeViewCats.Nodes.Add(add);
+            treeViewCats.SelectedNode = add;
+            treeViewCats.LabelEdit = true;
+            catGrpEditType = CatGrpEditType.ADD_NEW;
+            add.BeginEdit();
+        }
+
+        private void renameGroupToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (clickedCategoryNode != null)
+            {
+                treeViewCats.LabelEdit = true;
+                catGrpEditType = CatGrpEditType.RENAME_OLD;
+                clickedCategoryNode.BeginEdit();
+            }
+        }
+
+        private void treeViewCats_AfterCollapse(object sender, TreeViewEventArgs e)
+        {
+            if(e.Node.Level == 0)
+            {
+                config.catGroupings[e.Node.Text].Collapsed = true;
+                mUiContext.Post(UpdateCategoryColors, false);
+            }
+        }
+
+        private void treeViewCats_AfterExpand(object sender, TreeViewEventArgs e)
+        {
+            if (e.Node.Level == 0)
+            {
+                config.catGroupings[e.Node.Text].Collapsed = false;
+                mUiContext.Post(UpdateCategoryColors, false);
+            }
+        }
+
         #endregion Category Tree
 
-        #region --------------- Triggers Tree
+        #region --------------- Triggers Panel
 
         private void UpdateTriggerColors(object o)
         {
@@ -1306,7 +1676,6 @@ namespace ACT_TriggerTree
                     Match match = reCleanActZone.Match(ActGlobals.oFormActMain.CurrentZone);
                     if (match.Success)
                     {
-                        zoneMatchedEQII = true;
                         decoratedZoneName = ActGlobals.oFormActMain.CurrentZone;
                         string cleanZoneName = match.Groups["zone"].Value.Trim();
                         if (config.autoCats.Contains(cleanZoneName))
@@ -1319,7 +1688,7 @@ namespace ACT_TriggerTree
                         zoneName = decoratedZoneName = ActGlobals.oFormActMain.CurrentZone;
                     if (!string.IsNullOrEmpty(zoneName))
                     {
-                        TreeNode[] nodes = treeViewCats.Nodes.Find(zoneName, false);
+                        TreeNode[] nodes = treeViewCats.Nodes.Find(zoneName, true);
                         if (nodes.Length > 0)
                         {
                             treeViewCats.SelectedNode = nodes[0];
@@ -1478,7 +1847,7 @@ namespace ACT_TriggerTree
 
                 if (args.result == FormEditTrigger.EventResult.REPLACE_TRIGGER)
                 {
-                    ok = DeleteTrigger(args.orignalTrigger, true);
+                    ok = DeleteTrigger(args.orignalTrigger, true, false);
                 }
 
                 //new / edited trigger
@@ -1488,12 +1857,13 @@ namespace ACT_TriggerTree
                     UpdateResultsTab(args.editedTrigger);
 
                 PopulateCatsTree(null);
-                if (args.result == FormEditTrigger.EventResult.CREATE_NEW)
+
+                if (args.result == FormEditTrigger.EventResult.CREATE_NEW || args.result == FormEditTrigger.EventResult.REPLACE_TRIGGER)
                 {
                     if (args.editedTrigger.Category != origCategory)
                     {
                         //change the selected node to the new category
-                        TreeNode[] nodes = treeViewCats.Nodes.Find(args.editedTrigger.Category, false);
+                        TreeNode[] nodes = treeViewCats.Nodes.Find(args.editedTrigger.Category, true);
                         if (nodes.Length > 0)
                             treeViewCats.SelectedNode = nodes[0];
                     }
@@ -1547,7 +1917,7 @@ namespace ACT_TriggerTree
                         trigger = treeViewTrigs.SelectedNode.Parent.Tag as CustomTrigger;
                     else
                         trigger = treeViewTrigs.SelectedNode.Tag as CustomTrigger;
-                    DeleteTrigger(trigger, false);
+                    DeleteTrigger(trigger, false, true);
                 }
             }
         }
@@ -1564,7 +1934,7 @@ namespace ACT_TriggerTree
             {
                 //get our category set
                 string category = trigger.Category;
-                TreeNode[] cats = treeViewCats.Nodes.Find(category, false);
+                TreeNode[] cats = treeViewCats.Nodes.Find(category, true);
                 if (cats.Length > 0)
                 {
                     treeViewCats.SelectedNode = cats[0];
@@ -1666,7 +2036,7 @@ namespace ACT_TriggerTree
 
                 UpdateTriggerColors(null);
                 if (result == FindResult.NOT_FOUND)
-                    SimpleMessageBox.ShowDialog(ActGlobals.oFormActMain, String.Format(@"\b {0}\b0\line  not found", find), "Not Found");
+                    SimpleMessageBox.Show(ActGlobals.oFormActMain, String.Format(@"\b {0}\b0\line  not found", find), "Not Found");
             }
         }
 
@@ -1778,7 +2148,7 @@ namespace ACT_TriggerTree
         private FormEditTrigger NewTrigger()
         {
             string category = ActGlobals.oFormActMain.CurrentZone;
-            if(treeViewCats.SelectedNode != null)
+            if(treeViewCats.SelectedNode != null && treeViewCats.SelectedNode.Level != 0)
                 category = treeViewCats.SelectedNode.Text;
 
             CustomTrigger trigger = new CustomTrigger("new expression", category);
@@ -1812,7 +2182,7 @@ namespace ACT_TriggerTree
         {
             if (selectedTriggerNode != null)
             {
-                if (selectedTriggerNode.Parent == null)
+                if (selectedTriggerNode.Parent == null && treeViewCats.SelectedNode != null)
                 {
                     FormEditTrigger formEditTrigger = new FormEditTrigger(selectedTriggerNode.Tag as CustomTrigger, treeViewCats.SelectedNode.Text, config);
                     formEditTrigger.EditDoneEvent += Trigger_EditDoneEvent; //callback for when the edit is done
@@ -1858,7 +2228,7 @@ namespace ACT_TriggerTree
             }
         }
 
-        private void toolStripButtonNew_Click(object sender, EventArgs e)
+        private void toolStripButtonNewTrigger_Click(object sender, EventArgs e)
         {
             FormEditTrigger formEditTrigger = NewTrigger();
             Point center = new Point(treeViewTrigs.Right/2 - formEditTrigger.Width/2, treeViewTrigs.Bottom/2 - formEditTrigger.Height/2);
@@ -1868,6 +2238,36 @@ namespace ACT_TriggerTree
         private void toolStripButtonResults_Click(object sender, EventArgs e)
         {
             config.ResultsPopup = toolStripButtonResults.Checked;
+        }
+
+        private void toolStripButtonAltEncoding_Click(object sender, EventArgs e)
+        {
+            config.AlternateEncoding = toolStripButtonAltEncoding.Checked;
+            Macros.AlternateEncoding = config.AlternateEncoding;
+            if (treeViewCats.SelectedNode != null && treeViewCats.SelectedNode.Level != 0)
+            {
+                string category = treeViewCats.SelectedNode.Text;
+                UpdateTriggerList(category);
+            }
+            // update any open share dialogs
+            foreach (XmlCopyForm f in openShareDialogs)
+                f.AltEncodingChanged();
+        }
+        
+        private void toolStripButtonInfo_Click(object sender, EventArgs e)
+        {
+            ToolStripButton tsb = sender as ToolStripButton;
+
+            // seems necessary for ExpandAll() to work
+            isDoubleClick = false;
+
+            if (tsb != null)
+            {
+                if (tsb.Checked)
+                    treeViewTrigs.ExpandAll();
+                else
+                    treeViewTrigs.CollapseAll();
+            }
         }
 
         #region --------------- Triggers Context Menu
@@ -2000,7 +2400,7 @@ namespace ACT_TriggerTree
                     trigger = selectedTriggerNode.Parent.Tag as CustomTrigger;
                 if (trigger != null)
                 {
-                    DeleteTrigger(trigger, false);
+                    DeleteTrigger(trigger, false, true);
                 }
             }
         }
@@ -2087,6 +2487,15 @@ namespace ACT_TriggerTree
         {
             if (selectedTriggerNode != null)
             {
+                string groupName = string.Empty;
+                if(treeViewCats.SelectedNode != null)
+                {
+                    if(treeViewCats.SelectedNode.Parent != null)
+                        groupName = treeViewCats.SelectedNode.Parent.Text;
+                    else
+                        groupName = treeViewCats.SelectedNode.Text;
+                }
+
                 CustomTrigger trigger;
                 if (selectedTriggerNode.Tag != null)
                     trigger = selectedTriggerNode.Tag as CustomTrigger;
@@ -2108,7 +2517,7 @@ namespace ACT_TriggerTree
                             StringBuilder sb = new StringBuilder();
                             {
                                 sb.Append(sayCmd);
-                                sb.Append(Macros.TriggerToMacro(trigger));
+                                sb.Append(Macros.TriggerToMacro(trigger, groupName));
                                 sb.Append(Environment.NewLine);
                             }
                             //  if we can find the timer and it's enabled, add it to the macro file
@@ -2128,7 +2537,7 @@ namespace ACT_TriggerTree
                             {
                                 string m1 = string.Format("Wrote trigger:\n{0}", trigger.ShortRegexString);
                                 string m2 = timersCount > 0 ? string.Format("\n\nand {0} spell timer(s): '{1}'\n", timersCount, trigger.TimerName) : string.Empty;
-                                string m3 = string.Format("to macro file {0}\n\nIn EQII chat enter:\n/do_file_commands {1}", doFileName, doFileName);
+                                string m3 = string.Format(" to macro file {0}\n\nIn EQII chat enter:\n/do_file_commands {1}", doFileName, doFileName);
                                 TraySlider traySlider = new TraySlider();
                                 traySlider.ButtonLayout = TraySlider.ButtonLayoutEnum.OneButton;
                                 traySlider.ShowTraySlider(m1 + m2 + m3, "Trigger Macro");
@@ -2176,7 +2585,7 @@ namespace ACT_TriggerTree
             return result;
         }
 
-        private bool DeleteTrigger(CustomTrigger trigger, bool silently)
+        private bool DeleteTrigger(CustomTrigger trigger, bool silently, bool populate)
         {
             bool result = false;
             if (trigger != null)
@@ -2199,7 +2608,8 @@ namespace ACT_TriggerTree
                             resultsTabCtrl.TabPages.Remove(ct.ResultsTab);
                         ActGlobals.oFormActMain.CustomTriggers.Remove(key);
                         ActGlobals.oFormActMain.RebuildActiveCustomTriggers();
-                        PopulateCatsTree(null);
+                        if(populate)
+                            PopulateCatsTree(null);
                         UpdateTriggerList(category);
                         //if the category disappeared, remove it from the "enable on zone-in" list
                         int autoIndex = -1;
@@ -2314,16 +2724,6 @@ namespace ACT_TriggerTree
             }
         }
 
-        private void expandAllToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            treeViewTrigs.ExpandAll();
-        }
-
-        private void collapseAllToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            treeViewTrigs.CollapseAll();
-        }
-
         private void playAlertSoundToolStripMenuItem_Click(object sender, EventArgs e)
         {
             CustomTrigger trigger;
@@ -2346,9 +2746,10 @@ namespace ACT_TriggerTree
             }
         }
 
-        #endregion Context Menu
+        #endregion Trigger Context Menu
 
-        #endregion Trigger Tree
+        #endregion Triggers Panel
+
     }
 
 	#region TriggerTree.Designer.cs
@@ -2389,16 +2790,11 @@ namespace ACT_TriggerTree
             this.panel3 = new System.Windows.Forms.Panel();
             this.label3 = new System.Windows.Forms.Label();
             this.buttonCatFindNext = new System.Windows.Forms.Button();
-            this.textBoxCatFind = new ACT_TriggerTree.TextBoxX();
             this.treeViewTrigs = new System.Windows.Forms.TreeView();
             this.panel2 = new System.Windows.Forms.Panel();
-            this.toolStrip1 = new System.Windows.Forms.ToolStrip();
-            this.toolStripButtonNew = new System.Windows.Forms.ToolStripButton();
-            this.toolStripButtonResults = new System.Windows.Forms.ToolStripButton();
             this.checkBoxCurrentCategory = new System.Windows.Forms.CheckBox();
             this.label4 = new System.Windows.Forms.Label();
             this.buttonFindNext = new System.Windows.Forms.Button();
-            this.textBoxTrigFind = new ACT_TriggerTree.TextBoxX();
             this.contextMenuStripTrig = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.copyAsShareableXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.copyAsDoubleEncodedXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -2410,13 +2806,12 @@ namespace ACT_TriggerTree
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.raidsayShareMacroToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.groupsayShareMacroToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
-            this.expandAllToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.collapseAllToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
             this.contextMenuStripCat = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.copyZoneNameToClipboardToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.deleteEntireCategoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.renameGroupToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.enableOnZoneinToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toggleEntireCategoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.enableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.disableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -2430,17 +2825,26 @@ namespace ACT_TriggerTree
             this.panel1 = new System.Windows.Forms.Panel();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.label2 = new System.Windows.Forms.Label();
-            this.enableOnZoneinToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStrip2 = new ACT_TriggerTree.MyToolStrip();
+            this.toolStripButtonNewGrp = new System.Windows.Forms.ToolStripButton();
+            this.textBoxCatFind = new ACT_TriggerTree.TextBoxX();
+            this.toolStrip1 = new ACT_TriggerTree.MyToolStrip();
+            this.toolStripButtonNew = new System.Windows.Forms.ToolStripButton();
+            this.toolStripButtonInfo = new System.Windows.Forms.ToolStripButton();
+            this.toolStripButtonResults = new System.Windows.Forms.ToolStripButton();
+            this.toolStripButtonAltEncoding = new System.Windows.Forms.ToolStripButton();
+            this.textBoxTrigFind = new ACT_TriggerTree.TextBoxX();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
             this.panel3.SuspendLayout();
             this.panel2.SuspendLayout();
-            this.toolStrip1.SuspendLayout();
             this.contextMenuStripTrig.SuspendLayout();
             this.contextMenuStripCat.SuspendLayout();
             this.panel1.SuspendLayout();
+            this.toolStrip2.SuspendLayout();
+            this.toolStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
             // splitContainer1
@@ -2464,6 +2868,7 @@ namespace ACT_TriggerTree
             // 
             // treeViewCats
             // 
+            this.treeViewCats.AllowDrop = true;
             this.treeViewCats.Dock = System.Windows.Forms.DockStyle.Fill;
             this.treeViewCats.DrawMode = System.Windows.Forms.TreeViewDrawMode.OwnerDrawText;
             this.treeViewCats.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
@@ -2471,13 +2876,21 @@ namespace ACT_TriggerTree
             this.treeViewCats.Name = "treeViewCats";
             this.treeViewCats.Size = new System.Drawing.Size(240, 527);
             this.treeViewCats.TabIndex = 1;
+            this.treeViewCats.AfterLabelEdit += new System.Windows.Forms.NodeLabelEditEventHandler(this.treeViewCats_AfterLabelEdit);
+            this.treeViewCats.AfterCollapse += new System.Windows.Forms.TreeViewEventHandler(this.treeViewCats_AfterCollapse);
+            this.treeViewCats.AfterExpand += new System.Windows.Forms.TreeViewEventHandler(this.treeViewCats_AfterExpand);
             this.treeViewCats.DrawNode += new System.Windows.Forms.DrawTreeNodeEventHandler(this.treeViewCats_DrawNode);
+            this.treeViewCats.ItemDrag += new System.Windows.Forms.ItemDragEventHandler(this.treeViewCats_ItemDrag);
             this.treeViewCats.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.treeViewCats_AfterSelect);
+            this.treeViewCats.DragDrop += new System.Windows.Forms.DragEventHandler(this.treeViewCats_DragDrop);
+            this.treeViewCats.DragEnter += new System.Windows.Forms.DragEventHandler(this.treeViewCats_DragEnter);
+            this.treeViewCats.DragOver += new System.Windows.Forms.DragEventHandler(this.treeViewCats_DragOver);
             this.treeViewCats.MouseDown += new System.Windows.Forms.MouseEventHandler(this.treeViewCats_MouseDown);
             // 
             // panel3
             // 
             this.panel3.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.panel3.Controls.Add(this.toolStrip2);
             this.panel3.Controls.Add(this.label3);
             this.panel3.Controls.Add(this.buttonCatFindNext);
             this.panel3.Controls.Add(this.textBoxCatFind);
@@ -2490,7 +2903,7 @@ namespace ACT_TriggerTree
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(4, 8);
+            this.label3.Location = new System.Drawing.Point(35, 8);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(30, 13);
             this.label3.TabIndex = 2;
@@ -2510,18 +2923,6 @@ namespace ACT_TriggerTree
             this.toolTip1.SetToolTip(this.buttonCatFindNext, "Find the next matching category");
             this.buttonCatFindNext.UseVisualStyleBackColor = true;
             this.buttonCatFindNext.Click += new System.EventHandler(this.buttonCatFindNext_Click);
-            // 
-            // textBoxCatFind
-            // 
-            this.textBoxCatFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxCatFind.ButtonTextClear = true;
-            this.textBoxCatFind.Location = new System.Drawing.Point(40, 4);
-            this.textBoxCatFind.Name = "textBoxCatFind";
-            this.textBoxCatFind.Size = new System.Drawing.Size(148, 20);
-            this.textBoxCatFind.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
-            this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
             // 
             // treeViewTrigs
             // 
@@ -2555,41 +2956,6 @@ namespace ACT_TriggerTree
             this.panel2.Size = new System.Drawing.Size(483, 33);
             this.panel2.TabIndex = 0;
             // 
-            // toolStrip1
-            // 
-            this.toolStrip1.Dock = System.Windows.Forms.DockStyle.None;
-            this.toolStrip1.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
-            this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.toolStripButtonNew,
-            this.toolStripButtonResults});
-            this.toolStrip1.Location = new System.Drawing.Point(4, 3);
-            this.toolStrip1.Name = "toolStrip1";
-            this.toolStrip1.Size = new System.Drawing.Size(51, 26);
-            this.toolStrip1.TabIndex = 4;
-            this.toolStrip1.Text = "toolStrip1";
-            // 
-            // toolStripButtonNew
-            // 
-            this.toolStripButtonNew.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.toolStripButtonNew.ImageTransparentColor = System.Drawing.Color.Magenta;
-            this.toolStripButtonNew.Name = "toolStripButtonNew";
-            this.toolStripButtonNew.Size = new System.Drawing.Size(23, 23);
-            this.toolStripButtonNew.Text = "+";
-            this.toolStripButtonNew.ToolTipText = "Add New Trigger";
-            this.toolStripButtonNew.Click += new System.EventHandler(this.toolStripButtonNew_Click);
-            // 
-            // toolStripButtonResults
-            // 
-            this.toolStripButtonResults.CheckOnClick = true;
-            this.toolStripButtonResults.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.toolStripButtonResults.Font = new System.Drawing.Font("Webdings", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
-            this.toolStripButtonResults.ImageTransparentColor = System.Drawing.Color.Magenta;
-            this.toolStripButtonResults.Name = "toolStripButtonResults";
-            this.toolStripButtonResults.Size = new System.Drawing.Size(25, 23);
-            this.toolStripButtonResults.Text = "2";
-            this.toolStripButtonResults.ToolTipText = "Enable Results Tabs Popup";
-            this.toolStripButtonResults.Click += new System.EventHandler(this.toolStripButtonResults_Click);
-            // 
             // checkBoxCurrentCategory
             // 
             this.checkBoxCurrentCategory.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
@@ -2608,7 +2974,7 @@ namespace ACT_TriggerTree
             // label4
             // 
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(75, 7);
+            this.label4.Location = new System.Drawing.Point(109, 7);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(30, 13);
             this.label4.TabIndex = 2;
@@ -2628,19 +2994,6 @@ namespace ACT_TriggerTree
             this.buttonFindNext.UseVisualStyleBackColor = true;
             this.buttonFindNext.Click += new System.EventHandler(this.buttonFindNext_Click);
             // 
-            // textBoxTrigFind
-            // 
-            this.textBoxTrigFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxTrigFind.ButtonTextClear = true;
-            this.textBoxTrigFind.Location = new System.Drawing.Point(109, 4);
-            this.textBoxTrigFind.Name = "textBoxTrigFind";
-            this.textBoxTrigFind.Size = new System.Drawing.Size(257, 20);
-            this.textBoxTrigFind.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.textBoxTrigFind, "Incremental search for text in the trigger\'s regular expression, alert, or timer " +
-        "name");
-            this.textBoxTrigFind.TextChanged += new System.EventHandler(this.textBoxFind_TextChanged);
-            // 
             // contextMenuStripTrig
             // 
             this.contextMenuStripTrig.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -2653,12 +3006,9 @@ namespace ACT_TriggerTree
             this.playAlertSoundToolStripMenuItem,
             this.toolStripSeparator3,
             this.raidsayShareMacroToolStripMenuItem,
-            this.groupsayShareMacroToolStripMenuItem,
-            this.toolStripSeparator2,
-            this.expandAllToolStripMenuItem,
-            this.collapseAllToolStripMenuItem});
+            this.groupsayShareMacroToolStripMenuItem});
             this.contextMenuStripTrig.Name = "contextMenuStrip1";
-            this.contextMenuStripTrig.Size = new System.Drawing.Size(290, 226);
+            this.contextMenuStripTrig.Size = new System.Drawing.Size(290, 176);
             this.contextMenuStripTrig.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripTrg_Opening);
             // 
             // copyAsShareableXMLToolStripMenuItem
@@ -2730,25 +3080,6 @@ namespace ACT_TriggerTree
             this.groupsayShareMacroToolStripMenuItem.ToolTipText = "Make triggers.txt macro to share trigger with the group";
             this.groupsayShareMacroToolStripMenuItem.Click += new System.EventHandler(this.groupsayShareMacroToolStripMenuItem_Click);
             // 
-            // toolStripSeparator2
-            // 
-            this.toolStripSeparator2.Name = "toolStripSeparator2";
-            this.toolStripSeparator2.Size = new System.Drawing.Size(286, 6);
-            // 
-            // expandAllToolStripMenuItem
-            // 
-            this.expandAllToolStripMenuItem.Name = "expandAllToolStripMenuItem";
-            this.expandAllToolStripMenuItem.Size = new System.Drawing.Size(289, 22);
-            this.expandAllToolStripMenuItem.Text = "Expand all triggers";
-            this.expandAllToolStripMenuItem.Click += new System.EventHandler(this.expandAllToolStripMenuItem_Click);
-            // 
-            // collapseAllToolStripMenuItem
-            // 
-            this.collapseAllToolStripMenuItem.Name = "collapseAllToolStripMenuItem";
-            this.collapseAllToolStripMenuItem.Size = new System.Drawing.Size(289, 22);
-            this.collapseAllToolStripMenuItem.Text = "Collapse all triggers";
-            this.collapseAllToolStripMenuItem.Click += new System.EventHandler(this.collapseAllToolStripMenuItem_Click);
-            // 
             // toolTip1
             // 
             this.toolTip1.AutomaticDelay = 750;
@@ -2758,6 +3089,7 @@ namespace ACT_TriggerTree
             this.contextMenuStripCat.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.copyZoneNameToClipboardToolStripMenuItem,
             this.deleteEntireCategoryToolStripMenuItem,
+            this.renameGroupToolStripMenuItem,
             this.enableOnZoneinToolStripMenuItem,
             this.toggleEntireCategoryToolStripMenuItem,
             this.toolStripSeparator4,
@@ -2786,6 +3118,21 @@ namespace ACT_TriggerTree
             this.deleteEntireCategoryToolStripMenuItem.ToolTipText = "Delete the category and all its triggers";
             this.deleteEntireCategoryToolStripMenuItem.Click += new System.EventHandler(this.deleteEntireCategoryToolStripMenuItem_Click);
             // 
+            // renameGroupToolStripMenuItem
+            // 
+            this.renameGroupToolStripMenuItem.Name = "renameGroupToolStripMenuItem";
+            this.renameGroupToolStripMenuItem.Size = new System.Drawing.Size(251, 22);
+            this.renameGroupToolStripMenuItem.Text = "Rename Group";
+            this.renameGroupToolStripMenuItem.Click += new System.EventHandler(this.renameGroupToolStripMenuItem_Click);
+            // 
+            // enableOnZoneinToolStripMenuItem
+            // 
+            this.enableOnZoneinToolStripMenuItem.Name = "enableOnZoneinToolStripMenuItem";
+            this.enableOnZoneinToolStripMenuItem.Size = new System.Drawing.Size(251, 22);
+            this.enableOnZoneinToolStripMenuItem.Text = "Enable on zone-in";
+            this.enableOnZoneinToolStripMenuItem.ToolTipText = "Upon zone-in, unrestrict enabled triggers";
+            this.enableOnZoneinToolStripMenuItem.Click += new System.EventHandler(this.enableOnZoneinToolStripMenuItem_Click);
+            // 
             // toggleEntireCategoryToolStripMenuItem
             // 
             this.toggleEntireCategoryToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -2798,14 +3145,14 @@ namespace ACT_TriggerTree
             // enableAllTriggersToolStripMenuItem
             // 
             this.enableAllTriggersToolStripMenuItem.Name = "enableAllTriggersToolStripMenuItem";
-            this.enableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.enableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
             this.enableAllTriggersToolStripMenuItem.Text = "Enable all triggers";
             this.enableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.enableAllTriggersToolStripMenuItem_Click);
             // 
             // disableAllTriggersToolStripMenuItem
             // 
             this.disableAllTriggersToolStripMenuItem.Name = "disableAllTriggersToolStripMenuItem";
-            this.disableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.disableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
             this.disableAllTriggersToolStripMenuItem.Text = "Disable all triggers";
             this.disableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.disableAllTriggersToolStripMenuItem_Click);
             // 
@@ -2893,12 +3240,114 @@ namespace ACT_TriggerTree
             this.label2.Text = "Double-click to edit trigger fields. Expand a trigger for checkbox and right-clic" +
     "k actions on sub-items.";
             // 
-            // enableOnZoneinToolStripMenuItem
+            // toolStrip2
             // 
-            this.enableOnZoneinToolStripMenuItem.Name = "enableOnZoneinToolStripMenuItem";
-            this.enableOnZoneinToolStripMenuItem.Size = new System.Drawing.Size(251, 22);
-            this.enableOnZoneinToolStripMenuItem.Text = "Enable on zone-in";
-            this.enableOnZoneinToolStripMenuItem.Click += new System.EventHandler(this.enableOnZoneinToolStripMenuItem_Click);
+            this.toolStrip2.Dock = System.Windows.Forms.DockStyle.None;
+            this.toolStrip2.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
+            this.toolStrip2.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.toolStripButtonNewGrp});
+            this.toolStrip2.Location = new System.Drawing.Point(4, 5);
+            this.toolStrip2.Name = "toolStrip2";
+            this.toolStrip2.Size = new System.Drawing.Size(26, 25);
+            this.toolStrip2.TabIndex = 3;
+            this.toolStrip2.Text = "toolStrip2";
+            // 
+            // toolStripButtonNewGrp
+            // 
+            this.toolStripButtonNewGrp.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonNewGrp.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.toolStripButtonNewGrp.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonNewGrp.Name = "toolStripButtonNewGrp";
+            this.toolStripButtonNewGrp.Size = new System.Drawing.Size(23, 22);
+            this.toolStripButtonNewGrp.Text = "+";
+            this.toolStripButtonNewGrp.ToolTipText = "Add Group";
+            this.toolStripButtonNewGrp.Click += new System.EventHandler(this.toolStripButtonNewGrp_Click);
+            // 
+            // textBoxCatFind
+            // 
+            this.textBoxCatFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxCatFind.ButtonTextClear = true;
+            this.textBoxCatFind.Location = new System.Drawing.Point(69, 4);
+            this.textBoxCatFind.Name = "textBoxCatFind";
+            this.textBoxCatFind.Size = new System.Drawing.Size(119, 20);
+            this.textBoxCatFind.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
+            this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
+            // 
+            // toolStrip1
+            // 
+            this.toolStrip1.Dock = System.Windows.Forms.DockStyle.None;
+            this.toolStrip1.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
+            this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.toolStripButtonNew,
+            this.toolStripButtonInfo,
+            this.toolStripButtonResults,
+            this.toolStripButtonAltEncoding});
+            this.toolStrip1.Location = new System.Drawing.Point(4, 3);
+            this.toolStrip1.Name = "toolStrip1";
+            this.toolStrip1.Size = new System.Drawing.Size(133, 25);
+            this.toolStrip1.TabIndex = 4;
+            this.toolStrip1.Text = "toolStrip1";
+            // 
+            // toolStripButtonNew
+            // 
+            this.toolStripButtonNew.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonNew.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.toolStripButtonNew.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonNew.Name = "toolStripButtonNew";
+            this.toolStripButtonNew.Size = new System.Drawing.Size(23, 22);
+            this.toolStripButtonNew.Text = "+";
+            this.toolStripButtonNew.ToolTipText = "Add New Trigger";
+            this.toolStripButtonNew.Click += new System.EventHandler(this.toolStripButtonNewTrigger_Click);
+            // 
+            // toolStripButtonInfo
+            // 
+            this.toolStripButtonInfo.CheckOnClick = true;
+            this.toolStripButtonInfo.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonInfo.Font = new System.Drawing.Font("Webdings", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
+            this.toolStripButtonInfo.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonInfo.Name = "toolStripButtonInfo";
+            this.toolStripButtonInfo.Size = new System.Drawing.Size(25, 22);
+            this.toolStripButtonInfo.Text = "i";
+            this.toolStripButtonInfo.ToolTipText = "Toggle expand-all / collapse-all";
+            this.toolStripButtonInfo.Click += new System.EventHandler(this.toolStripButtonInfo_Click);
+            // 
+            // toolStripButtonResults
+            // 
+            this.toolStripButtonResults.CheckOnClick = true;
+            this.toolStripButtonResults.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonResults.Font = new System.Drawing.Font("Webdings", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
+            this.toolStripButtonResults.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonResults.Name = "toolStripButtonResults";
+            this.toolStripButtonResults.Size = new System.Drawing.Size(25, 22);
+            this.toolStripButtonResults.Text = "2";
+            this.toolStripButtonResults.ToolTipText = "Enable Results Tabs Popup";
+            this.toolStripButtonResults.Click += new System.EventHandler(this.toolStripButtonResults_Click);
+            // 
+            // toolStripButtonAltEncoding
+            // 
+            this.toolStripButtonAltEncoding.CheckOnClick = true;
+            this.toolStripButtonAltEncoding.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonAltEncoding.Font = new System.Drawing.Font("Wingdings", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
+            this.toolStripButtonAltEncoding.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonAltEncoding.Name = "toolStripButtonAltEncoding";
+            this.toolStripButtonAltEncoding.Size = new System.Drawing.Size(26, 22);
+            this.toolStripButtonAltEncoding.Text = "+";
+            this.toolStripButtonAltEncoding.Click += new System.EventHandler(this.toolStripButtonAltEncoding_Click);
+            // 
+            // textBoxTrigFind
+            // 
+            this.textBoxTrigFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxTrigFind.ButtonTextClear = true;
+            this.textBoxTrigFind.Location = new System.Drawing.Point(143, 4);
+            this.textBoxTrigFind.Name = "textBoxTrigFind";
+            this.textBoxTrigFind.Size = new System.Drawing.Size(223, 20);
+            this.textBoxTrigFind.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.textBoxTrigFind, "Incremental search for text in the trigger\'s regular expression, alert, or timer " +
+        "name");
+            this.textBoxTrigFind.TextChanged += new System.EventHandler(this.textBoxFind_TextChanged);
             // 
             // TriggerTree
             // 
@@ -2917,12 +3366,14 @@ namespace ACT_TriggerTree
             this.panel3.PerformLayout();
             this.panel2.ResumeLayout(false);
             this.panel2.PerformLayout();
-            this.toolStrip1.ResumeLayout(false);
-            this.toolStrip1.PerformLayout();
             this.contextMenuStripTrig.ResumeLayout(false);
             this.contextMenuStripCat.ResumeLayout(false);
             this.panel1.ResumeLayout(false);
             this.panel1.PerformLayout();
+            this.toolStrip2.ResumeLayout(false);
+            this.toolStrip2.PerformLayout();
+            this.toolStrip1.ResumeLayout(false);
+            this.toolStrip1.PerformLayout();
             this.ResumeLayout(false);
 
 		}
@@ -2943,8 +3394,6 @@ namespace ACT_TriggerTree
         private ToolStripMenuItem deleteEntireCategoryToolStripMenuItem;
         private Label label1;
         private ToolStripSeparator toolStripSeparator1;
-        private ToolStripMenuItem expandAllToolStripMenuItem;
-        private ToolStripMenuItem collapseAllToolStripMenuItem;
         private Panel panel1;
         private Button buttonFindNext;
         private TextBoxX textBoxTrigFind;
@@ -2953,7 +3402,6 @@ namespace ACT_TriggerTree
         private TextBoxX textBoxCatFind;
         private Button buttonCatFindNext;
         private ToolStripMenuItem playAlertSoundToolStripMenuItem;
-        private ToolStripSeparator toolStripSeparator2;
         private Label label2;
         private ToolStripSeparator toolStripSeparator4;
         private ToolStripMenuItem raidShareCategoryMacroMenuItem;
@@ -2969,13 +3417,22 @@ namespace ACT_TriggerTree
         private System.Windows.Forms.CheckBox checkBoxCurrentCategory;
         private LinkLabel linkLabel1;
         private ToolStripMenuItem shareDialogMenuItem;
-        private ToolStrip toolStrip1;
+        private MyToolStrip toolStrip1;
         private ToolStripButton toolStripButtonNew;
         private ToolStripButton toolStripButtonResults;
 
+
         #endregion
 
-    
+        private ToolStripMenuItem toggleEntireCategoryToolStripMenuItem;
+        private ToolStripMenuItem enableAllTriggersToolStripMenuItem;
+        private ToolStripMenuItem disableAllTriggersToolStripMenuItem;
+        private ToolStripMenuItem enableOnZoneinToolStripMenuItem;
+        private MyToolStrip toolStrip2;
+        private ToolStripButton toolStripButtonNewGrp;
+        private ToolStripMenuItem renameGroupToolStripMenuItem;
+        private ToolStripButton toolStripButtonAltEncoding;
+        private ToolStripButton toolStripButtonInfo;
     }
 	#endregion TriggerTree.Designer.cs
 	#region FormEditTrigger.cs
@@ -2988,10 +3445,11 @@ namespace ACT_TriggerTree
 
         CustomTrigger editingTrigger;       //a copy of the original trigger
         CustomTrigger undoTrigger;          //a reference to the original trigger
-        string decoratedCategory;
-        string cleanCategory;
-        bool regexChanged = false;          //track for replace / create new
-        bool zoneChanged = false;
+        string decoratedCategory;           //color-coded categor
+        string cleanCategory;               //category without color code or instance number
+        int regexChanged = 0;               //track for replace / create new
+        int zoneChanged = 0;
+        int catGroupChanged = 0;            //track if category group name changed
         bool initializing = true;           //oncheck() methods do not need to do anything during shown()
         bool ignoreTextChange = false;      //don't propagate programatic find text change
         TreeNode lastSelectedNode;          //for better tree node highlighting
@@ -3030,11 +3488,15 @@ namespace ACT_TriggerTree
             _config = config;
             //make a new trigger that we can modify without changing the original trigger
             editingTrigger = new CustomTrigger(trigger.RegEx.ToString(), trigger.SoundType, trigger.SoundData, trigger.Timer, trigger.TimerName, trigger.Tabbed);
-            editingTrigger.Category = cleanCategory;
             editingTrigger.RestrictToCategoryZone = trigger.RestrictToCategoryZone;
-            if(zoneNameIsDecorated)
+            editingTrigger.Category = category;
+
+            if (zoneNameIsDecorated)
             {
-                if(ActGlobals.oFormActMain.CurrentZone == decoratedCategory)
+                bool enableOnZone = _config.autoCats.Contains(cleanCategory);
+                if (enableOnZone)
+                    editingTrigger.Category = cleanCategory;
+                if(ActGlobals.oFormActMain.CurrentZone == decoratedCategory && enableOnZone)
                     editingTrigger.RestrictToCategoryZone = false;
             }
 
@@ -3049,8 +3511,8 @@ namespace ACT_TriggerTree
             Match match = TriggerTree.reCleanActZone.Match(category);
             if (match.Success)
             {
-                cleanCategory = match.Groups["zone"].Value.TrimEnd();
-                if (!string.IsNullOrEmpty(match.Groups["decoration"].Value))
+                cleanCategory = match.Groups["zone"].Value;
+                if (!string.IsNullOrEmpty(match.Groups["decoration"].Value) || !string.IsNullOrEmpty(match.Groups["instance"].Value))
                     result = true;
             }
             return result;
@@ -3065,6 +3527,14 @@ namespace ACT_TriggerTree
             {
                 textBoxRegex.Text = editingTrigger.ShortRegexString;
                 textBoxCategory.Text = editingTrigger.Category;
+
+                string catGrp = _config.catGroupings.GetGroupName(editingTrigger.Category);
+                if (string.IsNullOrEmpty(catGrp))
+                    catGrp = TriggerTree.defaultGroupName;
+                foreach (ConfigCatGroup grp in _config.catGroupings)
+                    comboBoxCatGroups.Items.Add(grp.GroupName);
+                comboBoxCatGroups.Text = catGrp;
+
                 textBoxSound.Text = editingTrigger.SoundData;
                 switch (editingTrigger.SoundType)
                 {
@@ -3074,7 +3544,7 @@ namespace ACT_TriggerTree
                         buttonFileOpen.Enabled = false;
                         textBoxSound.Enabled = false;
                         buttonInsert.Enabled = false;
-                        comboBoxGroups.Enabled = false;
+                        comboBoxCaptures.Enabled = false;
                         break;
                     case (int)CustomTriggerSoundTypeEnum.WAV:
                         radioButtonWav.Checked = true;
@@ -3082,7 +3552,7 @@ namespace ACT_TriggerTree
                         buttonFileOpen.Enabled = true;
                         textBoxSound.Enabled = true;
                         buttonInsert.Enabled = false;
-                        comboBoxGroups.Enabled = false;
+                        comboBoxCaptures.Enabled = false;
                         break;
                     case (int)CustomTriggerSoundTypeEnum.TTS:
                         radioButtonTts.Checked = true;
@@ -3090,7 +3560,7 @@ namespace ACT_TriggerTree
                         buttonFileOpen.Enabled = false;
                         textBoxSound.Enabled = true;
                         buttonInsert.Enabled = false;
-                        comboBoxGroups.Enabled = false;
+                        comboBoxCaptures.Enabled = false;
                         break;
                     default:
                         radioButtonNone.Checked = true;
@@ -3098,11 +3568,10 @@ namespace ACT_TriggerTree
                         buttonFileOpen.Enabled = false;
                         textBoxSound.Enabled = false;
                         buttonInsert.Enabled = false;
-                        comboBoxGroups.Enabled = false;
+                        comboBoxCaptures.Enabled = false;
                         break;
                 }
                 textBoxTimer.Text = editingTrigger.TimerName;
-                checkBoxRestrict.Checked = editingTrigger.RestrictToCategoryZone;
                 checkBoxResultsTab.Checked = editingTrigger.Tabbed;
                 checkBoxTimer.Checked = editingTrigger.Timer;
 
@@ -3153,7 +3622,13 @@ namespace ACT_TriggerTree
                 else
                     buttonUpdateCreate.Enabled = false; //until something changes
 
-                PopulateGroupList();
+                PopulateCapturesList();
+            }
+            else // new trigger
+            {
+                foreach (ConfigCatGroup grp in _config.catGroupings)
+                    comboBoxCatGroups.Items.Add(grp.GroupName);
+                comboBoxCatGroups.Text = TriggerTree.defaultGroupName;
             }
             initializing = false;
         }
@@ -3206,7 +3681,7 @@ namespace ACT_TriggerTree
                     return;
                 }
 
-                if(result == EventResult.CREATE_NEW && zoneChanged)
+                if(result == EventResult.CREATE_NEW && zoneChanged > 0)
                 {
                     //do we need to set "Enable on zone-in"?
                     if(zoneNameIsDecorated)
@@ -3222,7 +3697,18 @@ namespace ACT_TriggerTree
                     }
                 }
 
-                if (regexChanged)
+                if(catGroupChanged > 0 || zoneChanged > 0)
+                {
+                    if (string.IsNullOrEmpty(comboBoxCatGroups.Text))
+                        comboBoxCatGroups.Text = TriggerTree.defaultGroupName;
+
+                    if(result == EventResult.CREATE_NEW || result == EventResult.REPLACE_TRIGGER)
+                    {
+                        _config.catGroupings.PutCatInGroup(comboBoxCatGroups.Text, editingTrigger.Category);
+                    }
+                }
+
+                if (regexChanged > 0)
                 {
                     if(string.IsNullOrEmpty(textBoxRegex.Text.Trim()))
                     {
@@ -3237,7 +3723,6 @@ namespace ACT_TriggerTree
                     }
                     catch (ArgumentException aex)
                     {
-                        //ActGlobals.oFormActMain.NotificationAdd("Improper Custom Trigger Regular Expression", aex.Message);
                         SimpleMessageBox.Show(ActGlobals.oFormActMain, aex.Message, "Improper Regular Expression");
                         return;
                     }
@@ -3258,7 +3743,8 @@ namespace ACT_TriggerTree
                     }
                 }
 
-                if((editingTrigger.Timer || editingTrigger.Tabbed)
+
+                if ((editingTrigger.Timer || editingTrigger.Tabbed)
                     && string.IsNullOrEmpty(editingTrigger.TimerName))
                 {
                     if (SimpleMessageBox.Show(ActGlobals.oFormActMain, @"Timer or Tab enabled without a Timer/Tab Name.\line Return to fix?", "Inconsistent Settings",
@@ -3290,7 +3776,10 @@ namespace ACT_TriggerTree
         {
             zoneNameIsDecorated = IsCategoryDecorated(ActGlobals.oFormActMain.CurrentZone);
             // this will trigger the text changed event
-            textBoxCategory.Text = cleanCategory;
+            if (_config.autoCats.Contains(cleanCategory))
+                textBoxCategory.Text = cleanCategory;
+            else
+                textBoxCategory.Text = ActGlobals.oFormActMain.CurrentZone;
         }
 
         private void buttonPlay_Click(object sender, EventArgs e)
@@ -3328,7 +3817,7 @@ namespace ACT_TriggerTree
 
         private void buttonInsert_Click(object sender, EventArgs e)
         {
-            string group = comboBoxGroups.Text;
+            string group = comboBoxCaptures.Text;
             if (!string.IsNullOrEmpty(group))
             {
                 //insert $1 if un-named, ${name} if named
@@ -3402,7 +3891,7 @@ namespace ACT_TriggerTree
                 textBoxSound.Enabled = false;
                 buttonUpdateCreate.Enabled = true;
                 buttonInsert.Enabled = false;
-                comboBoxGroups.Enabled = false;
+                comboBoxCaptures.Enabled = false;
             }
         }
 
@@ -3416,7 +3905,7 @@ namespace ACT_TriggerTree
                 textBoxSound.Enabled = false;
                 buttonUpdateCreate.Enabled = true;
                 buttonInsert.Enabled = false;
-                comboBoxGroups.Enabled = false;
+                comboBoxCaptures.Enabled = false;
             }
         }
 
@@ -3430,7 +3919,7 @@ namespace ACT_TriggerTree
                 textBoxSound.Enabled = true;
                 buttonUpdateCreate.Enabled = true;
                 buttonInsert.Enabled = false;
-                comboBoxGroups.Enabled = false;
+                comboBoxCaptures.Enabled = false;
             }
         }
 
@@ -3443,7 +3932,7 @@ namespace ACT_TriggerTree
                 buttonFileOpen.Enabled = false;
                 textBoxSound.Enabled = true;
                 buttonUpdateCreate.Enabled = true;
-                PopulateGroupList();
+                PopulateCapturesList();
             }
         }
 
@@ -3473,14 +3962,11 @@ namespace ACT_TriggerTree
         {
             if (!initializing)
             {
-                zoneChanged = true;
+                zoneChanged++;
                 editingTrigger.Category = textBoxCategory.Text;
-                buttonReplace.Enabled = true;
-                buttonUpdateCreate.Text = "Create New";
-                buttonUpdateCreate.Enabled = true;
-                buttonReplace.Enabled = haveOriginal;
-                checkBoxRestrict.Checked = editingTrigger.Category.Contains("[");
-                if (zoneNameIsDecorated)
+                if(editingTrigger.Category.Contains("["))
+                    checkBoxRestrict.Checked = true;
+                if (zoneNameIsDecorated && _config.autoCats.Contains(cleanCategory))
                 {
                     if (ActGlobals.oFormActMain.CurrentZone == decoratedCategory)
                         checkBoxRestrict.Checked = false;
@@ -3495,6 +3981,51 @@ namespace ACT_TriggerTree
                         pictureBoxCat.Image = macroIcons.Images[1];
                     else
                         pictureBoxCat.Image = macroIcons.Images[0];
+                }
+
+                string grpName = _config.catGroupings.GetGroupName(textBoxCategory.Text);
+                if(!string.IsNullOrEmpty(grpName))
+                {
+                    ConfigCatGroup grp = _config.catGroupings[grpName];
+                    if (grp != null)
+                        comboBoxCatGroups.Text = grp.GroupName;
+                }
+
+                if(zoneChanged > 1)
+                {
+                    // not the first change
+                    // if the change has been undone, go back to unedited
+                    if (editingTrigger.Category.Equals(undoTrigger.Category))
+                    {
+                        zoneChanged = 0;
+                    }
+                }
+
+                SetButtonStates();
+            }
+        }
+
+        private void SetButtonStates()
+        {
+            if (zoneChanged >= 1 || regexChanged >= 1)
+            {
+                buttonUpdateCreate.Text = "Create New";
+                buttonUpdateCreate.Enabled = true;
+                buttonReplace.Enabled = haveOriginal;
+            }
+            else if (zoneChanged == 0 && regexChanged == 0)
+            {
+                buttonUpdateCreate.Enabled = false;
+                buttonReplace.Enabled = false;
+                if (!haveOriginal)
+                    buttonUpdateCreate.Text = "Create New";
+                else
+                {
+                    buttonUpdateCreate.Text = "Update";
+                    if (catGroupChanged == 0)
+                        buttonUpdateCreate.Enabled = false; //until something changes
+                    else
+                        buttonUpdateCreate.Enabled = true;
                 }
             }
         }
@@ -3554,12 +4085,15 @@ namespace ACT_TriggerTree
         {
             if (!initializing)
             {
-                regexChanged = true;
-                buttonReplace.Enabled = haveOriginal;
-                buttonUpdateCreate.Enabled = true;
-                buttonUpdateCreate.Text = "Create New";
+                regexChanged++;
+                if (textBoxRegex.Text.Equals(undoTrigger.RegEx.ToString()))
+                {
+                    // unchanged
+                    regexChanged = 0;
+                }
+                SetButtonStates();
                 checkBoxFilterRegex.Checked = false;
-                PopulateGroupList();
+                PopulateCapturesList();
 
                 if (string.IsNullOrEmpty(textBoxRegex.Text))
                     pictureBoxRe.Visible = false;
@@ -3593,10 +4127,10 @@ namespace ACT_TriggerTree
             }
         }
 
-        private void PopulateGroupList()
+        private void PopulateCapturesList()
         {
-            comboBoxGroups.Items.Clear();
-            comboBoxGroups.Enabled = false;
+            comboBoxCaptures.Items.Clear();
+            comboBoxCaptures.Enabled = false;
             buttonInsert.Enabled = false;
 
             try
@@ -3605,15 +4139,28 @@ namespace ACT_TriggerTree
                 string[] groups = re.GetGroupNames();
                 if (groups.Length > 1)
                 {
-                    comboBoxGroups.Enabled = true;
+                    comboBoxCaptures.Enabled = true;
                     buttonInsert.Enabled = true;
                     for (int i = 1; i < groups.Length; i++) //skip group[0], it is the entire expression
                     {
-                        comboBoxGroups.Items.Add(groups[i]);
+                        comboBoxCaptures.Items.Add(groups[i]);
                     }
                 }
             }
             catch { } //not a valid regex, just don't crash
+        }
+
+        private void comboBoxCatGroups_TextChanged(object sender, EventArgs e)
+        {
+            if (!initializing)
+            {
+                string grpName = _config.catGroupings.GetGroupName(editingTrigger.Category);
+                if (comboBoxCatGroups.Text.Equals(grpName) && !string.IsNullOrEmpty(grpName))
+                    catGroupChanged = 0;
+                else
+                    catGroupChanged++;
+                SetButtonStates();
+            }
         }
 
         #endregion Changes
@@ -4259,6 +4806,7 @@ namespace ACT_TriggerTree
             this.MakeNumbered = new System.Windows.Forms.ToolStripMenuItem();
             this.MakePlayer = new System.Windows.Forms.ToolStripMenuItem();
             this.MakeAttacker = new System.Windows.Forms.ToolStripMenuItem();
+            this.MakeVictim = new System.Windows.Forms.ToolStripMenuItem();
             this.buttonUpdateCreate = new System.Windows.Forms.Button();
             this.buttonReplace = new System.Windows.Forms.Button();
             this.buttonCancel = new System.Windows.Forms.Button();
@@ -4280,7 +4828,7 @@ namespace ACT_TriggerTree
             this.label2 = new System.Windows.Forms.Label();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.helpProvider1 = new System.Windows.Forms.HelpProvider();
-            this.comboBoxGroups = new System.Windows.Forms.ComboBox();
+            this.comboBoxCaptures = new System.Windows.Forms.ComboBox();
             this.buttonInsert = new System.Windows.Forms.Button();
             this.buttonPaste = new System.Windows.Forms.Button();
             this.buttonFindTimer = new System.Windows.Forms.Button();
@@ -4296,6 +4844,7 @@ namespace ACT_TriggerTree
             this.pictureBoxTimer = new System.Windows.Forms.PictureBox();
             this.pictureBoxCat = new System.Windows.Forms.PictureBox();
             this.pictureBoxRe = new System.Windows.Forms.PictureBox();
+            this.comboBoxCatGroups = new System.Windows.Forms.ComboBox();
             this.panelTest = new System.Windows.Forms.Panel();
             this.splitContainerLog = new System.Windows.Forms.SplitContainer();
             this.panelLogLines = new System.Windows.Forms.Panel();
@@ -4303,14 +4852,16 @@ namespace ACT_TriggerTree
             this.checkBoxFilterRegex = new System.Windows.Forms.CheckBox();
             this.label5 = new System.Windows.Forms.Label();
             this.panelRegex = new System.Windows.Forms.Panel();
+            this.label7 = new System.Windows.Forms.Label();
+            this.label6 = new System.Windows.Forms.Label();
             this.labelGridHelp = new System.Windows.Forms.Label();
             this.panel2 = new System.Windows.Forms.Panel();
+            this.label8 = new System.Windows.Forms.Label();
             this.contextMenuLog = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.pasteInRegularExpressionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.testWithRegularExpressionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.showTimeDifferencesMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.MakeVictim = new System.Windows.Forms.ToolStripMenuItem();
             this.contextMenuRegex.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridViewLines)).BeginInit();
             this.groupBox1.SuspendLayout();
@@ -4339,7 +4890,7 @@ namespace ACT_TriggerTree
             this.textBoxRegex.Location = new System.Drawing.Point(129, 44);
             this.textBoxRegex.Name = "textBoxRegex";
             this.helpProvider1.SetShowHelp(this.textBoxRegex, true);
-            this.textBoxRegex.Size = new System.Drawing.Size(459, 20);
+            this.textBoxRegex.Size = new System.Drawing.Size(463, 20);
             this.textBoxRegex.TabIndex = 0;
             this.textBoxRegex.TextChanged += new System.EventHandler(this.textBoxRegex_TextChanged);
             this.textBoxRegex.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.textBoxRegex_MouseDoubleClick);
@@ -4361,7 +4912,7 @@ namespace ACT_TriggerTree
             this.MakeAttacker,
             this.MakeVictim});
             this.contextMenuRegex.Name = "contextMenuStrip1";
-            this.contextMenuRegex.Size = new System.Drawing.Size(278, 264);
+            this.contextMenuRegex.Size = new System.Drawing.Size(278, 242);
             this.contextMenuRegex.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStrip1_Opening);
             // 
             // Undo
@@ -4455,12 +5006,19 @@ namespace ACT_TriggerTree
             this.MakeAttacker.ToolTipText = "${attacker} is automatically recognized in Spell Timers";
             this.MakeAttacker.Click += new System.EventHandler(this.MakeAttacker_Click);
             // 
+            // MakeVictim
+            // 
+            this.MakeVictim.Name = "MakeVictim";
+            this.MakeVictim.Size = new System.Drawing.Size(277, 22);
+            this.MakeVictim.Text = "Make (?<victim>\\w+) capture group";
+            this.MakeVictim.Click += new System.EventHandler(this.MakeVictimw_Click);
+            // 
             // buttonUpdateCreate
             // 
             this.buttonUpdateCreate.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
             this.helpProvider1.SetHelpString(this.buttonUpdateCreate, "Update current trigger. Or if the Regular Expression or Category / Zone has chang" +
         "ed, create New trigger.");
-            this.buttonUpdateCreate.Location = new System.Drawing.Point(191, 11);
+            this.buttonUpdateCreate.Location = new System.Drawing.Point(193, 10);
             this.buttonUpdateCreate.Name = "buttonUpdateCreate";
             this.helpProvider1.SetShowHelp(this.buttonUpdateCreate, true);
             this.buttonUpdateCreate.Size = new System.Drawing.Size(75, 23);
@@ -4476,7 +5034,7 @@ namespace ACT_TriggerTree
             this.buttonReplace.Enabled = false;
             this.helpProvider1.SetHelpString(this.buttonReplace, "If the Regular Expression or Category / Zone has changed, replace the original tr" +
         "igger with this trigger.");
-            this.buttonReplace.Location = new System.Drawing.Point(280, 11);
+            this.buttonReplace.Location = new System.Drawing.Point(282, 10);
             this.buttonReplace.Name = "buttonReplace";
             this.helpProvider1.SetShowHelp(this.buttonReplace, true);
             this.buttonReplace.Size = new System.Drawing.Size(75, 23);
@@ -4489,7 +5047,7 @@ namespace ACT_TriggerTree
             // buttonCancel
             // 
             this.buttonCancel.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.buttonCancel.Location = new System.Drawing.Point(369, 11);
+            this.buttonCancel.Location = new System.Drawing.Point(371, 10);
             this.buttonCancel.Name = "buttonCancel";
             this.buttonCancel.Size = new System.Drawing.Size(75, 23);
             this.buttonCancel.TabIndex = 21;
@@ -4561,7 +5119,7 @@ namespace ACT_TriggerTree
             this.textBoxSound.Location = new System.Drawing.Point(125, 15);
             this.textBoxSound.Name = "textBoxSound";
             this.helpProvider1.SetShowHelp(this.textBoxSound, true);
-            this.textBoxSound.Size = new System.Drawing.Size(341, 20);
+            this.textBoxSound.Size = new System.Drawing.Size(345, 20);
             this.textBoxSound.TabIndex = 10;
             this.textBoxSound.TextChanged += new System.EventHandler(this.textBoxSound_TextChanged);
             // 
@@ -4569,7 +5127,7 @@ namespace ACT_TriggerTree
             // 
             this.buttonFileOpen.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.helpProvider1.SetHelpString(this.buttonFileOpen, "Browse for wav files");
-            this.buttonFileOpen.Location = new System.Drawing.Point(473, 15);
+            this.buttonFileOpen.Location = new System.Drawing.Point(477, 15);
             this.buttonFileOpen.Name = "buttonFileOpen";
             this.helpProvider1.SetShowHelp(this.buttonFileOpen, true);
             this.buttonFileOpen.Size = new System.Drawing.Size(25, 23);
@@ -4585,7 +5143,7 @@ namespace ACT_TriggerTree
             this.buttonPlay.Enabled = false;
             this.buttonPlay.Font = new System.Drawing.Font("Webdings", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
             this.helpProvider1.SetHelpString(this.buttonPlay, "Play the WAV or TTS");
-            this.buttonPlay.Location = new System.Drawing.Point(505, 15);
+            this.buttonPlay.Location = new System.Drawing.Point(509, 15);
             this.buttonPlay.Name = "buttonPlay";
             this.helpProvider1.SetShowHelp(this.buttonPlay, true);
             this.buttonPlay.Size = new System.Drawing.Size(25, 23);
@@ -4604,14 +5162,14 @@ namespace ACT_TriggerTree
             this.textBoxCategory.Location = new System.Drawing.Point(129, 69);
             this.textBoxCategory.Name = "textBoxCategory";
             this.helpProvider1.SetShowHelp(this.textBoxCategory, true);
-            this.textBoxCategory.Size = new System.Drawing.Size(334, 20);
+            this.textBoxCategory.Size = new System.Drawing.Size(338, 20);
             this.textBoxCategory.TabIndex = 3;
             this.textBoxCategory.TextChanged += new System.EventHandler(this.textBoxCategory_TextChanged);
             // 
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(9, 183);
+            this.label3.Location = new System.Drawing.Point(9, 206);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(97, 13);
             this.label3.TabIndex = 15;
@@ -4623,10 +5181,10 @@ namespace ACT_TriggerTree
             | System.Windows.Forms.AnchorStyles.Right)));
             this.helpProvider1.SetHelpString(this.textBoxTimer, "If Trigger Timer and/or Add Results tab is checked, the name of the timer and/or " +
         "tab");
-            this.textBoxTimer.Location = new System.Drawing.Point(129, 179);
+            this.textBoxTimer.Location = new System.Drawing.Point(129, 202);
             this.textBoxTimer.Name = "textBoxTimer";
             this.helpProvider1.SetShowHelp(this.textBoxTimer, true);
-            this.textBoxTimer.Size = new System.Drawing.Size(147, 20);
+            this.textBoxTimer.Size = new System.Drawing.Size(151, 20);
             this.textBoxTimer.TabIndex = 16;
             this.textBoxTimer.TextChanged += new System.EventHandler(this.textBoxTimer_TextChanged);
             // 
@@ -4636,7 +5194,7 @@ namespace ACT_TriggerTree
             this.checkBoxRestrict.AutoSize = true;
             this.helpProvider1.SetHelpString(this.checkBoxRestrict, "Check to restrict matching the regular expression only when in the specified zone" +
         "");
-            this.checkBoxRestrict.Location = new System.Drawing.Point(472, 72);
+            this.checkBoxRestrict.Location = new System.Drawing.Point(476, 72);
             this.checkBoxRestrict.Name = "checkBoxRestrict";
             this.helpProvider1.SetShowHelp(this.checkBoxRestrict, true);
             this.checkBoxRestrict.Size = new System.Drawing.Size(155, 17);
@@ -4650,11 +5208,11 @@ namespace ACT_TriggerTree
             this.checkBoxTimer.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.checkBoxTimer.AutoSize = true;
             this.helpProvider1.SetHelpString(this.checkBoxTimer, "Check to trigger a spell timer");
-            this.checkBoxTimer.Location = new System.Drawing.Point(388, 181);
+            this.checkBoxTimer.Location = new System.Drawing.Point(392, 204);
             this.checkBoxTimer.Name = "checkBoxTimer";
             this.helpProvider1.SetShowHelp(this.checkBoxTimer, true);
             this.checkBoxTimer.Size = new System.Drawing.Size(88, 17);
-            this.checkBoxTimer.TabIndex = 17;
+            this.checkBoxTimer.TabIndex = 18;
             this.checkBoxTimer.Text = "Trigger Timer";
             this.checkBoxTimer.UseVisualStyleBackColor = true;
             this.checkBoxTimer.CheckedChanged += new System.EventHandler(this.checkBoxTimer_CheckedChanged);
@@ -4664,11 +5222,11 @@ namespace ACT_TriggerTree
             this.checkBoxResultsTab.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.checkBoxResultsTab.AutoSize = true;
             this.helpProvider1.SetHelpString(this.checkBoxResultsTab, "Check to add a Results Tab");
-            this.checkBoxResultsTab.Location = new System.Drawing.Point(281, 181);
+            this.checkBoxResultsTab.Location = new System.Drawing.Point(285, 204);
             this.checkBoxResultsTab.Name = "checkBoxResultsTab";
             this.helpProvider1.SetShowHelp(this.checkBoxResultsTab, true);
             this.checkBoxResultsTab.Size = new System.Drawing.Size(101, 17);
-            this.checkBoxResultsTab.TabIndex = 18;
+            this.checkBoxResultsTab.TabIndex = 17;
             this.checkBoxResultsTab.Text = "Add Results tab";
             this.checkBoxResultsTab.UseVisualStyleBackColor = true;
             this.checkBoxResultsTab.CheckedChanged += new System.EventHandler(this.checkBoxResultsTab_CheckedChanged);
@@ -4700,7 +5258,7 @@ namespace ACT_TriggerTree
             this.label2.ForeColor = System.Drawing.SystemColors.ControlText;
             this.label2.Location = new System.Drawing.Point(3, 10);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(629, 15);
+            this.label2.Size = new System.Drawing.Size(633, 15);
             this.label2.TabIndex = 22;
             this.label2.Text = "Changing the Regular Expression or the Category / Zone requires replacing the ori" +
     "ginal trigger or creating a new trigger.";
@@ -4717,25 +5275,25 @@ namespace ACT_TriggerTree
             this.linkLabel1.Text = "Regular Expression:";
             this.linkLabel1.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel1_LinkClicked);
             // 
-            // comboBoxGroups
+            // comboBoxCaptureGroups
             // 
-            this.comboBoxGroups.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            this.comboBoxCaptures.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.comboBoxGroups.FormattingEnabled = true;
-            this.helpProvider1.SetHelpString(this.comboBoxGroups, "Captures from the Regular Expression available for use in the TTS alert.");
-            this.comboBoxGroups.Location = new System.Drawing.Point(125, 44);
-            this.comboBoxGroups.Name = "comboBoxGroups";
-            this.helpProvider1.SetShowHelp(this.comboBoxGroups, true);
-            this.comboBoxGroups.Size = new System.Drawing.Size(148, 21);
-            this.comboBoxGroups.TabIndex = 13;
-            this.toolTip1.SetToolTip(this.comboBoxGroups, "Available capture names");
+            this.comboBoxCaptures.FormattingEnabled = true;
+            this.helpProvider1.SetHelpString(this.comboBoxCaptures, "Captures from the Regular Expression available for use in the TTS alert.");
+            this.comboBoxCaptures.Location = new System.Drawing.Point(125, 44);
+            this.comboBoxCaptures.Name = "comboBoxCaptureGroups";
+            this.helpProvider1.SetShowHelp(this.comboBoxCaptures, true);
+            this.comboBoxCaptures.Size = new System.Drawing.Size(152, 21);
+            this.comboBoxCaptures.TabIndex = 13;
+            this.toolTip1.SetToolTip(this.comboBoxCaptures, "Available capture names");
             // 
             // buttonInsert
             // 
             this.buttonInsert.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.buttonInsert.Font = new System.Drawing.Font("Segoe UI Symbol", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.helpProvider1.SetHelpString(this.buttonInsert, "Insert selected capture name into TTS expression");
-            this.buttonInsert.Location = new System.Drawing.Point(278, 43);
+            this.buttonInsert.Location = new System.Drawing.Point(282, 43);
             this.buttonInsert.Name = "buttonInsert";
             this.helpProvider1.SetShowHelp(this.buttonInsert, true);
             this.buttonInsert.Size = new System.Drawing.Size(25, 23);
@@ -4751,7 +5309,7 @@ namespace ACT_TriggerTree
             this.buttonPaste.Font = new System.Drawing.Font("Webdings", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
             this.helpProvider1.SetHelpString(this.buttonPaste, "Paste from clipboard. If pasting a View Logs line, escapes backslashes, removes t" +
         "imestamp and removes end-of-line");
-            this.buttonPaste.Location = new System.Drawing.Point(590, 41);
+            this.buttonPaste.Location = new System.Drawing.Point(594, 41);
             this.buttonPaste.Name = "buttonPaste";
             this.helpProvider1.SetShowHelp(this.buttonPaste, true);
             this.buttonPaste.Size = new System.Drawing.Size(42, 23);
@@ -4768,11 +5326,11 @@ namespace ACT_TriggerTree
             this.buttonFindTimer.Font = new System.Drawing.Font("Segoe UI Symbol", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.helpProvider1.SetHelpString(this.buttonFindTimer, "Search for Timer Name in Spell Timers. Use the [Clear] button in the Spell Timers" +
         " window to reset the search.");
-            this.buttonFindTimer.Location = new System.Drawing.Point(482, 177);
+            this.buttonFindTimer.Location = new System.Drawing.Point(486, 200);
             this.buttonFindTimer.Name = "buttonFindTimer";
             this.helpProvider1.SetShowHelp(this.buttonFindTimer, true);
             this.buttonFindTimer.Size = new System.Drawing.Size(25, 23);
-            this.buttonFindTimer.TabIndex = 25;
+            this.buttonFindTimer.TabIndex = 19;
             this.buttonFindTimer.Text = "⌕";
             this.buttonFindTimer.TextAlign = System.Drawing.ContentAlignment.TopCenter;
             this.toolTip1.SetToolTip(this.buttonFindTimer, "Search for spell timer. [Clear] to reset.");
@@ -4796,7 +5354,7 @@ namespace ACT_TriggerTree
             this.dataGridViewLines.RowHeadersVisible = false;
             this.dataGridViewLines.RowTemplate.Height = 18;
             this.helpProvider1.SetShowHelp(this.dataGridViewLines, true);
-            this.dataGridViewLines.Size = new System.Drawing.Size(487, 145);
+            this.dataGridViewLines.Size = new System.Drawing.Size(491, 156);
             this.dataGridViewLines.TabIndex = 0;
             this.dataGridViewLines.CellContextMenuStripNeeded += new System.Windows.Forms.DataGridViewCellContextMenuStripNeededEventHandler(this.dataGridViewLines_CellContextMenuStripNeeded);
             this.dataGridViewLines.CellFormatting += new System.Windows.Forms.DataGridViewCellFormattingEventHandler(this.dataGridViewLines_CellFormatting);
@@ -4806,11 +5364,11 @@ namespace ACT_TriggerTree
             this.checkBoxLogLines.AutoSize = true;
             this.helpProvider1.SetHelpString(this.checkBoxLogLines, "Check to show the list of encounters and log lines. Useful for creating and testi" +
         "ng new triggers.");
-            this.checkBoxLogLines.Location = new System.Drawing.Point(12, 208);
+            this.checkBoxLogLines.Location = new System.Drawing.Point(12, 243);
             this.checkBoxLogLines.Name = "checkBoxLogLines";
             this.helpProvider1.SetShowHelp(this.checkBoxLogLines, true);
             this.checkBoxLogLines.Size = new System.Drawing.Size(110, 17);
-            this.checkBoxLogLines.TabIndex = 26;
+            this.checkBoxLogLines.TabIndex = 20;
             this.checkBoxLogLines.Text = "Show Encounters";
             this.toolTip1.SetToolTip(this.checkBoxLogLines, "Show / Hide encounter list");
             this.checkBoxLogLines.UseVisualStyleBackColor = true;
@@ -4825,7 +5383,7 @@ namespace ACT_TriggerTree
             this.treeViewEncounters.Location = new System.Drawing.Point(0, 0);
             this.treeViewEncounters.Name = "treeViewEncounters";
             this.helpProvider1.SetShowHelp(this.treeViewEncounters, true);
-            this.treeViewEncounters.Size = new System.Drawing.Size(144, 172);
+            this.treeViewEncounters.Size = new System.Drawing.Size(144, 183);
             this.treeViewEncounters.TabIndex = 0;
             this.treeViewEncounters.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.treeViewEncounters_AfterSelect);
             // 
@@ -4839,7 +5397,7 @@ namespace ACT_TriggerTree
             this.textBoxFindLine.Location = new System.Drawing.Point(47, 3);
             this.textBoxFindLine.Name = "textBoxFindLine";
             this.helpProvider1.SetShowHelp(this.textBoxFindLine, true);
-            this.textBoxFindLine.Size = new System.Drawing.Size(355, 20);
+            this.textBoxFindLine.Size = new System.Drawing.Size(359, 20);
             this.textBoxFindLine.TabIndex = 1;
             this.toolTip1.SetToolTip(this.textBoxFindLine, "Show lines containing text. Examples: \'#\' for colored lines. \'says,\' for mob dial" +
         "og.");
@@ -4856,14 +5414,14 @@ namespace ACT_TriggerTree
             this.groupBox1.Controls.Add(this.radioButtonBeep);
             this.groupBox1.Controls.Add(this.buttonInsert);
             this.groupBox1.Controls.Add(this.radioButtonTts);
-            this.groupBox1.Controls.Add(this.comboBoxGroups);
+            this.groupBox1.Controls.Add(this.comboBoxCaptures);
             this.groupBox1.Controls.Add(this.textBoxSound);
             this.groupBox1.Controls.Add(this.buttonFileOpen);
             this.groupBox1.Controls.Add(this.buttonPlay);
-            this.groupBox1.Location = new System.Drawing.Point(5, 96);
+            this.groupBox1.Location = new System.Drawing.Point(5, 119);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(627, 74);
-            this.groupBox1.TabIndex = 5;
+            this.groupBox1.Size = new System.Drawing.Size(631, 74);
+            this.groupBox1.TabIndex = 7;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Audio Alert";
             // 
@@ -4881,7 +5439,7 @@ namespace ACT_TriggerTree
             // 
             this.label4.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(309, 49);
+            this.label4.Location = new System.Drawing.Point(313, 49);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(274, 13);
             this.label4.TabIndex = 0;
@@ -4893,7 +5451,7 @@ namespace ACT_TriggerTree
             | System.Windows.Forms.AnchorStyles.Right)));
             this.label1.Location = new System.Drawing.Point(-5, 25);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(637, 13);
+            this.label1.Size = new System.Drawing.Size(641, 13);
             this.label1.TabIndex = 23;
             this.label1.Text = "Changing any other field simply updates the existing trigger.";
             this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -4901,7 +5459,7 @@ namespace ACT_TriggerTree
             // pictureBoxTimer
             // 
             this.pictureBoxTimer.ErrorImage = null;
-            this.pictureBoxTimer.Location = new System.Drawing.Point(111, 183);
+            this.pictureBoxTimer.Location = new System.Drawing.Point(111, 206);
             this.pictureBoxTimer.Name = "pictureBoxTimer";
             this.pictureBoxTimer.Size = new System.Drawing.Size(16, 16);
             this.pictureBoxTimer.TabIndex = 31;
@@ -4928,14 +5486,28 @@ namespace ACT_TriggerTree
             this.pictureBoxRe.TabStop = false;
             this.toolTip1.SetToolTip(this.pictureBoxRe, "Indicates whether the string is valid in a macro");
             // 
+            // comboBoxCatGroups
+            // 
+            this.comboBoxCatGroups.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.comboBoxCatGroups.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
+            this.comboBoxCatGroups.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.ListItems;
+            this.comboBoxCatGroups.FormattingEnabled = true;
+            this.comboBoxCatGroups.Location = new System.Drawing.Point(129, 95);
+            this.comboBoxCatGroups.Name = "comboBoxCatGroups";
+            this.comboBoxCatGroups.Size = new System.Drawing.Size(334, 21);
+            this.comboBoxCatGroups.TabIndex = 6;
+            this.toolTip1.SetToolTip(this.comboBoxCatGroups, "Specify a category group if the Category/Zone doesn\'t already have a group");
+            this.comboBoxCatGroups.TextChanged += new System.EventHandler(this.comboBoxCatGroups_TextChanged);
+            // 
             // panelTest
             // 
             this.panelTest.Controls.Add(this.splitContainerLog);
             this.panelTest.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panelTest.Location = new System.Drawing.Point(0, 228);
+            this.panelTest.Location = new System.Drawing.Point(0, 267);
             this.panelTest.MinimumSize = new System.Drawing.Size(630, 170);
             this.panelTest.Name = "panelTest";
-            this.panelTest.Size = new System.Drawing.Size(635, 172);
+            this.panelTest.Size = new System.Drawing.Size(639, 183);
             this.panelTest.TabIndex = 26;
             this.panelTest.Visible = false;
             // 
@@ -4953,7 +5525,7 @@ namespace ACT_TriggerTree
             // 
             this.splitContainerLog.Panel2.Controls.Add(this.panelLogLines);
             this.splitContainerLog.Panel2.Controls.Add(this.panelLogFind);
-            this.splitContainerLog.Size = new System.Drawing.Size(635, 172);
+            this.splitContainerLog.Size = new System.Drawing.Size(639, 183);
             this.splitContainerLog.SplitterDistance = 144;
             this.splitContainerLog.TabIndex = 1;
             // 
@@ -4963,7 +5535,7 @@ namespace ACT_TriggerTree
             this.panelLogLines.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelLogLines.Location = new System.Drawing.Point(0, 27);
             this.panelLogLines.Name = "panelLogLines";
-            this.panelLogLines.Size = new System.Drawing.Size(487, 145);
+            this.panelLogLines.Size = new System.Drawing.Size(491, 156);
             this.panelLogLines.TabIndex = 4;
             // 
             // panelLogFind
@@ -4975,14 +5547,14 @@ namespace ACT_TriggerTree
             this.panelLogFind.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelLogFind.Location = new System.Drawing.Point(0, 0);
             this.panelLogFind.Name = "panelLogFind";
-            this.panelLogFind.Size = new System.Drawing.Size(487, 27);
+            this.panelLogFind.Size = new System.Drawing.Size(491, 27);
             this.panelLogFind.TabIndex = 3;
             // 
             // checkBoxFilterRegex
             // 
             this.checkBoxFilterRegex.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.checkBoxFilterRegex.AutoSize = true;
-            this.checkBoxFilterRegex.Location = new System.Drawing.Point(408, 4);
+            this.checkBoxFilterRegex.Location = new System.Drawing.Point(412, 4);
             this.checkBoxFilterRegex.Name = "checkBoxFilterRegex";
             this.checkBoxFilterRegex.Size = new System.Drawing.Size(72, 17);
             this.checkBoxFilterRegex.TabIndex = 3;
@@ -5001,6 +5573,9 @@ namespace ACT_TriggerTree
             // 
             // panelRegex
             // 
+            this.panelRegex.Controls.Add(this.label7);
+            this.panelRegex.Controls.Add(this.comboBoxCatGroups);
+            this.panelRegex.Controls.Add(this.label6);
             this.panelRegex.Controls.Add(this.pictureBoxTimer);
             this.panelRegex.Controls.Add(this.pictureBoxCat);
             this.panelRegex.Controls.Add(this.pictureBoxRe);
@@ -5023,14 +5598,33 @@ namespace ACT_TriggerTree
             this.panelRegex.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelRegex.Location = new System.Drawing.Point(0, 0);
             this.panelRegex.Name = "panelRegex";
-            this.panelRegex.Size = new System.Drawing.Size(635, 228);
+            this.panelRegex.Size = new System.Drawing.Size(639, 267);
             this.panelRegex.TabIndex = 27;
+            // 
+            // label7
+            // 
+            this.label7.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.label7.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.label7.Location = new System.Drawing.Point(5, 231);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(629, 2);
+            this.label7.TabIndex = 34;
+            // 
+            // label6
+            // 
+            this.label6.AutoSize = true;
+            this.label6.Location = new System.Drawing.Point(24, 98);
+            this.label6.Name = "label6";
+            this.label6.Size = new System.Drawing.Size(81, 13);
+            this.label6.TabIndex = 5;
+            this.label6.Text = "Category Group";
             // 
             // labelGridHelp
             // 
             this.labelGridHelp.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.labelGridHelp.AutoSize = true;
-            this.labelGridHelp.Location = new System.Drawing.Point(157, 209);
+            this.labelGridHelp.Location = new System.Drawing.Point(161, 244);
             this.labelGridHelp.Name = "labelGridHelp";
             this.labelGridHelp.Size = new System.Drawing.Size(196, 13);
             this.labelGridHelp.TabIndex = 27;
@@ -5039,14 +5633,25 @@ namespace ACT_TriggerTree
             // 
             // panel2
             // 
+            this.panel2.Controls.Add(this.label8);
             this.panel2.Controls.Add(this.buttonUpdateCreate);
             this.panel2.Controls.Add(this.buttonReplace);
             this.panel2.Controls.Add(this.buttonCancel);
             this.panel2.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.panel2.Location = new System.Drawing.Point(0, 400);
+            this.panel2.Location = new System.Drawing.Point(0, 450);
             this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(635, 37);
+            this.panel2.Size = new System.Drawing.Size(639, 36);
             this.panel2.TabIndex = 28;
+            // 
+            // label8
+            // 
+            this.label8.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.label8.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.label8.Location = new System.Drawing.Point(5, 4);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(629, 2);
+            this.label8.TabIndex = 35;
             // 
             // contextMenuLog
             // 
@@ -5088,26 +5693,19 @@ namespace ACT_TriggerTree
             this.showTimeDifferencesMenuItem.ToolTipText = "Histogram of the time difference between filtered log lines";
             this.showTimeDifferencesMenuItem.Click += new System.EventHandler(this.showTimeDifferencesToolStripMenuItem_Click);
             // 
-            // MakeVictim
-            // 
-            this.MakeVictim.Name = "MakeVictim";
-            this.MakeVictim.Size = new System.Drawing.Size(277, 22);
-            this.MakeVictim.Text = "Make (?<victim>\\w+) capture group";
-            this.MakeVictim.Click += new System.EventHandler(this.MakeVictimw_Click);
-            // 
             // FormEditTrigger
             // 
             this.AcceptButton = this.buttonUpdateCreate;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(635, 437);
+            this.ClientSize = new System.Drawing.Size(639, 486);
             this.Controls.Add(this.panelTest);
             this.Controls.Add(this.panelRegex);
             this.Controls.Add(this.panel2);
             this.HelpButton = true;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.MinimumSize = new System.Drawing.Size(640, 310);
+            this.MinimumSize = new System.Drawing.Size(655, 342);
             this.Name = "FormEditTrigger";
             this.ShowIcon = false;
             this.Text = "Edit Trigger";
@@ -5159,7 +5757,7 @@ namespace ACT_TriggerTree
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.LinkLabel linkLabel1;
         private System.Windows.Forms.HelpProvider helpProvider1;
-        private System.Windows.Forms.ComboBox comboBoxGroups;
+        private System.Windows.Forms.ComboBox comboBoxCaptures;
         private System.Windows.Forms.Button buttonInsert;
         private System.Windows.Forms.GroupBox groupBox1;
         private System.Windows.Forms.Label label1;
@@ -5203,6 +5801,10 @@ namespace ACT_TriggerTree
         private TextBoxX textBoxFindLine;
         private System.Windows.Forms.CheckBox checkBoxFilterRegex;
         private System.Windows.Forms.ToolStripMenuItem MakeVictim;
+        private System.Windows.Forms.ComboBox comboBoxCatGroups;
+        private System.Windows.Forms.Label label6;
+        private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.Label label8;
     }
 	#endregion FormEditTrigger.Designer.cs
 	#region FormEditSound.cs
@@ -7060,7 +7662,7 @@ namespace ACT_TriggerTree
             // button1
             // 
             this.button1.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.button1.Location = new System.Drawing.Point(91, 121);
+            this.button1.Location = new System.Drawing.Point(151, 170);
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(72, 23);
             this.button1.TabIndex = 1;
@@ -7088,7 +7690,7 @@ namespace ACT_TriggerTree
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 52F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.tableLayoutPanel1.Size = new System.Drawing.Size(253, 147);
+            this.tableLayoutPanel1.Size = new System.Drawing.Size(375, 196);
             this.tableLayoutPanel1.TabIndex = 1;
             // 
             // richTextBox1
@@ -7100,7 +7702,7 @@ namespace ACT_TriggerTree
             this.richTextBox1.Name = "richTextBox1";
             this.richTextBox1.ReadOnly = true;
             this.tableLayoutPanel1.SetRowSpan(this.richTextBox1, 4);
-            this.richTextBox1.Size = new System.Drawing.Size(247, 110);
+            this.richTextBox1.Size = new System.Drawing.Size(369, 160);
             this.richTextBox1.TabIndex = 1;
             this.richTextBox1.TabStop = false;
             this.richTextBox1.Text = "";
@@ -7110,7 +7712,7 @@ namespace ACT_TriggerTree
             // button2
             // 
             this.button2.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.button2.Location = new System.Drawing.Point(174, 121);
+            this.button2.Location = new System.Drawing.Point(275, 170);
             this.button2.Name = "button2";
             this.button2.Size = new System.Drawing.Size(73, 23);
             this.button2.TabIndex = 2;
@@ -7123,7 +7725,7 @@ namespace ACT_TriggerTree
             // 
             this.button3.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
             this.tableLayoutPanel1.SetColumnSpan(this.button3, 2);
-            this.button3.Location = new System.Drawing.Point(7, 121);
+            this.button3.Location = new System.Drawing.Point(27, 170);
             this.button3.Name = "button3";
             this.button3.Size = new System.Drawing.Size(72, 23);
             this.button3.TabIndex = 0;
@@ -7136,7 +7738,7 @@ namespace ACT_TriggerTree
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(253, 147);
+            this.ClientSize = new System.Drawing.Size(375, 196);
             this.ControlBox = false;
             this.Controls.Add(this.tableLayoutPanel1);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.SizableToolWindow;
@@ -7178,9 +7780,10 @@ namespace ACT_TriggerTree
         string _prefix;
         List<TimerData> _categoryTimers;
         List<CustomTrigger> _triggers;
-        bool _altEncoding;
-        bool _enableOnZoneIn;
-        public event EventHandler AltEncodeCheckChanged;
+        //bool _enableOnZoneIn;
+        Config _config;
+        string _groupName;
+        //public event EventHandler AltEncodeCheckChanged;
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         static extern bool SetForegroundWindow(IntPtr hWnd);
@@ -7199,15 +7802,16 @@ namespace ACT_TriggerTree
             }
         }
 
-        public XmlCopyForm(string prefix, List<TimerData> categoryTimers, List<CustomTrigger> triggers, bool altEncode, bool enableOnZoneIn)
+        public XmlCopyForm(string prefix, List<TimerData> categoryTimers, List<CustomTrigger> triggers, Config config, string groupName)
         {
             InitializeComponent();
 
             _prefix = prefix;
             _triggers = triggers;
             _categoryTimers = categoryTimers;
-            _altEncoding = altEncode;
-            _enableOnZoneIn = enableOnZoneIn;
+            _config = config;
+            _groupName = groupName;
+            Macros.AlternateEncoding = config.AlternateEncoding;
         }
 
         private void XmlCopyForm_Load(object sender, EventArgs e)
@@ -7225,11 +7829,8 @@ namespace ACT_TriggerTree
                 }
             }
 
-            checkBoxAltEncode.Checked = _altEncoding;
-            checkBoxAltEncode.Visible = false; //default, will show if macro button is activated
-            toolTip1.SetToolTip(checkBoxAltEncode, "Enable macro alternate encoding.\nRecipients must be using TriggerTree.");
-            Macros.AlternateEncoding = _altEncoding;
-            Macros.EnableOnZoneIn = _enableOnZoneIn;
+            Macros.AlternateEncoding = _config.AlternateEncoding;
+            //Macros.EnableOnZoneIn = _enableOnZoneIn;
 
             BuildList();
 
@@ -7314,6 +7915,8 @@ namespace ACT_TriggerTree
 
             if (_validTimers == 0 && _validTriggers == 0)
                 buttonMacro.Enabled = false;
+            else
+                buttonMacro.Enabled = true;
         }
 
         private void buttonCopy_Click(object sender, EventArgs e)
@@ -7347,7 +7950,6 @@ namespace ACT_TriggerTree
                 toolTip1.SetToolTip(buttonCopy, "Press to copy the selected XML item to the clipboard");
                 BuildList();
             }
-            checkBoxAltEncode.Visible = false;
         }
 
         private void NextListItem(string prefix)
@@ -7500,7 +8102,7 @@ namespace ACT_TriggerTree
                         prefix = prefix + " ";
                 }
 
-                if(checkBoxAltEncode.Checked)
+                if(_config.AlternateEncoding)
                     this.Text = String.Format("Share: ({0}/{1}) triggers, ({2}/{3}) timers", _totalTriggers, _totalTriggers, _totalTimers, _totalTimers);
                 else if (_totalTimers > 0 && _totalTriggers > 0)
                     this.Text = String.Format("XML Share: ({0}/{1}) triggers, ({2}/{3}) timers", _validTriggers, _totalTriggers, _validTimers, _totalTimers);
@@ -7509,7 +8111,7 @@ namespace ACT_TriggerTree
                 else if(_totalTimers > 0)
                     this.Text = String.Format("XML Share: ({2}/{3}) timers", _validTimers, _totalTimers);
 
-                int count = Macros.WriteCategoryMacroFile(prefix, _triggers, _categoryTimers, false);
+                int count = Macros.WriteCategoryMacroFile(prefix, _triggers, _categoryTimers, _config, _groupName, false);
                 listBox1.Items.Clear();
                 for (int i = 0; i < count; i++)
                 {
@@ -7529,9 +8131,9 @@ namespace ACT_TriggerTree
                 if (listBox1.Items.Count > 0)
                 {
                     listBox1.SelectedIndex = 0;
+                    toolStripStatusLabel1.Text = "Press [Macro] to copy selection to clipboard";
                 }
             }
-            checkBoxAltEncode.Visible = true;
         }
 
         private void radioButtonG_CheckedChanged(object sender, EventArgs e)
@@ -7574,29 +8176,19 @@ namespace ACT_TriggerTree
             }
         }
 
-        private void checkBoxAltEncode_CheckedChanged(object sender, EventArgs e)
+        public void AltEncodingChanged()
         {
-            if (!_loading)
+            if (listBox1.Items.Count > 0)
             {
-                _altEncoding = checkBoxAltEncode.Checked;
-                Macros.AlternateEncoding = _altEncoding;
-                if (AltEncodeCheckChanged != null)
-                {
-                    // notify our parent
-                    AltEncodeCheckChanged.Invoke(sender, e);
-                }
-                if (listBox1.Items.Count > 0)
-                {
-                    ListItem listItem = (ListItem)listBox1.Items[0];
-                    if (listItem.type == ItemType.Command)
-                    {
-                        // regenerate the macros
-                        BuildList();
-                        buttonMacro_Click(null, null);
-                    }
-                }
+                // regenerate
+                bool wasMacros = false;
+                ListItem listItem = (ListItem)listBox1.Items[0];
+                if (listItem.type == ItemType.Command)
+                    wasMacros = true;
+                BuildList();
+                if(wasMacros)
+                    buttonMacro_Click(null, null);
             }
-
         }
     }
 	#endregion XmlCopyForm.cs
@@ -7644,7 +8236,6 @@ namespace ACT_TriggerTree
             this.textBoxCustom = new System.Windows.Forms.TextBox();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
-            this.checkBoxAltEncode = new System.Windows.Forms.CheckBox();
             this.statusStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -7667,7 +8258,7 @@ namespace ACT_TriggerTree
             this.buttonCopy.Name = "buttonCopy";
             this.buttonCopy.Size = new System.Drawing.Size(75, 23);
             this.buttonCopy.TabIndex = 8;
-            this.buttonCopy.Text = "Copy";
+            this.buttonCopy.Text = "&Copy";
             this.toolTip1.SetToolTip(this.buttonCopy, "Press to copy the selected XML item to the clipboard");
             this.buttonCopy.UseVisualStyleBackColor = true;
             this.buttonCopy.Click += new System.EventHandler(this.buttonCopy_Click);
@@ -7679,7 +8270,7 @@ namespace ACT_TriggerTree
             this.buttonDone.Name = "buttonDone";
             this.buttonDone.Size = new System.Drawing.Size(75, 23);
             this.buttonDone.TabIndex = 9;
-            this.buttonDone.Text = "Done";
+            this.buttonDone.Text = "&Done";
             this.buttonDone.UseVisualStyleBackColor = true;
             this.buttonDone.Click += new System.EventHandler(this.buttonDone_Click);
             // 
@@ -7754,7 +8345,7 @@ namespace ACT_TriggerTree
             this.buttonMacro.Name = "buttonMacro";
             this.buttonMacro.Size = new System.Drawing.Size(75, 23);
             this.buttonMacro.TabIndex = 7;
-            this.buttonMacro.Text = "Macro";
+            this.buttonMacro.Text = "&Macro";
             this.toolTip1.SetToolTip(this.buttonMacro, "Press to generate and list macro files");
             this.buttonMacro.UseVisualStyleBackColor = true;
             this.buttonMacro.Click += new System.EventHandler(this.buttonMacro_Click);
@@ -7785,24 +8376,12 @@ namespace ACT_TriggerTree
             this.toolStripStatusLabel1.Size = new System.Drawing.Size(118, 17);
             this.toolStripStatusLabel1.Text = "toolStripStatusLabel1";
             // 
-            // checkBoxAltEncode
-            // 
-            this.checkBoxAltEncode.AutoSize = true;
-            this.checkBoxAltEncode.Location = new System.Drawing.Point(194, 145);
-            this.checkBoxAltEncode.Name = "checkBoxAltEncode";
-            this.checkBoxAltEncode.Size = new System.Drawing.Size(86, 17);
-            this.checkBoxAltEncode.TabIndex = 11;
-            this.checkBoxAltEncode.Text = "Alt Encoding";
-            this.checkBoxAltEncode.UseVisualStyleBackColor = true;
-            this.checkBoxAltEncode.CheckedChanged += new System.EventHandler(this.checkBoxAltEncode_CheckedChanged);
-            // 
             // XmlCopyForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(298, 219);
             this.ControlBox = false;
-            this.Controls.Add(this.checkBoxAltEncode);
             this.Controls.Add(this.buttonMacro);
             this.Controls.Add(this.comboBoxGame);
             this.Controls.Add(this.label1);
@@ -7841,7 +8420,6 @@ namespace ACT_TriggerTree
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.ComboBox comboBoxGame;
         private System.Windows.Forms.Button buttonMacro;
-        private System.Windows.Forms.CheckBox checkBoxAltEncode;
     }
 	#endregion XmlCopyForm.Designer.cs
 	#region HeaderListView.cs
@@ -8497,6 +9075,7 @@ namespace ACT_TriggerTree
         public static List<string> invalidMacroStrings = new List<string> { @"\#" };
         public static bool AlternateEncoding;
         public static bool EnableOnZoneIn;
+        public static string GroupName;
 
         public static Bitmap GetActionBitmap()
         {
@@ -8627,7 +9206,6 @@ namespace ACT_TriggerTree
             strings.Add(trigger.SoundData);
             strings.Add(trigger.TimerName);
             return IsInvalidMacro(strings);
-
         }
 
         public static bool IsInvalidMacroTimer(TimerData timer)
@@ -8819,7 +9397,7 @@ namespace ACT_TriggerTree
             return result;
         }
 
-        public static string TriggerToMacro(CustomTrigger trigger)
+        public static string TriggerToMacro(CustomTrigger trigger, string groupName)
         {
             string result = string.Empty;
             if (trigger != null)
@@ -8848,6 +9426,7 @@ namespace ACT_TriggerTree
                     sb.Append(string.Format(" T='{0}'", trigger.Timer ? "T" : "F"));
                     sb.Append(string.Format(" TN='{0}'", EncodeCustom(trigger.TimerName)));
                     sb.Append(string.Format(" Ta='{0}'", trigger.Tabbed ? "T" : "F"));
+                    sb.Append(string.Format(" G='{0}'", EncodeCustom(groupName)));
                     if (EnableOnZoneIn)
                         sb.Append(string.Format(" Z='{0}'", "T"));
                     sb.Append(" />");
@@ -8871,6 +9450,8 @@ namespace ACT_TriggerTree
 
                 string re;
                 string category;
+                GroupName = string.Empty;
+                EnableOnZoneIn = false;
                 xmlFields.TryGetValue("R", out re);
                 xmlFields.TryGetValue("C", out category);
                 if (!string.IsNullOrEmpty(re) && !string.IsNullOrEmpty(category))
@@ -8900,6 +9481,9 @@ namespace ACT_TriggerTree
                                 break;
                             case "Z":
                                 EnableOnZoneIn = field.Value == "T" ? true : false;
+                                break;
+                            case "G":
+                                GroupName = DecodeShare(field.Value);
                                 break;
                         }
                     }
@@ -9051,7 +9635,7 @@ namespace ACT_TriggerTree
 
         }
 
-        public static int WriteCategoryMacroFile(string sayCmd, List<CustomTrigger> triggers, List<TimerData> categoryTimers, bool notifyTray = true)
+        public static int WriteCategoryMacroFile(string sayCmd, List<CustomTrigger> triggers, List<TimerData> categoryTimers, Config config, string categoryName, bool notifyTray = true)
         {
             int fileCount = 0;
             {
@@ -9062,7 +9646,7 @@ namespace ACT_TriggerTree
                 {
                     try
                     {
-                        string category = triggers[0].Category;
+                        // category for timers is just used for user feedback on the file creation
                         StringBuilder sb = new StringBuilder();
                         //start with timers for the category
                         foreach (TimerData timer in categoryTimers)
@@ -9075,7 +9659,7 @@ namespace ACT_TriggerTree
                                 validTimers++;
                                 if (validTimers >= 16)
                                 {
-                                    MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                                    MacroToFile(fileCount, categoryName, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
                                     fileCount++;
                                     sb.Clear();
                                     invalid = 0;
@@ -9098,14 +9682,18 @@ namespace ACT_TriggerTree
                                 }
                                 else
                                 {
+                                    EnableOnZoneIn = config.autoCats.Contains(trigger.Category);
+                                    string groupName = config.catGroupings.GetGroupName(trigger.Category);
+                                    if (string.IsNullOrEmpty(groupName))
+                                        groupName = TriggerTree.defaultGroupName;
                                     sb.Append(sayCmd);
-                                    sb.Append(TriggerToMacro(trigger));
+                                    sb.Append(TriggerToMacro(trigger, groupName));
                                     sb.Append(Environment.NewLine);
                                     validTrigs++;
                                 }
                                 if (validTrigs + validTimers >= 16)
                                 {
-                                    MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                                    MacroToFile(fileCount, categoryName, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
                                     fileCount++;
                                     sb.Clear();
                                     invalid = 0;
@@ -9127,7 +9715,7 @@ namespace ACT_TriggerTree
                                             if (validTrigs + validTimers >= 16)
                                             {
                                                 //tooLong = true;
-                                                MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                                                MacroToFile(fileCount, categoryName, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
                                                 fileCount++;
                                                 sb.Clear();
                                                 invalid = 0;
@@ -9141,7 +9729,7 @@ namespace ACT_TriggerTree
                         }
                         if (validTrigs > 0 || validTimers > 0)
                         {
-                            MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                            MacroToFile(fileCount, categoryName, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
                             fileCount++;
                         }
                     }
@@ -9206,6 +9794,8 @@ namespace ACT_TriggerTree
 
         public List<string> autoCats = new List<string>();
 
+        public CatGroupsList catGroupings = new CatGroupsList();
+
     }
 
     /// <remarks/>
@@ -9249,5 +9839,169 @@ namespace ACT_TriggerTree
         public int Width;
 
     }
+
+    public partial class CatGroupsList : List<ConfigCatGroup>, IComparer<ConfigCatGroup>
+    {
+        public string GetGroupName(string category)
+        {
+            for (int i = 0; i < this.Count; i++)
+            {
+                if (this[i].Cats.Contains(category))
+                    return this[i].GroupName;
+            }
+            return string.Empty;
+        }
+
+        public void AddGroup(string group)
+        {
+            ConfigCatGroup grp = new ConfigCatGroup { GroupName = group };
+            if (!this.Contains(grp))
+            {
+                this.Add(grp);
+            }
+        }
+
+        public void AddCatIfNotGrouped(string group, string category)
+        {
+            string existingGrp = GetGroupName(category);
+            // only need a new group if it doesn't have and existing one
+            if(existingGrp == string.Empty || existingGrp == TriggerTree.defaultGroupName)
+            {
+                //Debug.WriteLine($"adding group {group} category {category}");
+                ConfigCatGroup grp = this[group];
+                if (grp == null)
+                {
+                    //Debug.WriteLine($"** new group {group}");
+                    AddGroup(group);
+                    grp = this[group];
+                }
+                if(existingGrp == TriggerTree.defaultGroupName)
+                {
+                    //Debug.WriteLine($"** {category} removed from default");
+                    ConfigCatGroup defgrp = this[TriggerTree.defaultGroupName];
+                    defgrp.Cats.Remove(category);
+                }
+                if (grp != null)
+                {
+                    if (!grp.Cats.Contains(category))
+                    {
+                        //Debug.WriteLine($"** added {category} to {group}");
+                        grp.Cats.Add(category);
+                    }
+                }
+            }
+            else
+            {
+                //Debug.WriteLine($"not moving {category} from {existingGrp}");
+            }
+        }
+
+        public void PutCatInGroup(string group, string category)
+        {
+            string existingGrp = GetGroupName(category);
+            //Debug.WriteLine($"Put in group {group} category {category}");
+            ConfigCatGroup grp = this[group];
+            if (grp == null)
+            {
+                //Debug.WriteLine($"** new group {group}");
+                AddGroup(group);
+                grp = this[group];
+            }
+            if (grp != null && !string.IsNullOrEmpty(existingGrp) && !grp.GroupName.Equals(existingGrp))
+            {
+                //Debug.WriteLine($"** {category} removed from {existingGrp}");
+                ConfigCatGroup defgrp = this[existingGrp];
+                defgrp.Cats.Remove(category);
+            }
+            if (grp != null)
+            {
+                if (!grp.Cats.Contains(category))
+                {
+                    //Debug.WriteLine($"** added {category} to {group}");
+                    grp.Cats.Add(category);
+                }
+            }
+        }
+
+        public int Compare(ConfigCatGroup x, ConfigCatGroup y)
+        {
+            return x.GroupName.CompareTo(y.GroupName);
+        }
+
+        public ConfigCatGroup this[string name]
+        {
+            get { return this.FirstOrDefault(t => t.GroupName == name); }
+        }
+    }
+
+    public partial class ConfigCatGroup : IEqualityComparer<ConfigCatGroup>, IComparer<ConfigCatGroup>
+    {
+        [XmlAttribute]
+        public string GroupName;
+
+        [XmlAttribute]
+        public bool Collapsed = false;
+
+        public List<string> Cats = new List<string>();
+
+        public int Compare(ConfigCatGroup x, ConfigCatGroup y)
+        {
+            return x.GroupName.CompareTo(y.GroupName);
+        }
+
+        public bool Equals(ConfigCatGroup x, ConfigCatGroup y)
+        {
+            return x.GroupName.Equals(y.GroupName);
+        }
+
+        public IEnumerator<ConfigCatGroup> GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        public int GetHashCode(ConfigCatGroup obj)
+        {
+            return GroupName.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return GroupName;
+        }
+    }
 	#endregion Config.cs
+	#region MyToolStrip.cs
+
+    /// <summary>
+    /// Toolstrip that activates a button press regardless of whether the form had focus immediately prior.
+    /// </summary>
+    public class MyToolStrip : ToolStrip
+    {
+        const uint WM_LBUTTONDOWN = 0x201;
+        const uint WM_LBUTTONUP = 0x202;
+
+        static private bool down = false;
+
+        /// <summary>
+        /// Takes advantage of the fact that if the form did not have focus, we did not see the WM_LBUTTONDOWN message
+        /// but we still see the WM_LBUTTONUP message because by that time the form has the focus. 
+        /// So we generate a down message, which will activate the button.
+        /// </summary>
+        /// <param name="m"></param>
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_LBUTTONUP && !down)
+            {
+                m.Msg = (int)WM_LBUTTONDOWN;
+                base.WndProc(ref m);
+                m.Msg = (int)WM_LBUTTONUP;
+            }
+
+            if (m.Msg == WM_LBUTTONDOWN) down = true;
+            if (m.Msg == WM_LBUTTONUP) down = false;
+
+            base.WndProc(ref m);
+        }
+    }
+	#endregion MyToolStrip.cs
 }

@@ -43,6 +43,7 @@
             this.MakeNumbered = new System.Windows.Forms.ToolStripMenuItem();
             this.MakePlayer = new System.Windows.Forms.ToolStripMenuItem();
             this.MakeAttacker = new System.Windows.Forms.ToolStripMenuItem();
+            this.MakeVictim = new System.Windows.Forms.ToolStripMenuItem();
             this.buttonUpdateCreate = new System.Windows.Forms.Button();
             this.buttonReplace = new System.Windows.Forms.Button();
             this.buttonCancel = new System.Windows.Forms.Button();
@@ -64,7 +65,7 @@
             this.label2 = new System.Windows.Forms.Label();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.helpProvider1 = new System.Windows.Forms.HelpProvider();
-            this.comboBoxGroups = new System.Windows.Forms.ComboBox();
+            this.comboBoxCaptures = new System.Windows.Forms.ComboBox();
             this.buttonInsert = new System.Windows.Forms.Button();
             this.buttonPaste = new System.Windows.Forms.Button();
             this.buttonFindTimer = new System.Windows.Forms.Button();
@@ -80,6 +81,7 @@
             this.pictureBoxTimer = new System.Windows.Forms.PictureBox();
             this.pictureBoxCat = new System.Windows.Forms.PictureBox();
             this.pictureBoxRe = new System.Windows.Forms.PictureBox();
+            this.comboBoxCatGroups = new System.Windows.Forms.ComboBox();
             this.panelTest = new System.Windows.Forms.Panel();
             this.splitContainerLog = new System.Windows.Forms.SplitContainer();
             this.panelLogLines = new System.Windows.Forms.Panel();
@@ -87,14 +89,16 @@
             this.checkBoxFilterRegex = new System.Windows.Forms.CheckBox();
             this.label5 = new System.Windows.Forms.Label();
             this.panelRegex = new System.Windows.Forms.Panel();
+            this.label7 = new System.Windows.Forms.Label();
+            this.label6 = new System.Windows.Forms.Label();
             this.labelGridHelp = new System.Windows.Forms.Label();
             this.panel2 = new System.Windows.Forms.Panel();
+            this.label8 = new System.Windows.Forms.Label();
             this.contextMenuLog = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.pasteInRegularExpressionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.testWithRegularExpressionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.showTimeDifferencesMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.MakeVictim = new System.Windows.Forms.ToolStripMenuItem();
             this.contextMenuRegex.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dataGridViewLines)).BeginInit();
             this.groupBox1.SuspendLayout();
@@ -123,7 +127,7 @@
             this.textBoxRegex.Location = new System.Drawing.Point(129, 44);
             this.textBoxRegex.Name = "textBoxRegex";
             this.helpProvider1.SetShowHelp(this.textBoxRegex, true);
-            this.textBoxRegex.Size = new System.Drawing.Size(459, 20);
+            this.textBoxRegex.Size = new System.Drawing.Size(463, 20);
             this.textBoxRegex.TabIndex = 0;
             this.textBoxRegex.TextChanged += new System.EventHandler(this.textBoxRegex_TextChanged);
             this.textBoxRegex.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.textBoxRegex_MouseDoubleClick);
@@ -145,7 +149,7 @@
             this.MakeAttacker,
             this.MakeVictim});
             this.contextMenuRegex.Name = "contextMenuStrip1";
-            this.contextMenuRegex.Size = new System.Drawing.Size(278, 264);
+            this.contextMenuRegex.Size = new System.Drawing.Size(278, 242);
             this.contextMenuRegex.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStrip1_Opening);
             // 
             // Undo
@@ -239,12 +243,19 @@
             this.MakeAttacker.ToolTipText = "${attacker} is automatically recognized in Spell Timers";
             this.MakeAttacker.Click += new System.EventHandler(this.MakeAttacker_Click);
             // 
+            // MakeVictim
+            // 
+            this.MakeVictim.Name = "MakeVictim";
+            this.MakeVictim.Size = new System.Drawing.Size(277, 22);
+            this.MakeVictim.Text = "Make (?<victim>\\w+) capture group";
+            this.MakeVictim.Click += new System.EventHandler(this.MakeVictimw_Click);
+            // 
             // buttonUpdateCreate
             // 
             this.buttonUpdateCreate.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
             this.helpProvider1.SetHelpString(this.buttonUpdateCreate, "Update current trigger. Or if the Regular Expression or Category / Zone has chang" +
         "ed, create New trigger.");
-            this.buttonUpdateCreate.Location = new System.Drawing.Point(191, 11);
+            this.buttonUpdateCreate.Location = new System.Drawing.Point(193, 10);
             this.buttonUpdateCreate.Name = "buttonUpdateCreate";
             this.helpProvider1.SetShowHelp(this.buttonUpdateCreate, true);
             this.buttonUpdateCreate.Size = new System.Drawing.Size(75, 23);
@@ -260,7 +271,7 @@
             this.buttonReplace.Enabled = false;
             this.helpProvider1.SetHelpString(this.buttonReplace, "If the Regular Expression or Category / Zone has changed, replace the original tr" +
         "igger with this trigger.");
-            this.buttonReplace.Location = new System.Drawing.Point(280, 11);
+            this.buttonReplace.Location = new System.Drawing.Point(282, 10);
             this.buttonReplace.Name = "buttonReplace";
             this.helpProvider1.SetShowHelp(this.buttonReplace, true);
             this.buttonReplace.Size = new System.Drawing.Size(75, 23);
@@ -273,7 +284,7 @@
             // buttonCancel
             // 
             this.buttonCancel.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-            this.buttonCancel.Location = new System.Drawing.Point(369, 11);
+            this.buttonCancel.Location = new System.Drawing.Point(371, 10);
             this.buttonCancel.Name = "buttonCancel";
             this.buttonCancel.Size = new System.Drawing.Size(75, 23);
             this.buttonCancel.TabIndex = 21;
@@ -345,7 +356,7 @@
             this.textBoxSound.Location = new System.Drawing.Point(125, 15);
             this.textBoxSound.Name = "textBoxSound";
             this.helpProvider1.SetShowHelp(this.textBoxSound, true);
-            this.textBoxSound.Size = new System.Drawing.Size(341, 20);
+            this.textBoxSound.Size = new System.Drawing.Size(345, 20);
             this.textBoxSound.TabIndex = 10;
             this.textBoxSound.TextChanged += new System.EventHandler(this.textBoxSound_TextChanged);
             // 
@@ -353,7 +364,7 @@
             // 
             this.buttonFileOpen.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.helpProvider1.SetHelpString(this.buttonFileOpen, "Browse for wav files");
-            this.buttonFileOpen.Location = new System.Drawing.Point(473, 15);
+            this.buttonFileOpen.Location = new System.Drawing.Point(477, 15);
             this.buttonFileOpen.Name = "buttonFileOpen";
             this.helpProvider1.SetShowHelp(this.buttonFileOpen, true);
             this.buttonFileOpen.Size = new System.Drawing.Size(25, 23);
@@ -369,7 +380,7 @@
             this.buttonPlay.Enabled = false;
             this.buttonPlay.Font = new System.Drawing.Font("Webdings", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
             this.helpProvider1.SetHelpString(this.buttonPlay, "Play the WAV or TTS");
-            this.buttonPlay.Location = new System.Drawing.Point(505, 15);
+            this.buttonPlay.Location = new System.Drawing.Point(509, 15);
             this.buttonPlay.Name = "buttonPlay";
             this.helpProvider1.SetShowHelp(this.buttonPlay, true);
             this.buttonPlay.Size = new System.Drawing.Size(25, 23);
@@ -388,14 +399,14 @@
             this.textBoxCategory.Location = new System.Drawing.Point(129, 69);
             this.textBoxCategory.Name = "textBoxCategory";
             this.helpProvider1.SetShowHelp(this.textBoxCategory, true);
-            this.textBoxCategory.Size = new System.Drawing.Size(334, 20);
+            this.textBoxCategory.Size = new System.Drawing.Size(338, 20);
             this.textBoxCategory.TabIndex = 3;
             this.textBoxCategory.TextChanged += new System.EventHandler(this.textBoxCategory_TextChanged);
             // 
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(9, 183);
+            this.label3.Location = new System.Drawing.Point(9, 206);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(97, 13);
             this.label3.TabIndex = 15;
@@ -407,10 +418,10 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.helpProvider1.SetHelpString(this.textBoxTimer, "If Trigger Timer and/or Add Results tab is checked, the name of the timer and/or " +
         "tab");
-            this.textBoxTimer.Location = new System.Drawing.Point(129, 179);
+            this.textBoxTimer.Location = new System.Drawing.Point(129, 202);
             this.textBoxTimer.Name = "textBoxTimer";
             this.helpProvider1.SetShowHelp(this.textBoxTimer, true);
-            this.textBoxTimer.Size = new System.Drawing.Size(147, 20);
+            this.textBoxTimer.Size = new System.Drawing.Size(151, 20);
             this.textBoxTimer.TabIndex = 16;
             this.textBoxTimer.TextChanged += new System.EventHandler(this.textBoxTimer_TextChanged);
             // 
@@ -420,7 +431,7 @@
             this.checkBoxRestrict.AutoSize = true;
             this.helpProvider1.SetHelpString(this.checkBoxRestrict, "Check to restrict matching the regular expression only when in the specified zone" +
         "");
-            this.checkBoxRestrict.Location = new System.Drawing.Point(472, 72);
+            this.checkBoxRestrict.Location = new System.Drawing.Point(476, 72);
             this.checkBoxRestrict.Name = "checkBoxRestrict";
             this.helpProvider1.SetShowHelp(this.checkBoxRestrict, true);
             this.checkBoxRestrict.Size = new System.Drawing.Size(155, 17);
@@ -434,11 +445,11 @@
             this.checkBoxTimer.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.checkBoxTimer.AutoSize = true;
             this.helpProvider1.SetHelpString(this.checkBoxTimer, "Check to trigger a spell timer");
-            this.checkBoxTimer.Location = new System.Drawing.Point(388, 181);
+            this.checkBoxTimer.Location = new System.Drawing.Point(392, 204);
             this.checkBoxTimer.Name = "checkBoxTimer";
             this.helpProvider1.SetShowHelp(this.checkBoxTimer, true);
             this.checkBoxTimer.Size = new System.Drawing.Size(88, 17);
-            this.checkBoxTimer.TabIndex = 17;
+            this.checkBoxTimer.TabIndex = 18;
             this.checkBoxTimer.Text = "Trigger Timer";
             this.checkBoxTimer.UseVisualStyleBackColor = true;
             this.checkBoxTimer.CheckedChanged += new System.EventHandler(this.checkBoxTimer_CheckedChanged);
@@ -448,11 +459,11 @@
             this.checkBoxResultsTab.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.checkBoxResultsTab.AutoSize = true;
             this.helpProvider1.SetHelpString(this.checkBoxResultsTab, "Check to add a Results Tab");
-            this.checkBoxResultsTab.Location = new System.Drawing.Point(281, 181);
+            this.checkBoxResultsTab.Location = new System.Drawing.Point(285, 204);
             this.checkBoxResultsTab.Name = "checkBoxResultsTab";
             this.helpProvider1.SetShowHelp(this.checkBoxResultsTab, true);
             this.checkBoxResultsTab.Size = new System.Drawing.Size(101, 17);
-            this.checkBoxResultsTab.TabIndex = 18;
+            this.checkBoxResultsTab.TabIndex = 17;
             this.checkBoxResultsTab.Text = "Add Results tab";
             this.checkBoxResultsTab.UseVisualStyleBackColor = true;
             this.checkBoxResultsTab.CheckedChanged += new System.EventHandler(this.checkBoxResultsTab_CheckedChanged);
@@ -484,7 +495,7 @@
             this.label2.ForeColor = System.Drawing.SystemColors.ControlText;
             this.label2.Location = new System.Drawing.Point(3, 10);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(629, 15);
+            this.label2.Size = new System.Drawing.Size(633, 15);
             this.label2.TabIndex = 22;
             this.label2.Text = "Changing the Regular Expression or the Category / Zone requires replacing the ori" +
     "ginal trigger or creating a new trigger.";
@@ -501,25 +512,25 @@
             this.linkLabel1.Text = "Regular Expression:";
             this.linkLabel1.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel1_LinkClicked);
             // 
-            // comboBoxGroups
+            // comboBoxCaptureGroups
             // 
-            this.comboBoxGroups.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            this.comboBoxCaptures.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.comboBoxGroups.FormattingEnabled = true;
-            this.helpProvider1.SetHelpString(this.comboBoxGroups, "Captures from the Regular Expression available for use in the TTS alert.");
-            this.comboBoxGroups.Location = new System.Drawing.Point(125, 44);
-            this.comboBoxGroups.Name = "comboBoxGroups";
-            this.helpProvider1.SetShowHelp(this.comboBoxGroups, true);
-            this.comboBoxGroups.Size = new System.Drawing.Size(148, 21);
-            this.comboBoxGroups.TabIndex = 13;
-            this.toolTip1.SetToolTip(this.comboBoxGroups, "Available capture names");
+            this.comboBoxCaptures.FormattingEnabled = true;
+            this.helpProvider1.SetHelpString(this.comboBoxCaptures, "Captures from the Regular Expression available for use in the TTS alert.");
+            this.comboBoxCaptures.Location = new System.Drawing.Point(125, 44);
+            this.comboBoxCaptures.Name = "comboBoxCaptureGroups";
+            this.helpProvider1.SetShowHelp(this.comboBoxCaptures, true);
+            this.comboBoxCaptures.Size = new System.Drawing.Size(152, 21);
+            this.comboBoxCaptures.TabIndex = 13;
+            this.toolTip1.SetToolTip(this.comboBoxCaptures, "Available capture names");
             // 
             // buttonInsert
             // 
             this.buttonInsert.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.buttonInsert.Font = new System.Drawing.Font("Segoe UI Symbol", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.helpProvider1.SetHelpString(this.buttonInsert, "Insert selected capture name into TTS expression");
-            this.buttonInsert.Location = new System.Drawing.Point(278, 43);
+            this.buttonInsert.Location = new System.Drawing.Point(282, 43);
             this.buttonInsert.Name = "buttonInsert";
             this.helpProvider1.SetShowHelp(this.buttonInsert, true);
             this.buttonInsert.Size = new System.Drawing.Size(25, 23);
@@ -535,7 +546,7 @@
             this.buttonPaste.Font = new System.Drawing.Font("Webdings", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
             this.helpProvider1.SetHelpString(this.buttonPaste, "Paste from clipboard. If pasting a View Logs line, escapes backslashes, removes t" +
         "imestamp and removes end-of-line");
-            this.buttonPaste.Location = new System.Drawing.Point(590, 41);
+            this.buttonPaste.Location = new System.Drawing.Point(594, 41);
             this.buttonPaste.Name = "buttonPaste";
             this.helpProvider1.SetShowHelp(this.buttonPaste, true);
             this.buttonPaste.Size = new System.Drawing.Size(42, 23);
@@ -552,11 +563,11 @@
             this.buttonFindTimer.Font = new System.Drawing.Font("Segoe UI Symbol", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.helpProvider1.SetHelpString(this.buttonFindTimer, "Search for Timer Name in Spell Timers. Use the [Clear] button in the Spell Timers" +
         " window to reset the search.");
-            this.buttonFindTimer.Location = new System.Drawing.Point(482, 177);
+            this.buttonFindTimer.Location = new System.Drawing.Point(486, 200);
             this.buttonFindTimer.Name = "buttonFindTimer";
             this.helpProvider1.SetShowHelp(this.buttonFindTimer, true);
             this.buttonFindTimer.Size = new System.Drawing.Size(25, 23);
-            this.buttonFindTimer.TabIndex = 25;
+            this.buttonFindTimer.TabIndex = 19;
             this.buttonFindTimer.Text = "⌕";
             this.buttonFindTimer.TextAlign = System.Drawing.ContentAlignment.TopCenter;
             this.toolTip1.SetToolTip(this.buttonFindTimer, "Search for spell timer. [Clear] to reset.");
@@ -580,7 +591,7 @@
             this.dataGridViewLines.RowHeadersVisible = false;
             this.dataGridViewLines.RowTemplate.Height = 18;
             this.helpProvider1.SetShowHelp(this.dataGridViewLines, true);
-            this.dataGridViewLines.Size = new System.Drawing.Size(487, 145);
+            this.dataGridViewLines.Size = new System.Drawing.Size(491, 156);
             this.dataGridViewLines.TabIndex = 0;
             this.dataGridViewLines.CellContextMenuStripNeeded += new System.Windows.Forms.DataGridViewCellContextMenuStripNeededEventHandler(this.dataGridViewLines_CellContextMenuStripNeeded);
             this.dataGridViewLines.CellFormatting += new System.Windows.Forms.DataGridViewCellFormattingEventHandler(this.dataGridViewLines_CellFormatting);
@@ -590,11 +601,11 @@
             this.checkBoxLogLines.AutoSize = true;
             this.helpProvider1.SetHelpString(this.checkBoxLogLines, "Check to show the list of encounters and log lines. Useful for creating and testi" +
         "ng new triggers.");
-            this.checkBoxLogLines.Location = new System.Drawing.Point(12, 208);
+            this.checkBoxLogLines.Location = new System.Drawing.Point(12, 243);
             this.checkBoxLogLines.Name = "checkBoxLogLines";
             this.helpProvider1.SetShowHelp(this.checkBoxLogLines, true);
             this.checkBoxLogLines.Size = new System.Drawing.Size(110, 17);
-            this.checkBoxLogLines.TabIndex = 26;
+            this.checkBoxLogLines.TabIndex = 20;
             this.checkBoxLogLines.Text = "Show Encounters";
             this.toolTip1.SetToolTip(this.checkBoxLogLines, "Show / Hide encounter list");
             this.checkBoxLogLines.UseVisualStyleBackColor = true;
@@ -609,7 +620,7 @@
             this.treeViewEncounters.Location = new System.Drawing.Point(0, 0);
             this.treeViewEncounters.Name = "treeViewEncounters";
             this.helpProvider1.SetShowHelp(this.treeViewEncounters, true);
-            this.treeViewEncounters.Size = new System.Drawing.Size(144, 172);
+            this.treeViewEncounters.Size = new System.Drawing.Size(144, 183);
             this.treeViewEncounters.TabIndex = 0;
             this.treeViewEncounters.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.treeViewEncounters_AfterSelect);
             // 
@@ -623,7 +634,7 @@
             this.textBoxFindLine.Location = new System.Drawing.Point(47, 3);
             this.textBoxFindLine.Name = "textBoxFindLine";
             this.helpProvider1.SetShowHelp(this.textBoxFindLine, true);
-            this.textBoxFindLine.Size = new System.Drawing.Size(355, 20);
+            this.textBoxFindLine.Size = new System.Drawing.Size(359, 20);
             this.textBoxFindLine.TabIndex = 1;
             this.toolTip1.SetToolTip(this.textBoxFindLine, "Show lines containing text. Examples: \'#\' for colored lines. \'says,\' for mob dial" +
         "og.");
@@ -640,14 +651,14 @@
             this.groupBox1.Controls.Add(this.radioButtonBeep);
             this.groupBox1.Controls.Add(this.buttonInsert);
             this.groupBox1.Controls.Add(this.radioButtonTts);
-            this.groupBox1.Controls.Add(this.comboBoxGroups);
+            this.groupBox1.Controls.Add(this.comboBoxCaptures);
             this.groupBox1.Controls.Add(this.textBoxSound);
             this.groupBox1.Controls.Add(this.buttonFileOpen);
             this.groupBox1.Controls.Add(this.buttonPlay);
-            this.groupBox1.Location = new System.Drawing.Point(5, 96);
+            this.groupBox1.Location = new System.Drawing.Point(5, 119);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(627, 74);
-            this.groupBox1.TabIndex = 5;
+            this.groupBox1.Size = new System.Drawing.Size(631, 74);
+            this.groupBox1.TabIndex = 7;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Audio Alert";
             // 
@@ -665,7 +676,7 @@
             // 
             this.label4.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(309, 49);
+            this.label4.Location = new System.Drawing.Point(313, 49);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(274, 13);
             this.label4.TabIndex = 0;
@@ -677,7 +688,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.label1.Location = new System.Drawing.Point(-5, 25);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(637, 13);
+            this.label1.Size = new System.Drawing.Size(641, 13);
             this.label1.TabIndex = 23;
             this.label1.Text = "Changing any other field simply updates the existing trigger.";
             this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -685,7 +696,7 @@
             // pictureBoxTimer
             // 
             this.pictureBoxTimer.ErrorImage = null;
-            this.pictureBoxTimer.Location = new System.Drawing.Point(111, 183);
+            this.pictureBoxTimer.Location = new System.Drawing.Point(111, 206);
             this.pictureBoxTimer.Name = "pictureBoxTimer";
             this.pictureBoxTimer.Size = new System.Drawing.Size(16, 16);
             this.pictureBoxTimer.TabIndex = 31;
@@ -712,14 +723,28 @@
             this.pictureBoxRe.TabStop = false;
             this.toolTip1.SetToolTip(this.pictureBoxRe, "Indicates whether the string is valid in a macro");
             // 
+            // comboBoxCatGroups
+            // 
+            this.comboBoxCatGroups.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.comboBoxCatGroups.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
+            this.comboBoxCatGroups.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.ListItems;
+            this.comboBoxCatGroups.FormattingEnabled = true;
+            this.comboBoxCatGroups.Location = new System.Drawing.Point(129, 95);
+            this.comboBoxCatGroups.Name = "comboBoxCatGroups";
+            this.comboBoxCatGroups.Size = new System.Drawing.Size(334, 21);
+            this.comboBoxCatGroups.TabIndex = 6;
+            this.toolTip1.SetToolTip(this.comboBoxCatGroups, "Specify a category group if the Category/Zone doesn\'t already have a group");
+            this.comboBoxCatGroups.TextChanged += new System.EventHandler(this.comboBoxCatGroups_TextChanged);
+            // 
             // panelTest
             // 
             this.panelTest.Controls.Add(this.splitContainerLog);
             this.panelTest.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panelTest.Location = new System.Drawing.Point(0, 228);
+            this.panelTest.Location = new System.Drawing.Point(0, 267);
             this.panelTest.MinimumSize = new System.Drawing.Size(630, 170);
             this.panelTest.Name = "panelTest";
-            this.panelTest.Size = new System.Drawing.Size(635, 172);
+            this.panelTest.Size = new System.Drawing.Size(639, 183);
             this.panelTest.TabIndex = 26;
             this.panelTest.Visible = false;
             // 
@@ -737,7 +762,7 @@
             // 
             this.splitContainerLog.Panel2.Controls.Add(this.panelLogLines);
             this.splitContainerLog.Panel2.Controls.Add(this.panelLogFind);
-            this.splitContainerLog.Size = new System.Drawing.Size(635, 172);
+            this.splitContainerLog.Size = new System.Drawing.Size(639, 183);
             this.splitContainerLog.SplitterDistance = 144;
             this.splitContainerLog.TabIndex = 1;
             // 
@@ -747,7 +772,7 @@
             this.panelLogLines.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelLogLines.Location = new System.Drawing.Point(0, 27);
             this.panelLogLines.Name = "panelLogLines";
-            this.panelLogLines.Size = new System.Drawing.Size(487, 145);
+            this.panelLogLines.Size = new System.Drawing.Size(491, 156);
             this.panelLogLines.TabIndex = 4;
             // 
             // panelLogFind
@@ -759,14 +784,14 @@
             this.panelLogFind.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelLogFind.Location = new System.Drawing.Point(0, 0);
             this.panelLogFind.Name = "panelLogFind";
-            this.panelLogFind.Size = new System.Drawing.Size(487, 27);
+            this.panelLogFind.Size = new System.Drawing.Size(491, 27);
             this.panelLogFind.TabIndex = 3;
             // 
             // checkBoxFilterRegex
             // 
             this.checkBoxFilterRegex.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.checkBoxFilterRegex.AutoSize = true;
-            this.checkBoxFilterRegex.Location = new System.Drawing.Point(408, 4);
+            this.checkBoxFilterRegex.Location = new System.Drawing.Point(412, 4);
             this.checkBoxFilterRegex.Name = "checkBoxFilterRegex";
             this.checkBoxFilterRegex.Size = new System.Drawing.Size(72, 17);
             this.checkBoxFilterRegex.TabIndex = 3;
@@ -785,6 +810,9 @@
             // 
             // panelRegex
             // 
+            this.panelRegex.Controls.Add(this.label7);
+            this.panelRegex.Controls.Add(this.comboBoxCatGroups);
+            this.panelRegex.Controls.Add(this.label6);
             this.panelRegex.Controls.Add(this.pictureBoxTimer);
             this.panelRegex.Controls.Add(this.pictureBoxCat);
             this.panelRegex.Controls.Add(this.pictureBoxRe);
@@ -807,14 +835,33 @@
             this.panelRegex.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelRegex.Location = new System.Drawing.Point(0, 0);
             this.panelRegex.Name = "panelRegex";
-            this.panelRegex.Size = new System.Drawing.Size(635, 228);
+            this.panelRegex.Size = new System.Drawing.Size(639, 267);
             this.panelRegex.TabIndex = 27;
+            // 
+            // label7
+            // 
+            this.label7.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.label7.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.label7.Location = new System.Drawing.Point(5, 231);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(629, 2);
+            this.label7.TabIndex = 34;
+            // 
+            // label6
+            // 
+            this.label6.AutoSize = true;
+            this.label6.Location = new System.Drawing.Point(24, 98);
+            this.label6.Name = "label6";
+            this.label6.Size = new System.Drawing.Size(81, 13);
+            this.label6.TabIndex = 5;
+            this.label6.Text = "Category Group";
             // 
             // labelGridHelp
             // 
             this.labelGridHelp.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.labelGridHelp.AutoSize = true;
-            this.labelGridHelp.Location = new System.Drawing.Point(157, 209);
+            this.labelGridHelp.Location = new System.Drawing.Point(161, 244);
             this.labelGridHelp.Name = "labelGridHelp";
             this.labelGridHelp.Size = new System.Drawing.Size(196, 13);
             this.labelGridHelp.TabIndex = 27;
@@ -823,14 +870,25 @@
             // 
             // panel2
             // 
+            this.panel2.Controls.Add(this.label8);
             this.panel2.Controls.Add(this.buttonUpdateCreate);
             this.panel2.Controls.Add(this.buttonReplace);
             this.panel2.Controls.Add(this.buttonCancel);
             this.panel2.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.panel2.Location = new System.Drawing.Point(0, 400);
+            this.panel2.Location = new System.Drawing.Point(0, 450);
             this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(635, 37);
+            this.panel2.Size = new System.Drawing.Size(639, 36);
             this.panel2.TabIndex = 28;
+            // 
+            // label8
+            // 
+            this.label8.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.label8.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.label8.Location = new System.Drawing.Point(5, 4);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(629, 2);
+            this.label8.TabIndex = 35;
             // 
             // contextMenuLog
             // 
@@ -872,26 +930,19 @@
             this.showTimeDifferencesMenuItem.ToolTipText = "Histogram of the time difference between filtered log lines";
             this.showTimeDifferencesMenuItem.Click += new System.EventHandler(this.showTimeDifferencesToolStripMenuItem_Click);
             // 
-            // MakeVictim
-            // 
-            this.MakeVictim.Name = "MakeVictim";
-            this.MakeVictim.Size = new System.Drawing.Size(277, 22);
-            this.MakeVictim.Text = "Make (?<victim>\\w+) capture group";
-            this.MakeVictim.Click += new System.EventHandler(this.MakeVictimw_Click);
-            // 
             // FormEditTrigger
             // 
             this.AcceptButton = this.buttonUpdateCreate;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(635, 437);
+            this.ClientSize = new System.Drawing.Size(639, 486);
             this.Controls.Add(this.panelTest);
             this.Controls.Add(this.panelRegex);
             this.Controls.Add(this.panel2);
             this.HelpButton = true;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
-            this.MinimumSize = new System.Drawing.Size(640, 310);
+            this.MinimumSize = new System.Drawing.Size(655, 342);
             this.Name = "FormEditTrigger";
             this.ShowIcon = false;
             this.Text = "Edit Trigger";
@@ -943,7 +994,7 @@
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.LinkLabel linkLabel1;
         private System.Windows.Forms.HelpProvider helpProvider1;
-        private System.Windows.Forms.ComboBox comboBoxGroups;
+        private System.Windows.Forms.ComboBox comboBoxCaptures;
         private System.Windows.Forms.Button buttonInsert;
         private System.Windows.Forms.GroupBox groupBox1;
         private System.Windows.Forms.Label label1;
@@ -987,6 +1038,10 @@
         private TextBoxX textBoxFindLine;
         private System.Windows.Forms.CheckBox checkBoxFilterRegex;
         private System.Windows.Forms.ToolStripMenuItem MakeVictim;
+        private System.Windows.Forms.ComboBox comboBoxCatGroups;
+        private System.Windows.Forms.Label label6;
+        private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.Label label8;
     }
 }
 

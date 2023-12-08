@@ -21,10 +21,11 @@ namespace ACT_TriggerTree
 
         CustomTrigger editingTrigger;       //a copy of the original trigger
         CustomTrigger undoTrigger;          //a reference to the original trigger
-        string decoratedCategory;
-        string cleanCategory;
-        bool regexChanged = false;          //track for replace / create new
-        bool zoneChanged = false;
+        string decoratedCategory;           //color-coded categor
+        string cleanCategory;               //category without color code or instance number
+        int regexChanged = 0;               //track for replace / create new
+        int zoneChanged = 0;
+        int catGroupChanged = 0;            //track if category group name changed
         bool initializing = true;           //oncheck() methods do not need to do anything during shown()
         bool ignoreTextChange = false;      //don't propagate programatic find text change
         TreeNode lastSelectedNode;          //for better tree node highlighting
@@ -63,11 +64,15 @@ namespace ACT_TriggerTree
             _config = config;
             //make a new trigger that we can modify without changing the original trigger
             editingTrigger = new CustomTrigger(trigger.RegEx.ToString(), trigger.SoundType, trigger.SoundData, trigger.Timer, trigger.TimerName, trigger.Tabbed);
-            editingTrigger.Category = cleanCategory;
             editingTrigger.RestrictToCategoryZone = trigger.RestrictToCategoryZone;
-            if(zoneNameIsDecorated)
+            editingTrigger.Category = category;
+
+            if (zoneNameIsDecorated)
             {
-                if(ActGlobals.oFormActMain.CurrentZone == decoratedCategory)
+                bool enableOnZone = _config.autoCats.Contains(cleanCategory);
+                if (enableOnZone)
+                    editingTrigger.Category = cleanCategory;
+                if(ActGlobals.oFormActMain.CurrentZone == decoratedCategory && enableOnZone)
                     editingTrigger.RestrictToCategoryZone = false;
             }
 
@@ -82,8 +87,8 @@ namespace ACT_TriggerTree
             Match match = TriggerTree.reCleanActZone.Match(category);
             if (match.Success)
             {
-                cleanCategory = match.Groups["zone"].Value.TrimEnd();
-                if (!string.IsNullOrEmpty(match.Groups["decoration"].Value))
+                cleanCategory = match.Groups["zone"].Value;
+                if (!string.IsNullOrEmpty(match.Groups["decoration"].Value) || !string.IsNullOrEmpty(match.Groups["instance"].Value))
                     result = true;
             }
             return result;
@@ -98,6 +103,14 @@ namespace ACT_TriggerTree
             {
                 textBoxRegex.Text = editingTrigger.ShortRegexString;
                 textBoxCategory.Text = editingTrigger.Category;
+
+                string catGrp = _config.catGroupings.GetGroupName(editingTrigger.Category);
+                if (string.IsNullOrEmpty(catGrp))
+                    catGrp = TriggerTree.defaultGroupName;
+                foreach (ConfigCatGroup grp in _config.catGroupings)
+                    comboBoxCatGroups.Items.Add(grp.GroupName);
+                comboBoxCatGroups.Text = catGrp;
+
                 textBoxSound.Text = editingTrigger.SoundData;
                 switch (editingTrigger.SoundType)
                 {
@@ -107,7 +120,7 @@ namespace ACT_TriggerTree
                         buttonFileOpen.Enabled = false;
                         textBoxSound.Enabled = false;
                         buttonInsert.Enabled = false;
-                        comboBoxGroups.Enabled = false;
+                        comboBoxCaptures.Enabled = false;
                         break;
                     case (int)CustomTriggerSoundTypeEnum.WAV:
                         radioButtonWav.Checked = true;
@@ -115,7 +128,7 @@ namespace ACT_TriggerTree
                         buttonFileOpen.Enabled = true;
                         textBoxSound.Enabled = true;
                         buttonInsert.Enabled = false;
-                        comboBoxGroups.Enabled = false;
+                        comboBoxCaptures.Enabled = false;
                         break;
                     case (int)CustomTriggerSoundTypeEnum.TTS:
                         radioButtonTts.Checked = true;
@@ -123,7 +136,7 @@ namespace ACT_TriggerTree
                         buttonFileOpen.Enabled = false;
                         textBoxSound.Enabled = true;
                         buttonInsert.Enabled = false;
-                        comboBoxGroups.Enabled = false;
+                        comboBoxCaptures.Enabled = false;
                         break;
                     default:
                         radioButtonNone.Checked = true;
@@ -131,11 +144,10 @@ namespace ACT_TriggerTree
                         buttonFileOpen.Enabled = false;
                         textBoxSound.Enabled = false;
                         buttonInsert.Enabled = false;
-                        comboBoxGroups.Enabled = false;
+                        comboBoxCaptures.Enabled = false;
                         break;
                 }
                 textBoxTimer.Text = editingTrigger.TimerName;
-                checkBoxRestrict.Checked = editingTrigger.RestrictToCategoryZone;
                 checkBoxResultsTab.Checked = editingTrigger.Tabbed;
                 checkBoxTimer.Checked = editingTrigger.Timer;
 
@@ -186,7 +198,13 @@ namespace ACT_TriggerTree
                 else
                     buttonUpdateCreate.Enabled = false; //until something changes
 
-                PopulateGroupList();
+                PopulateCapturesList();
+            }
+            else // new trigger
+            {
+                foreach (ConfigCatGroup grp in _config.catGroupings)
+                    comboBoxCatGroups.Items.Add(grp.GroupName);
+                comboBoxCatGroups.Text = TriggerTree.defaultGroupName;
             }
             initializing = false;
         }
@@ -239,7 +257,7 @@ namespace ACT_TriggerTree
                     return;
                 }
 
-                if(result == EventResult.CREATE_NEW && zoneChanged)
+                if(result == EventResult.CREATE_NEW && zoneChanged > 0)
                 {
                     //do we need to set "Enable on zone-in"?
                     if(zoneNameIsDecorated)
@@ -255,7 +273,18 @@ namespace ACT_TriggerTree
                     }
                 }
 
-                if (regexChanged)
+                if(catGroupChanged > 0 || zoneChanged > 0)
+                {
+                    if (string.IsNullOrEmpty(comboBoxCatGroups.Text))
+                        comboBoxCatGroups.Text = TriggerTree.defaultGroupName;
+
+                    if(result == EventResult.CREATE_NEW || result == EventResult.REPLACE_TRIGGER)
+                    {
+                        _config.catGroupings.PutCatInGroup(comboBoxCatGroups.Text, editingTrigger.Category);
+                    }
+                }
+
+                if (regexChanged > 0)
                 {
                     if(string.IsNullOrEmpty(textBoxRegex.Text.Trim()))
                     {
@@ -270,7 +299,6 @@ namespace ACT_TriggerTree
                     }
                     catch (ArgumentException aex)
                     {
-                        //ActGlobals.oFormActMain.NotificationAdd("Improper Custom Trigger Regular Expression", aex.Message);
                         SimpleMessageBox.Show(ActGlobals.oFormActMain, aex.Message, "Improper Regular Expression");
                         return;
                     }
@@ -291,7 +319,8 @@ namespace ACT_TriggerTree
                     }
                 }
 
-                if((editingTrigger.Timer || editingTrigger.Tabbed)
+
+                if ((editingTrigger.Timer || editingTrigger.Tabbed)
                     && string.IsNullOrEmpty(editingTrigger.TimerName))
                 {
                     if (SimpleMessageBox.Show(ActGlobals.oFormActMain, @"Timer or Tab enabled without a Timer/Tab Name.\line Return to fix?", "Inconsistent Settings",
@@ -323,7 +352,10 @@ namespace ACT_TriggerTree
         {
             zoneNameIsDecorated = IsCategoryDecorated(ActGlobals.oFormActMain.CurrentZone);
             // this will trigger the text changed event
-            textBoxCategory.Text = cleanCategory;
+            if (_config.autoCats.Contains(cleanCategory))
+                textBoxCategory.Text = cleanCategory;
+            else
+                textBoxCategory.Text = ActGlobals.oFormActMain.CurrentZone;
         }
 
         private void buttonPlay_Click(object sender, EventArgs e)
@@ -361,7 +393,7 @@ namespace ACT_TriggerTree
 
         private void buttonInsert_Click(object sender, EventArgs e)
         {
-            string group = comboBoxGroups.Text;
+            string group = comboBoxCaptures.Text;
             if (!string.IsNullOrEmpty(group))
             {
                 //insert $1 if un-named, ${name} if named
@@ -435,7 +467,7 @@ namespace ACT_TriggerTree
                 textBoxSound.Enabled = false;
                 buttonUpdateCreate.Enabled = true;
                 buttonInsert.Enabled = false;
-                comboBoxGroups.Enabled = false;
+                comboBoxCaptures.Enabled = false;
             }
         }
 
@@ -449,7 +481,7 @@ namespace ACT_TriggerTree
                 textBoxSound.Enabled = false;
                 buttonUpdateCreate.Enabled = true;
                 buttonInsert.Enabled = false;
-                comboBoxGroups.Enabled = false;
+                comboBoxCaptures.Enabled = false;
             }
         }
 
@@ -463,7 +495,7 @@ namespace ACT_TriggerTree
                 textBoxSound.Enabled = true;
                 buttonUpdateCreate.Enabled = true;
                 buttonInsert.Enabled = false;
-                comboBoxGroups.Enabled = false;
+                comboBoxCaptures.Enabled = false;
             }
         }
 
@@ -476,7 +508,7 @@ namespace ACT_TriggerTree
                 buttonFileOpen.Enabled = false;
                 textBoxSound.Enabled = true;
                 buttonUpdateCreate.Enabled = true;
-                PopulateGroupList();
+                PopulateCapturesList();
             }
         }
 
@@ -506,14 +538,11 @@ namespace ACT_TriggerTree
         {
             if (!initializing)
             {
-                zoneChanged = true;
+                zoneChanged++;
                 editingTrigger.Category = textBoxCategory.Text;
-                buttonReplace.Enabled = true;
-                buttonUpdateCreate.Text = "Create New";
-                buttonUpdateCreate.Enabled = true;
-                buttonReplace.Enabled = haveOriginal;
-                checkBoxRestrict.Checked = editingTrigger.Category.Contains("[");
-                if (zoneNameIsDecorated)
+                if(editingTrigger.Category.Contains("["))
+                    checkBoxRestrict.Checked = true;
+                if (zoneNameIsDecorated && _config.autoCats.Contains(cleanCategory))
                 {
                     if (ActGlobals.oFormActMain.CurrentZone == decoratedCategory)
                         checkBoxRestrict.Checked = false;
@@ -528,6 +557,51 @@ namespace ACT_TriggerTree
                         pictureBoxCat.Image = macroIcons.Images[1];
                     else
                         pictureBoxCat.Image = macroIcons.Images[0];
+                }
+
+                string grpName = _config.catGroupings.GetGroupName(textBoxCategory.Text);
+                if(!string.IsNullOrEmpty(grpName))
+                {
+                    ConfigCatGroup grp = _config.catGroupings[grpName];
+                    if (grp != null)
+                        comboBoxCatGroups.Text = grp.GroupName;
+                }
+
+                if(zoneChanged > 1)
+                {
+                    // not the first change
+                    // if the change has been undone, go back to unedited
+                    if (editingTrigger.Category.Equals(undoTrigger.Category))
+                    {
+                        zoneChanged = 0;
+                    }
+                }
+
+                SetButtonStates();
+            }
+        }
+
+        private void SetButtonStates()
+        {
+            if (zoneChanged >= 1 || regexChanged >= 1)
+            {
+                buttonUpdateCreate.Text = "Create New";
+                buttonUpdateCreate.Enabled = true;
+                buttonReplace.Enabled = haveOriginal;
+            }
+            else if (zoneChanged == 0 && regexChanged == 0)
+            {
+                buttonUpdateCreate.Enabled = false;
+                buttonReplace.Enabled = false;
+                if (!haveOriginal)
+                    buttonUpdateCreate.Text = "Create New";
+                else
+                {
+                    buttonUpdateCreate.Text = "Update";
+                    if (catGroupChanged == 0)
+                        buttonUpdateCreate.Enabled = false; //until something changes
+                    else
+                        buttonUpdateCreate.Enabled = true;
                 }
             }
         }
@@ -587,12 +661,15 @@ namespace ACT_TriggerTree
         {
             if (!initializing)
             {
-                regexChanged = true;
-                buttonReplace.Enabled = haveOriginal;
-                buttonUpdateCreate.Enabled = true;
-                buttonUpdateCreate.Text = "Create New";
+                regexChanged++;
+                if (textBoxRegex.Text.Equals(undoTrigger.RegEx.ToString()))
+                {
+                    // unchanged
+                    regexChanged = 0;
+                }
+                SetButtonStates();
                 checkBoxFilterRegex.Checked = false;
-                PopulateGroupList();
+                PopulateCapturesList();
 
                 if (string.IsNullOrEmpty(textBoxRegex.Text))
                     pictureBoxRe.Visible = false;
@@ -626,10 +703,10 @@ namespace ACT_TriggerTree
             }
         }
 
-        private void PopulateGroupList()
+        private void PopulateCapturesList()
         {
-            comboBoxGroups.Items.Clear();
-            comboBoxGroups.Enabled = false;
+            comboBoxCaptures.Items.Clear();
+            comboBoxCaptures.Enabled = false;
             buttonInsert.Enabled = false;
 
             try
@@ -638,15 +715,28 @@ namespace ACT_TriggerTree
                 string[] groups = re.GetGroupNames();
                 if (groups.Length > 1)
                 {
-                    comboBoxGroups.Enabled = true;
+                    comboBoxCaptures.Enabled = true;
                     buttonInsert.Enabled = true;
                     for (int i = 1; i < groups.Length; i++) //skip group[0], it is the entire expression
                     {
-                        comboBoxGroups.Items.Add(groups[i]);
+                        comboBoxCaptures.Items.Add(groups[i]);
                     }
                 }
             }
             catch { } //not a valid regex, just don't crash
+        }
+
+        private void comboBoxCatGroups_TextChanged(object sender, EventArgs e)
+        {
+            if (!initializing)
+            {
+                string grpName = _config.catGroupings.GetGroupName(editingTrigger.Category);
+                if (comboBoxCatGroups.Text.Equals(grpName) && !string.IsNullOrEmpty(grpName))
+                    catGroupChanged = 0;
+                else
+                    catGroupChanged++;
+                SetButtonStates();
+            }
         }
 
         #endregion Changes

@@ -104,6 +104,9 @@
     </Compile>
     <Compile Include="ListViewDateComparer.cs" />
     <Compile Include="Macros.cs" />
+    <Compile Include="MyToolStrip.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
@@ -156,6 +159,9 @@
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Include="SimpleMessageBox.resx">
+      <DependentUpon>SimpleMessageBox.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="TriggerTree.resx">
       <DependentUpon>TriggerTree.cs</DependentUpon>

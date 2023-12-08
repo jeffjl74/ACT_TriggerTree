@@ -38,16 +38,11 @@ namespace ACT_TriggerTree
             this.panel3 = new System.Windows.Forms.Panel();
             this.label3 = new System.Windows.Forms.Label();
             this.buttonCatFindNext = new System.Windows.Forms.Button();
-            this.textBoxCatFind = new ACT_TriggerTree.TextBoxX();
             this.treeViewTrigs = new System.Windows.Forms.TreeView();
             this.panel2 = new System.Windows.Forms.Panel();
-            this.toolStrip1 = new System.Windows.Forms.ToolStrip();
-            this.toolStripButtonNew = new System.Windows.Forms.ToolStripButton();
-            this.toolStripButtonResults = new System.Windows.Forms.ToolStripButton();
             this.checkBoxCurrentCategory = new System.Windows.Forms.CheckBox();
             this.label4 = new System.Windows.Forms.Label();
             this.buttonFindNext = new System.Windows.Forms.Button();
-            this.textBoxTrigFind = new ACT_TriggerTree.TextBoxX();
             this.contextMenuStripTrig = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.copyAsShareableXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.copyAsDoubleEncodedXMLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -59,13 +54,12 @@ namespace ACT_TriggerTree
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.raidsayShareMacroToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.groupsayShareMacroToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
-            this.expandAllToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.collapseAllToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
             this.contextMenuStripCat = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.copyZoneNameToClipboardToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.deleteEntireCategoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.renameGroupToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.enableOnZoneinToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toggleEntireCategoryToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.enableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.disableAllTriggersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -79,17 +73,26 @@ namespace ACT_TriggerTree
             this.panel1 = new System.Windows.Forms.Panel();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.label2 = new System.Windows.Forms.Label();
-            this.enableOnZoneinToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStrip2 = new ACT_TriggerTree.MyToolStrip();
+            this.toolStripButtonNewGrp = new System.Windows.Forms.ToolStripButton();
+            this.textBoxCatFind = new ACT_TriggerTree.TextBoxX();
+            this.toolStrip1 = new ACT_TriggerTree.MyToolStrip();
+            this.toolStripButtonNew = new System.Windows.Forms.ToolStripButton();
+            this.toolStripButtonInfo = new System.Windows.Forms.ToolStripButton();
+            this.toolStripButtonResults = new System.Windows.Forms.ToolStripButton();
+            this.toolStripButtonAltEncoding = new System.Windows.Forms.ToolStripButton();
+            this.textBoxTrigFind = new ACT_TriggerTree.TextBoxX();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
             this.splitContainer1.Panel2.SuspendLayout();
             this.splitContainer1.SuspendLayout();
             this.panel3.SuspendLayout();
             this.panel2.SuspendLayout();
-            this.toolStrip1.SuspendLayout();
             this.contextMenuStripTrig.SuspendLayout();
             this.contextMenuStripCat.SuspendLayout();
             this.panel1.SuspendLayout();
+            this.toolStrip2.SuspendLayout();
+            this.toolStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
             // splitContainer1
@@ -113,6 +116,7 @@ namespace ACT_TriggerTree
             // 
             // treeViewCats
             // 
+            this.treeViewCats.AllowDrop = true;
             this.treeViewCats.Dock = System.Windows.Forms.DockStyle.Fill;
             this.treeViewCats.DrawMode = System.Windows.Forms.TreeViewDrawMode.OwnerDrawText;
             this.treeViewCats.Font = new System.Drawing.Font("Microsoft Sans Serif", 10F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
@@ -120,13 +124,21 @@ namespace ACT_TriggerTree
             this.treeViewCats.Name = "treeViewCats";
             this.treeViewCats.Size = new System.Drawing.Size(240, 527);
             this.treeViewCats.TabIndex = 1;
+            this.treeViewCats.AfterLabelEdit += new System.Windows.Forms.NodeLabelEditEventHandler(this.treeViewCats_AfterLabelEdit);
+            this.treeViewCats.AfterCollapse += new System.Windows.Forms.TreeViewEventHandler(this.treeViewCats_AfterCollapse);
+            this.treeViewCats.AfterExpand += new System.Windows.Forms.TreeViewEventHandler(this.treeViewCats_AfterExpand);
             this.treeViewCats.DrawNode += new System.Windows.Forms.DrawTreeNodeEventHandler(this.treeViewCats_DrawNode);
+            this.treeViewCats.ItemDrag += new System.Windows.Forms.ItemDragEventHandler(this.treeViewCats_ItemDrag);
             this.treeViewCats.AfterSelect += new System.Windows.Forms.TreeViewEventHandler(this.treeViewCats_AfterSelect);
+            this.treeViewCats.DragDrop += new System.Windows.Forms.DragEventHandler(this.treeViewCats_DragDrop);
+            this.treeViewCats.DragEnter += new System.Windows.Forms.DragEventHandler(this.treeViewCats_DragEnter);
+            this.treeViewCats.DragOver += new System.Windows.Forms.DragEventHandler(this.treeViewCats_DragOver);
             this.treeViewCats.MouseDown += new System.Windows.Forms.MouseEventHandler(this.treeViewCats_MouseDown);
             // 
             // panel3
             // 
             this.panel3.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this.panel3.Controls.Add(this.toolStrip2);
             this.panel3.Controls.Add(this.label3);
             this.panel3.Controls.Add(this.buttonCatFindNext);
             this.panel3.Controls.Add(this.textBoxCatFind);
@@ -139,7 +151,7 @@ namespace ACT_TriggerTree
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(4, 8);
+            this.label3.Location = new System.Drawing.Point(35, 8);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(30, 13);
             this.label3.TabIndex = 2;
@@ -159,18 +171,6 @@ namespace ACT_TriggerTree
             this.toolTip1.SetToolTip(this.buttonCatFindNext, "Find the next matching category");
             this.buttonCatFindNext.UseVisualStyleBackColor = true;
             this.buttonCatFindNext.Click += new System.EventHandler(this.buttonCatFindNext_Click);
-            // 
-            // textBoxCatFind
-            // 
-            this.textBoxCatFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxCatFind.ButtonTextClear = true;
-            this.textBoxCatFind.Location = new System.Drawing.Point(40, 4);
-            this.textBoxCatFind.Name = "textBoxCatFind";
-            this.textBoxCatFind.Size = new System.Drawing.Size(148, 20);
-            this.textBoxCatFind.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
-            this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
             // 
             // treeViewTrigs
             // 
@@ -204,41 +204,6 @@ namespace ACT_TriggerTree
             this.panel2.Size = new System.Drawing.Size(483, 33);
             this.panel2.TabIndex = 0;
             // 
-            // toolStrip1
-            // 
-            this.toolStrip1.Dock = System.Windows.Forms.DockStyle.None;
-            this.toolStrip1.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
-            this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.toolStripButtonNew,
-            this.toolStripButtonResults});
-            this.toolStrip1.Location = new System.Drawing.Point(4, 3);
-            this.toolStrip1.Name = "toolStrip1";
-            this.toolStrip1.Size = new System.Drawing.Size(51, 26);
-            this.toolStrip1.TabIndex = 4;
-            this.toolStrip1.Text = "toolStrip1";
-            // 
-            // toolStripButtonNew
-            // 
-            this.toolStripButtonNew.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.toolStripButtonNew.ImageTransparentColor = System.Drawing.Color.Magenta;
-            this.toolStripButtonNew.Name = "toolStripButtonNew";
-            this.toolStripButtonNew.Size = new System.Drawing.Size(23, 23);
-            this.toolStripButtonNew.Text = "+";
-            this.toolStripButtonNew.ToolTipText = "Add New Trigger";
-            this.toolStripButtonNew.Click += new System.EventHandler(this.toolStripButtonNew_Click);
-            // 
-            // toolStripButtonResults
-            // 
-            this.toolStripButtonResults.CheckOnClick = true;
-            this.toolStripButtonResults.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.toolStripButtonResults.Font = new System.Drawing.Font("Webdings", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
-            this.toolStripButtonResults.ImageTransparentColor = System.Drawing.Color.Magenta;
-            this.toolStripButtonResults.Name = "toolStripButtonResults";
-            this.toolStripButtonResults.Size = new System.Drawing.Size(25, 23);
-            this.toolStripButtonResults.Text = "2";
-            this.toolStripButtonResults.ToolTipText = "Enable Results Tabs Popup";
-            this.toolStripButtonResults.Click += new System.EventHandler(this.toolStripButtonResults_Click);
-            // 
             // checkBoxCurrentCategory
             // 
             this.checkBoxCurrentCategory.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
@@ -257,7 +222,7 @@ namespace ACT_TriggerTree
             // label4
             // 
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(75, 7);
+            this.label4.Location = new System.Drawing.Point(109, 7);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(30, 13);
             this.label4.TabIndex = 2;
@@ -277,19 +242,6 @@ namespace ACT_TriggerTree
             this.buttonFindNext.UseVisualStyleBackColor = true;
             this.buttonFindNext.Click += new System.EventHandler(this.buttonFindNext_Click);
             // 
-            // textBoxTrigFind
-            // 
-            this.textBoxTrigFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBoxTrigFind.ButtonTextClear = true;
-            this.textBoxTrigFind.Location = new System.Drawing.Point(109, 4);
-            this.textBoxTrigFind.Name = "textBoxTrigFind";
-            this.textBoxTrigFind.Size = new System.Drawing.Size(257, 20);
-            this.textBoxTrigFind.TabIndex = 0;
-            this.toolTip1.SetToolTip(this.textBoxTrigFind, "Incremental search for text in the trigger\'s regular expression, alert, or timer " +
-        "name");
-            this.textBoxTrigFind.TextChanged += new System.EventHandler(this.textBoxFind_TextChanged);
-            // 
             // contextMenuStripTrig
             // 
             this.contextMenuStripTrig.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -302,12 +254,9 @@ namespace ACT_TriggerTree
             this.playAlertSoundToolStripMenuItem,
             this.toolStripSeparator3,
             this.raidsayShareMacroToolStripMenuItem,
-            this.groupsayShareMacroToolStripMenuItem,
-            this.toolStripSeparator2,
-            this.expandAllToolStripMenuItem,
-            this.collapseAllToolStripMenuItem});
+            this.groupsayShareMacroToolStripMenuItem});
             this.contextMenuStripTrig.Name = "contextMenuStrip1";
-            this.contextMenuStripTrig.Size = new System.Drawing.Size(290, 226);
+            this.contextMenuStripTrig.Size = new System.Drawing.Size(290, 176);
             this.contextMenuStripTrig.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStripTrg_Opening);
             // 
             // copyAsShareableXMLToolStripMenuItem
@@ -379,25 +328,6 @@ namespace ACT_TriggerTree
             this.groupsayShareMacroToolStripMenuItem.ToolTipText = "Make triggers.txt macro to share trigger with the group";
             this.groupsayShareMacroToolStripMenuItem.Click += new System.EventHandler(this.groupsayShareMacroToolStripMenuItem_Click);
             // 
-            // toolStripSeparator2
-            // 
-            this.toolStripSeparator2.Name = "toolStripSeparator2";
-            this.toolStripSeparator2.Size = new System.Drawing.Size(286, 6);
-            // 
-            // expandAllToolStripMenuItem
-            // 
-            this.expandAllToolStripMenuItem.Name = "expandAllToolStripMenuItem";
-            this.expandAllToolStripMenuItem.Size = new System.Drawing.Size(289, 22);
-            this.expandAllToolStripMenuItem.Text = "Expand all triggers";
-            this.expandAllToolStripMenuItem.Click += new System.EventHandler(this.expandAllToolStripMenuItem_Click);
-            // 
-            // collapseAllToolStripMenuItem
-            // 
-            this.collapseAllToolStripMenuItem.Name = "collapseAllToolStripMenuItem";
-            this.collapseAllToolStripMenuItem.Size = new System.Drawing.Size(289, 22);
-            this.collapseAllToolStripMenuItem.Text = "Collapse all triggers";
-            this.collapseAllToolStripMenuItem.Click += new System.EventHandler(this.collapseAllToolStripMenuItem_Click);
-            // 
             // toolTip1
             // 
             this.toolTip1.AutomaticDelay = 750;
@@ -407,6 +337,7 @@ namespace ACT_TriggerTree
             this.contextMenuStripCat.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.copyZoneNameToClipboardToolStripMenuItem,
             this.deleteEntireCategoryToolStripMenuItem,
+            this.renameGroupToolStripMenuItem,
             this.enableOnZoneinToolStripMenuItem,
             this.toggleEntireCategoryToolStripMenuItem,
             this.toolStripSeparator4,
@@ -435,6 +366,21 @@ namespace ACT_TriggerTree
             this.deleteEntireCategoryToolStripMenuItem.ToolTipText = "Delete the category and all its triggers";
             this.deleteEntireCategoryToolStripMenuItem.Click += new System.EventHandler(this.deleteEntireCategoryToolStripMenuItem_Click);
             // 
+            // renameGroupToolStripMenuItem
+            // 
+            this.renameGroupToolStripMenuItem.Name = "renameGroupToolStripMenuItem";
+            this.renameGroupToolStripMenuItem.Size = new System.Drawing.Size(251, 22);
+            this.renameGroupToolStripMenuItem.Text = "Rename Group";
+            this.renameGroupToolStripMenuItem.Click += new System.EventHandler(this.renameGroupToolStripMenuItem_Click);
+            // 
+            // enableOnZoneinToolStripMenuItem
+            // 
+            this.enableOnZoneinToolStripMenuItem.Name = "enableOnZoneinToolStripMenuItem";
+            this.enableOnZoneinToolStripMenuItem.Size = new System.Drawing.Size(251, 22);
+            this.enableOnZoneinToolStripMenuItem.Text = "Enable on zone-in";
+            this.enableOnZoneinToolStripMenuItem.ToolTipText = "Upon zone-in, unrestrict enabled triggers";
+            this.enableOnZoneinToolStripMenuItem.Click += new System.EventHandler(this.enableOnZoneinToolStripMenuItem_Click);
+            // 
             // toggleEntireCategoryToolStripMenuItem
             // 
             this.toggleEntireCategoryToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -447,14 +393,14 @@ namespace ACT_TriggerTree
             // enableAllTriggersToolStripMenuItem
             // 
             this.enableAllTriggersToolStripMenuItem.Name = "enableAllTriggersToolStripMenuItem";
-            this.enableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.enableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
             this.enableAllTriggersToolStripMenuItem.Text = "Enable all triggers";
             this.enableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.enableAllTriggersToolStripMenuItem_Click);
             // 
             // disableAllTriggersToolStripMenuItem
             // 
             this.disableAllTriggersToolStripMenuItem.Name = "disableAllTriggersToolStripMenuItem";
-            this.disableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
+            this.disableAllTriggersToolStripMenuItem.Size = new System.Drawing.Size(170, 22);
             this.disableAllTriggersToolStripMenuItem.Text = "Disable all triggers";
             this.disableAllTriggersToolStripMenuItem.Click += new System.EventHandler(this.disableAllTriggersToolStripMenuItem_Click);
             // 
@@ -542,12 +488,114 @@ namespace ACT_TriggerTree
             this.label2.Text = "Double-click to edit trigger fields. Expand a trigger for checkbox and right-clic" +
     "k actions on sub-items.";
             // 
-            // enableOnZoneinToolStripMenuItem
+            // toolStrip2
             // 
-            this.enableOnZoneinToolStripMenuItem.Name = "enableOnZoneinToolStripMenuItem";
-            this.enableOnZoneinToolStripMenuItem.Size = new System.Drawing.Size(251, 22);
-            this.enableOnZoneinToolStripMenuItem.Text = "Enable on zone-in";
-            this.enableOnZoneinToolStripMenuItem.Click += new System.EventHandler(this.enableOnZoneinToolStripMenuItem_Click);
+            this.toolStrip2.Dock = System.Windows.Forms.DockStyle.None;
+            this.toolStrip2.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
+            this.toolStrip2.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.toolStripButtonNewGrp});
+            this.toolStrip2.Location = new System.Drawing.Point(4, 5);
+            this.toolStrip2.Name = "toolStrip2";
+            this.toolStrip2.Size = new System.Drawing.Size(26, 25);
+            this.toolStrip2.TabIndex = 3;
+            this.toolStrip2.Text = "toolStrip2";
+            // 
+            // toolStripButtonNewGrp
+            // 
+            this.toolStripButtonNewGrp.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonNewGrp.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.toolStripButtonNewGrp.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonNewGrp.Name = "toolStripButtonNewGrp";
+            this.toolStripButtonNewGrp.Size = new System.Drawing.Size(23, 22);
+            this.toolStripButtonNewGrp.Text = "+";
+            this.toolStripButtonNewGrp.ToolTipText = "Add Group";
+            this.toolStripButtonNewGrp.Click += new System.EventHandler(this.toolStripButtonNewGrp_Click);
+            // 
+            // textBoxCatFind
+            // 
+            this.textBoxCatFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxCatFind.ButtonTextClear = true;
+            this.textBoxCatFind.Location = new System.Drawing.Point(69, 4);
+            this.textBoxCatFind.Name = "textBoxCatFind";
+            this.textBoxCatFind.Size = new System.Drawing.Size(119, 20);
+            this.textBoxCatFind.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.textBoxCatFind, "Incremental search in the category name");
+            this.textBoxCatFind.TextChanged += new System.EventHandler(this.textBoxCatScroll_TextChanged);
+            // 
+            // toolStrip1
+            // 
+            this.toolStrip1.Dock = System.Windows.Forms.DockStyle.None;
+            this.toolStrip1.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
+            this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.toolStripButtonNew,
+            this.toolStripButtonInfo,
+            this.toolStripButtonResults,
+            this.toolStripButtonAltEncoding});
+            this.toolStrip1.Location = new System.Drawing.Point(4, 3);
+            this.toolStrip1.Name = "toolStrip1";
+            this.toolStrip1.Size = new System.Drawing.Size(133, 25);
+            this.toolStrip1.TabIndex = 4;
+            this.toolStrip1.Text = "toolStrip1";
+            // 
+            // toolStripButtonNew
+            // 
+            this.toolStripButtonNew.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonNew.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.toolStripButtonNew.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonNew.Name = "toolStripButtonNew";
+            this.toolStripButtonNew.Size = new System.Drawing.Size(23, 22);
+            this.toolStripButtonNew.Text = "+";
+            this.toolStripButtonNew.ToolTipText = "Add New Trigger";
+            this.toolStripButtonNew.Click += new System.EventHandler(this.toolStripButtonNewTrigger_Click);
+            // 
+            // toolStripButtonInfo
+            // 
+            this.toolStripButtonInfo.CheckOnClick = true;
+            this.toolStripButtonInfo.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonInfo.Font = new System.Drawing.Font("Webdings", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
+            this.toolStripButtonInfo.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonInfo.Name = "toolStripButtonInfo";
+            this.toolStripButtonInfo.Size = new System.Drawing.Size(25, 22);
+            this.toolStripButtonInfo.Text = "i";
+            this.toolStripButtonInfo.ToolTipText = "Toggle expand-all / collapse-all";
+            this.toolStripButtonInfo.Click += new System.EventHandler(this.toolStripButtonInfo_Click);
+            // 
+            // toolStripButtonResults
+            // 
+            this.toolStripButtonResults.CheckOnClick = true;
+            this.toolStripButtonResults.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonResults.Font = new System.Drawing.Font("Webdings", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
+            this.toolStripButtonResults.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonResults.Name = "toolStripButtonResults";
+            this.toolStripButtonResults.Size = new System.Drawing.Size(25, 22);
+            this.toolStripButtonResults.Text = "2";
+            this.toolStripButtonResults.ToolTipText = "Enable Results Tabs Popup";
+            this.toolStripButtonResults.Click += new System.EventHandler(this.toolStripButtonResults_Click);
+            // 
+            // toolStripButtonAltEncoding
+            // 
+            this.toolStripButtonAltEncoding.CheckOnClick = true;
+            this.toolStripButtonAltEncoding.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripButtonAltEncoding.Font = new System.Drawing.Font("Wingdings", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(2)));
+            this.toolStripButtonAltEncoding.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.toolStripButtonAltEncoding.Name = "toolStripButtonAltEncoding";
+            this.toolStripButtonAltEncoding.Size = new System.Drawing.Size(26, 22);
+            this.toolStripButtonAltEncoding.Text = "+";
+            this.toolStripButtonAltEncoding.Click += new System.EventHandler(this.toolStripButtonAltEncoding_Click);
+            // 
+            // textBoxTrigFind
+            // 
+            this.textBoxTrigFind.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.textBoxTrigFind.ButtonTextClear = true;
+            this.textBoxTrigFind.Location = new System.Drawing.Point(143, 4);
+            this.textBoxTrigFind.Name = "textBoxTrigFind";
+            this.textBoxTrigFind.Size = new System.Drawing.Size(223, 20);
+            this.textBoxTrigFind.TabIndex = 0;
+            this.toolTip1.SetToolTip(this.textBoxTrigFind, "Incremental search for text in the trigger\'s regular expression, alert, or timer " +
+        "name");
+            this.textBoxTrigFind.TextChanged += new System.EventHandler(this.textBoxFind_TextChanged);
             // 
             // TriggerTree
             // 
@@ -566,12 +614,14 @@ namespace ACT_TriggerTree
             this.panel3.PerformLayout();
             this.panel2.ResumeLayout(false);
             this.panel2.PerformLayout();
-            this.toolStrip1.ResumeLayout(false);
-            this.toolStrip1.PerformLayout();
             this.contextMenuStripTrig.ResumeLayout(false);
             this.contextMenuStripCat.ResumeLayout(false);
             this.panel1.ResumeLayout(false);
             this.panel1.PerformLayout();
+            this.toolStrip2.ResumeLayout(false);
+            this.toolStrip2.PerformLayout();
+            this.toolStrip1.ResumeLayout(false);
+            this.toolStrip1.PerformLayout();
             this.ResumeLayout(false);
 
 		}
@@ -592,8 +642,6 @@ namespace ACT_TriggerTree
         private ToolStripMenuItem deleteEntireCategoryToolStripMenuItem;
         private Label label1;
         private ToolStripSeparator toolStripSeparator1;
-        private ToolStripMenuItem expandAllToolStripMenuItem;
-        private ToolStripMenuItem collapseAllToolStripMenuItem;
         private Panel panel1;
         private Button buttonFindNext;
         private TextBoxX textBoxTrigFind;
@@ -602,7 +650,6 @@ namespace ACT_TriggerTree
         private TextBoxX textBoxCatFind;
         private Button buttonCatFindNext;
         private ToolStripMenuItem playAlertSoundToolStripMenuItem;
-        private ToolStripSeparator toolStripSeparator2;
         private Label label2;
         private ToolStripSeparator toolStripSeparator4;
         private ToolStripMenuItem raidShareCategoryMacroMenuItem;
@@ -618,13 +665,22 @@ namespace ACT_TriggerTree
         private System.Windows.Forms.CheckBox checkBoxCurrentCategory;
         private LinkLabel linkLabel1;
         private ToolStripMenuItem shareDialogMenuItem;
-        private ToolStrip toolStrip1;
+        private MyToolStrip toolStrip1;
         private ToolStripButton toolStripButtonNew;
         private ToolStripButton toolStripButtonResults;
 
+
         #endregion
 
-    
+        private ToolStripMenuItem toggleEntireCategoryToolStripMenuItem;
+        private ToolStripMenuItem enableAllTriggersToolStripMenuItem;
+        private ToolStripMenuItem disableAllTriggersToolStripMenuItem;
+        private ToolStripMenuItem enableOnZoneinToolStripMenuItem;
+        private MyToolStrip toolStrip2;
+        private ToolStripButton toolStripButtonNewGrp;
+        private ToolStripMenuItem renameGroupToolStripMenuItem;
+        private ToolStripButton toolStripButtonAltEncoding;
+        private ToolStripButton toolStripButtonInfo;
     }
 }
 

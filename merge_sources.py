@@ -16,6 +16,7 @@ files.extend(['FormResultsTabs.cs', 'FormResultsTabs.Designer.cs'])
 files.extend(['ListViewDateComparer.cs'])
 files.extend(['Macros.cs'])
 files.extend(['Config.cs'])
+files.extend(['MyToolStrip.cs'])
 
 merged = []
 usings = []

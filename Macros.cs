@@ -14,6 +14,7 @@ namespace ACT_TriggerTree
         public static List<string> invalidMacroStrings = new List<string> { @"\#" };
         public static bool AlternateEncoding;
         public static bool EnableOnZoneIn;
+        public static string GroupName;
 
         public static Bitmap GetActionBitmap()
         {
@@ -144,7 +145,6 @@ namespace ACT_TriggerTree
             strings.Add(trigger.SoundData);
             strings.Add(trigger.TimerName);
             return IsInvalidMacro(strings);
-
         }
 
         public static bool IsInvalidMacroTimer(TimerData timer)
@@ -336,7 +336,7 @@ namespace ACT_TriggerTree
             return result;
         }
 
-        public static string TriggerToMacro(CustomTrigger trigger)
+        public static string TriggerToMacro(CustomTrigger trigger, string groupName)
         {
             string result = string.Empty;
             if (trigger != null)
@@ -365,6 +365,7 @@ namespace ACT_TriggerTree
                     sb.Append(string.Format(" T='{0}'", trigger.Timer ? "T" : "F"));
                     sb.Append(string.Format(" TN='{0}'", EncodeCustom(trigger.TimerName)));
                     sb.Append(string.Format(" Ta='{0}'", trigger.Tabbed ? "T" : "F"));
+                    sb.Append(string.Format(" G='{0}'", EncodeCustom(groupName)));
                     if (EnableOnZoneIn)
                         sb.Append(string.Format(" Z='{0}'", "T"));
                     sb.Append(" />");
@@ -388,6 +389,8 @@ namespace ACT_TriggerTree
 
                 string re;
                 string category;
+                GroupName = string.Empty;
+                EnableOnZoneIn = false;
                 xmlFields.TryGetValue("R", out re);
                 xmlFields.TryGetValue("C", out category);
                 if (!string.IsNullOrEmpty(re) && !string.IsNullOrEmpty(category))
@@ -417,6 +420,9 @@ namespace ACT_TriggerTree
                                 break;
                             case "Z":
                                 EnableOnZoneIn = field.Value == "T" ? true : false;
+                                break;
+                            case "G":
+                                GroupName = DecodeShare(field.Value);
                                 break;
                         }
                     }
@@ -568,7 +574,7 @@ namespace ACT_TriggerTree
 
         }
 
-        public static int WriteCategoryMacroFile(string sayCmd, List<CustomTrigger> triggers, List<TimerData> categoryTimers, bool notifyTray = true)
+        public static int WriteCategoryMacroFile(string sayCmd, List<CustomTrigger> triggers, List<TimerData> categoryTimers, Config config, string categoryName, bool notifyTray = true)
         {
             int fileCount = 0;
             {
@@ -579,7 +585,7 @@ namespace ACT_TriggerTree
                 {
                     try
                     {
-                        string category = triggers[0].Category;
+                        // category for timers is just used for user feedback on the file creation
                         StringBuilder sb = new StringBuilder();
                         //start with timers for the category
                         foreach (TimerData timer in categoryTimers)
@@ -592,7 +598,7 @@ namespace ACT_TriggerTree
                                 validTimers++;
                                 if (validTimers >= 16)
                                 {
-                                    MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                                    MacroToFile(fileCount, categoryName, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
                                     fileCount++;
                                     sb.Clear();
                                     invalid = 0;
@@ -615,14 +621,18 @@ namespace ACT_TriggerTree
                                 }
                                 else
                                 {
+                                    EnableOnZoneIn = config.autoCats.Contains(trigger.Category);
+                                    string groupName = config.catGroupings.GetGroupName(trigger.Category);
+                                    if (string.IsNullOrEmpty(groupName))
+                                        groupName = TriggerTree.defaultGroupName;
                                     sb.Append(sayCmd);
-                                    sb.Append(TriggerToMacro(trigger));
+                                    sb.Append(TriggerToMacro(trigger, groupName));
                                     sb.Append(Environment.NewLine);
                                     validTrigs++;
                                 }
                                 if (validTrigs + validTimers >= 16)
                                 {
-                                    MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                                    MacroToFile(fileCount, categoryName, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
                                     fileCount++;
                                     sb.Clear();
                                     invalid = 0;
@@ -644,7 +654,7 @@ namespace ACT_TriggerTree
                                             if (validTrigs + validTimers >= 16)
                                             {
                                                 //tooLong = true;
-                                                MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                                                MacroToFile(fileCount, categoryName, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
                                                 fileCount++;
                                                 sb.Clear();
                                                 invalid = 0;
@@ -658,7 +668,7 @@ namespace ACT_TriggerTree
                         }
                         if (validTrigs > 0 || validTimers > 0)
                         {
-                            MacroToFile(fileCount, category, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
+                            MacroToFile(fileCount, categoryName, sb.ToString(), invalid, validTimers, validTrigs, notifyTray);
                             fileCount++;
                         }
                     }
