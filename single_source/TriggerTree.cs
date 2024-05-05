@@ -25,7 +25,7 @@ using System.Collections;
 [assembly: AssemblyTitle("Tree view of Custom Triggers")]
 [assembly: AssemblyDescription("An alternate interface for managing Custom Triggers")]
 [assembly: AssemblyCompany("Mineeme of Maj'Dul")]
-[assembly: AssemblyVersion("1.7.0.0")]
+[assembly: AssemblyVersion("1.7.1.0")]
 
 namespace ACT_TriggerTree
 {
@@ -460,18 +460,21 @@ namespace ACT_TriggerTree
                             TabPage trigtab = resultsTabCtrl.TabPages[0];
                             foreach (Control ctrl in trigtab.Controls)
                             {
-                                if (ctrl.GetType() == typeof(Button))
+                                foreach(Control ctrl2 in ctrl.Controls)
                                 {
-                                    Button button = (Button)ctrl;
-                                    if (button.Text == "Add/Edit")
+                                    if (ctrl2.GetType() == typeof(Button))
                                     {
-                                        addEditButton = button;
-                                        addEditButton.Click += AddEditButton_Click;
-                                    }
-                                    else if(button.Text == "&Remove")
-                                    {
-                                        removeButton = button;
-                                        removeButton.Click += RemoveButton_Click;
+                                        Button button = (Button)ctrl2;
+                                        if (button.Text == "Add/Edit")
+                                        {
+                                            addEditButton = button;
+                                            addEditButton.Click += AddEditButton_Click;
+                                        }
+                                        else if (button.Text == "&Remove")
+                                        {
+                                            removeButton = button;
+                                            removeButton.Click += RemoveButton_Click;
+                                        }
                                     }
                                 }
                             }
@@ -8621,11 +8624,11 @@ namespace ACT_TriggerTree
         internal class TabInfo
         {
             public string title;            // cosmetic ACT tab name
-            public ListView listACT;        // reference the ACT list
+            public ListViewNoFlicker listACT;        // reference the ACT list
             public TabPage tabPageACT;      // reference used to make sure the tab still exists in ACT
             public HeaderListView listTT;   // our mirror of the ACT list
 
-            public TabInfo(TabPage tab, ListView list)
+            public TabInfo(TabPage tab, ListViewNoFlicker list)
             {
                 this.tabPageACT = tab;
                 this.title = tab.Text;
@@ -8726,12 +8729,12 @@ namespace ACT_TriggerTree
         {
             if(tab != null)
             {
-                ListView lv = null;
+                ListViewNoFlicker lv = null;
                 foreach (Control ctrl in tab.Controls)
                 {
-                    if (ctrl.GetType() == typeof(ListView))
+                    if (ctrl.GetType() == typeof(ListViewNoFlicker))
                     {
-                        ListView listView = (ListView)ctrl;
+                        ListViewNoFlicker listView = (ListViewNoFlicker)ctrl;
                         if(listView != null)
                         {
                             lv = listView;

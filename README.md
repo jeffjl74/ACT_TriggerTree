@@ -17,11 +17,8 @@ Additional features of the plugin:
 * The __Find__ boxes at the top of the Category and Trigger panes provide incremental searches.
 * Categories can be grouped into a user-defined folder, for instance to put all categories/zones from a particular game expansion into a single folder, as shown in the above screenshot.
 
-### Version 1.7 Changes:
-* Added a new top level to the [category tree](#category-group) to provide another means of organizing triggers.
-* Rework / simplify zone change logic.
-* Moved the Alternate Encoding setting from the Share Dialog to the trigger pane toolbar button ![alt-enc](images/alt-encoding-button.png).
-* Moved expand / collapse all triggers from the context menu to the trigger pane toolbar button ![expand](images/expand-button.png).
+### Version 1.7.1 Changes:
+* Fix [Results Tab pop-up](#results-tabs) to work with ACT version 3.7.0 Release 280.
 
 ## Category Pane
 The Category pane organizes triggers using the _Category_ field in the triggers themselves and a user-defined parent folder. In the example above, the parent folders use the name of the game expansion to bring trigger categories from that expansion together.

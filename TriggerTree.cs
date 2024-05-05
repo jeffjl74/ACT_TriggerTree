@@ -21,7 +21,7 @@ using System.Xml.Serialization;
 [assembly: AssemblyTitle("Tree view of Custom Triggers")]
 [assembly: AssemblyDescription("An alternate interface for managing Custom Triggers")]
 [assembly: AssemblyCompany("Mineeme of Maj'Dul")]
-[assembly: AssemblyVersion("1.7.0.0")]
+[assembly: AssemblyVersion("1.7.1.0")]
 
 namespace ACT_TriggerTree
 {
@@ -456,18 +456,21 @@ namespace ACT_TriggerTree
                             TabPage trigtab = resultsTabCtrl.TabPages[0];
                             foreach (Control ctrl in trigtab.Controls)
                             {
-                                if (ctrl.GetType() == typeof(Button))
+                                foreach(Control ctrl2 in ctrl.Controls)
                                 {
-                                    Button button = (Button)ctrl;
-                                    if (button.Text == "Add/Edit")
+                                    if (ctrl2.GetType() == typeof(Button))
                                     {
-                                        addEditButton = button;
-                                        addEditButton.Click += AddEditButton_Click;
-                                    }
-                                    else if(button.Text == "&Remove")
-                                    {
-                                        removeButton = button;
-                                        removeButton.Click += RemoveButton_Click;
+                                        Button button = (Button)ctrl2;
+                                        if (button.Text == "Add/Edit")
+                                        {
+                                            addEditButton = button;
+                                            addEditButton.Click += AddEditButton_Click;
+                                        }
+                                        else if (button.Text == "&Remove")
+                                        {
+                                            removeButton = button;
+                                            removeButton.Click += RemoveButton_Click;
+                                        }
                                     }
                                 }
                             }

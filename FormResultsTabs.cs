@@ -18,11 +18,11 @@ namespace ACT_TriggerTree
         internal class TabInfo
         {
             public string title;            // cosmetic ACT tab name
-            public ListView listACT;        // reference the ACT list
+            public ListViewNoFlicker listACT;        // reference the ACT list
             public TabPage tabPageACT;      // reference used to make sure the tab still exists in ACT
             public HeaderListView listTT;   // our mirror of the ACT list
 
-            public TabInfo(TabPage tab, ListView list)
+            public TabInfo(TabPage tab, ListViewNoFlicker list)
             {
                 this.tabPageACT = tab;
                 this.title = tab.Text;
@@ -123,12 +123,12 @@ namespace ACT_TriggerTree
         {
             if(tab != null)
             {
-                ListView lv = null;
+                ListViewNoFlicker lv = null;
                 foreach (Control ctrl in tab.Controls)
                 {
-                    if (ctrl.GetType() == typeof(ListView))
+                    if (ctrl.GetType() == typeof(ListViewNoFlicker))
                     {
-                        ListView listView = (ListView)ctrl;
+                        ListViewNoFlicker listView = (ListViewNoFlicker)ctrl;
                         if(listView != null)
                         {
                             lv = listView;
