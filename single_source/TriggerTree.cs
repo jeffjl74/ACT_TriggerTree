@@ -206,9 +206,7 @@ namespace ACT_TriggerTree
                     DialogResult result = SimpleMessageBox.Show(new Point(screen.Width / 2 - 100, screen.Height / 2 - 100),
                           @"There is an update for TriggerTree."
                         + @"\line Update it now?"
-                        + @"\line\line{\b This release adds another level to the category tree "
-                        + @"\line to help organize categories. All existing categories "
-                        + @"will be moved to the {\ul Default Group} folder.}"
+                        + @"\line\line{\b This release adds compatibility with ACT 3.8.1 Release 384 "
                         + @"\line\line If there is an update to ACT"
                         + @"\line you should click No and update ACT first."
                         + @"\line\line Release notes at project website:"
