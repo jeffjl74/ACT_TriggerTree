@@ -18,7 +18,7 @@ Additional features of the plugin:
 * Categories can be grouped into a user-defined folder, for instance to put all categories/zones from a particular game expansion into a single folder, as shown in the above screenshot.
 
 ### Version 1.7.2 Changes:
-* Fix [Results Tab pop-up](#results-tabs) to work with ACT version 3.7.0 Release 284.
+* Fix [Results Tab pop-up](#results-tabs) to work with ACT version 3.8.1 Release 284.
 
 ## Category Pane
 The Category pane organizes triggers using the _Category_ field in the triggers themselves and a user-defined parent folder. In the example above, the parent folders use the name of the game expansion to bring trigger categories from that expansion together.
