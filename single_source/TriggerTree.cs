@@ -25,7 +25,7 @@ using System.Collections;
 [assembly: AssemblyTitle("Tree view of Custom Triggers")]
 [assembly: AssemblyDescription("An alternate interface for managing Custom Triggers")]
 [assembly: AssemblyCompany("Mineeme of Maj'Dul")]
-[assembly: AssemblyVersion("1.7.1.0")]
+[assembly: AssemblyVersion("1.7.2.0")]
 
 namespace ACT_TriggerTree
 {
@@ -111,9 +111,9 @@ namespace ACT_TriggerTree
 
         // results tab mirror
         FormResultsTabs formResultsTabs;
-        TabControl resultsTabCtrl = null;
-        Button addEditButton = null;
-        Button removeButton = null;
+        TabControlPainted resultsTabCtrl = null;
+        ButtonPainted addEditButton = null;
+        ButtonPainted removeButton = null;
 
         Label lblStatus;                            // save a reference to the status label that appears in ACT's Plugin tab
 
@@ -453,7 +453,7 @@ namespace ACT_TriggerTree
                         if (resultsTabCtrl == null && trigger.ResultsTab.Parent != null)
                         {
                             // save the tab ctrl for adding back a removed tab
-                            resultsTabCtrl = (TabControl)trigger.ResultsTab.Parent;
+                            resultsTabCtrl = (TabControlPainted)trigger.ResultsTab.Parent;
 
                             // to keep up with Results-Tabs enable/disable,
                             // we need to monitor ACT's Add/Edit &Remove buttons
@@ -462,9 +462,10 @@ namespace ACT_TriggerTree
                             {
                                 foreach(Control ctrl2 in ctrl.Controls)
                                 {
-                                    if (ctrl2.GetType() == typeof(Button))
+                                    Type ctrlType = ctrl2.GetType();
+                                    if (ctrlType == typeof(ButtonPainted))
                                     {
-                                        Button button = (Button)ctrl2;
+                                        ButtonPainted button = (ButtonPainted)ctrl2;
                                         if (button.Text == "Add/Edit")
                                         {
                                             addEditButton = button;
@@ -8727,10 +8728,11 @@ namespace ACT_TriggerTree
 
         public void AddTab(TabPage tab)
         {
-            if(tab != null)
+            if(tab != null && tab.Controls != null && tab.Controls.Count > 0 && tab.Controls[0].Controls.Count > 0)
             {
+                Control.ControlCollection coll = tab.Controls[0].Controls;
                 ListViewNoFlicker lv = null;
-                foreach (Control ctrl in tab.Controls)
+                foreach (Control ctrl in coll)
                 {
                     if (ctrl.GetType() == typeof(ListViewNoFlicker))
                     {

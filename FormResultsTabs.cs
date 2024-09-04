@@ -121,10 +121,11 @@ namespace ACT_TriggerTree
 
         public void AddTab(TabPage tab)
         {
-            if(tab != null)
+            if(tab != null && tab.Controls != null && tab.Controls.Count > 0 && tab.Controls[0].Controls.Count > 0)
             {
+                Control.ControlCollection coll = tab.Controls[0].Controls;
                 ListViewNoFlicker lv = null;
-                foreach (Control ctrl in tab.Controls)
+                foreach (Control ctrl in coll)
                 {
                     if (ctrl.GetType() == typeof(ListViewNoFlicker))
                     {
